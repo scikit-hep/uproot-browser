@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import functools
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, Tuple
 
 import rich
 import uproot
@@ -24,9 +24,9 @@ def make_tree(uproot_object: Any, *, tree: Tree | None = None) -> Tree:
     result, insides = process_item(uproot_object)
 
     if tree is None:
-        tree = Tree(**result)  # type: ignore
+        tree = Tree(**result)
     else:
-        tree = tree.add(**result)  # type: ignore
+        tree = tree.add(**result)
 
     for inside in insides:
         make_tree(inside, tree=tree)
@@ -34,15 +34,25 @@ def make_tree(uproot_object: Any, *, tree: Tree | None = None) -> Tree:
     return tree
 
 
+RetTuple = Tuple[Dict[str, Any], Tuple[Any, ...]]
+
+
 @functools.singledispatch
-def process_item(uproot_object: Any) -> tuple[dict[str, str], tuple[Any, ...]]:
-    raise RuntimeError(f"Invalid object {uproot_object}")
+def process_item(uproot_object: Any) -> RetTuple:
+    name = getattr(uproot_object, "name", "<unnamed>")
+    classname = getattr(uproot_object, "classname", uproot_object.__class__.__name__)
+
+    label = Text.assemble(
+        "❓ ",
+        (f"{name} ", "bold"),
+        (classname, "italic"),
+    )
+    result = {"label": label}
+    return result, ()
 
 
 @process_item.register
-def _process_item_TFile(
-    uproot_object: uproot.reading.ReadOnlyDirectory,
-) -> tuple[dict[str, Any], tuple[Any, ...]]:
+def _process_item_TFile(uproot_object: uproot.reading.ReadOnlyDirectory) -> RetTuple:
     path = Path(uproot_object.file_path)
     result = {
         "label": f":file_folder: [link file://{path}]{escape(path.name)}",
@@ -54,13 +64,11 @@ def _process_item_TFile(
 
 
 @process_item.register
-def _process_item_TTree(
-    uproot_object: uproot.TTree,
-) -> tuple[dict[str, Any], tuple[Any, ...]]:
+def _process_item_TTree(uproot_object: uproot.TTree) -> RetTuple:
     label = Text.assemble(
         "🌴 ",
         (f"{uproot_object.name} ", "bold"),
-        f"({uproot_object.num_entries})",
+        f"({uproot_object.num_entries:g})",
     )
 
     result = {
@@ -72,19 +80,32 @@ def _process_item_TTree(
 
 
 @process_item.register
-def _process_item_TBranch(
-    uproot_object: uproot.TBranch,
-) -> tuple[dict[str, Any], tuple[Any, ...]]:
+def _process_item_TBranch(uproot_object: uproot.TBranch) -> RetTuple:
 
     jagged = isinstance(
         uproot_object.interpretation, uproot.interpretation.jagged.AsJagged
     )
-    icon = "📊 " if jagged else "📈 "
+    icon = "🍃 " if jagged else "🍁 "
 
     label = Text.assemble(
         icon,
         (f"{uproot_object.name} ", "bold"),
         (f"{uproot_object.typename} ", "italic"),
+    )
+    result = {"label": label}
+    return result, ()
+
+
+@process_item.register
+def _process_item_TH(uproot_object: uproot.behaviors.TH1.Histogram) -> RetTuple:
+    icon = "📊 " if uproot_object.kind == "COUNT" else "📈 "
+    sizes = " × ".join(f"{len(ax)}" for ax in uproot_object.axes)
+
+    label = Text.assemble(
+        icon,
+        (f"{uproot_object.name} ", "bold"),
+        (f"{uproot_object.classname} ", "italic"),
+        f"({sizes})",
     )
     result = {"label": label}
     return result, ()
