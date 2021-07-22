@@ -18,7 +18,7 @@ specific jobs:
 
 ```console
 $ nox -s lint  # Lint only
-$ nox -s tests-3.9  # Python 3.9 tests only
+$ nox -s tests  # Run the tests
 $ nox -s docs -- serve  # Build and serve the docs
 $ nox -s build  # Make an SDist and wheel
 ```
@@ -32,10 +32,21 @@ environment for each run.
 You can set up a development environment by running:
 
 ```bash
-python3 -m venv .env
+python3 -m venv .venv
 source ./.env/bin/activate
-pip install -v -e .[all]
+pip install flit
+flit install -s
 ```
+
+If you have the [Python Launcher for Unix](https://github.com/brettcannon/python-launcher),
+you can instead do:
+
+```bash
+py -m venv .venv
+py -m pip install flit
+py -m flit install -s
+```
+
 
 # Post setup
 
@@ -74,7 +85,9 @@ nox -s docs -- serve
 
 # Pre-commit
 
-This project uses pre-commit for all style checking. While you can run it with nox, this is such an important tool that it deserves to be installed on its own. Install pre-commit and run:
+This project uses pre-commit for all style checking. While you can run it with
+nox, this is such an important tool that it deserves to be installed on its
+own. Install pre-commit and run:
 
 ```bash
 pre-commit run -a

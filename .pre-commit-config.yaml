@@ -41,12 +41,13 @@ repos:
   hooks:
   - id: mypy
     files: src
-    additional_dependencies: [rich]
+    additional_dependencies: [rich, click]
 
 - repo: https://github.com/codespell-project/codespell
   rev: v2.1.0
   hooks:
   - id: codespell
+    args: [-L, "hist"]
 
 - repo: local
   hooks:

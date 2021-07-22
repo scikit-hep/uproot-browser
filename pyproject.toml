@@ -35,19 +35,26 @@ classifiers = [
 
 dynamic = ["version"]
 dependencies = [
+  "awkward >=1",
+  "click >=7",
+  "lz4",
   "numpy >=1.13.3",
   "rich >=10.0.0",
-  "plotext >=3.1.0",
   "uproot >=4.0",
-  "hist >=2.4",
-  "awkward >=1",
+  "xxhash",
 ]
+
+# Maybe later:
+# "hist >=2.4",
+# "plotext >=3.1.0",
 
 [project.optional-dependencies]
 test = [
   "pytest >=6",
 ]
 dev = [
+  "flit >=3.2",
+  "ipython >=6",
   "pytest >=6",
 ]
 docs = [
@@ -59,6 +66,9 @@ docs = [
 
 [project.urls]
 homepage = "https://github.com/Scikit-HEP/uproot-browser"
+
+[project.scripts]
+uproot-browser = "uproot_browser.__main__:main"
 
 
 [tool.pytest.ini_options]
