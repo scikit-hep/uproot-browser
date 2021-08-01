@@ -1,5 +1,5 @@
 [build-system]
-requires = ["flit_core >=3.2"]
+requires = ["flit_core >=3.3"]
 build-backend = "flit_core.buildapi"
 
 [project]
@@ -55,7 +55,7 @@ test = [
   "pytest >=6",
 ]
 dev = [
-  "flit >=3.2",
+  "flit >=3.3",
   "ipython >=6",
   "pytest >=6",
 ]
