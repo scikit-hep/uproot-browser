@@ -67,8 +67,7 @@ docs = [
 ]
 
 [project.urls]
-homepage = "github.com/henryiii/uproot-browser"
-repository = "github.com/henryiii/uproot-browser"
+homepage = "https://github.com/henryiii/uproot-browser"
 
 [project.scripts]
 uproot-browser = "uproot_browser.__main__:main"
