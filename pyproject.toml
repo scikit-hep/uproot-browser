@@ -43,11 +43,11 @@ dependencies = [
   "rich >=10.0.0",
   "uproot >=4.0",
   "xxhash",
+  "plotext >=3.1.0",
 ]
 
 # Maybe later:
 # "hist >=2.4",
-# "plotext >=3.1.0",
 # "textual >?=?",
 
 [project.optional-dependencies]
