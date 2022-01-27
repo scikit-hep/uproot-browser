@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import uproot_browser as m
 
 

@@ -78,8 +78,17 @@ uproot-browser = "uproot_browser.__main__:main"
 addopts = ["-ra"]
 testpaths = ["tests"]
 
+
+[tool.isort]
+profile = "black"
+
+
 [tool.mypy]
 files = "src"
 python_version = "3.7"
 warn_unused_configs = true
 strict = true
+
+[[tool.mypy.overrides]]
+module = ["plotext.*", "awkward.*", "uproot.*"]
+ignore_missing_imports = true

@@ -22,6 +22,7 @@ repos:
   rev: 5.9.2
   hooks:
   - id: isort
+    args: ["-a", "from __future__ import annotations"]
 
 - repo: https://github.com/asottile/pyupgrade
   rev: v2.21.0
@@ -41,7 +42,8 @@ repos:
   hooks:
   - id: mypy
     files: src
-    additional_dependencies: [rich, click]
+    args: [--show-error-codes]
+    additional_dependencies: [rich, click, hist, numpy]
 
 - repo: https://github.com/codespell-project/codespell
   rev: v2.1.0
