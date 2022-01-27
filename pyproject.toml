@@ -29,6 +29,7 @@ classifiers = [
   "Programming Language :: Python :: 3.7",
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
   "Development Status :: 2 - Pre-Alpha",
   "Typing :: Typed",
 ]
@@ -37,17 +38,17 @@ classifiers = [
 dynamic = ["version"]
 dependencies = [
   "awkward >=1",
-  "click >=7",
+  "click >=8",
   "lz4",
   "numpy >=1.13.3",
   "rich >=10.0.0",
   "uproot >=4.0",
   "xxhash",
   "plotext >=4.1.0",
+  "hist >=2.4",
 ]
 
 # Maybe later:
-# "hist >=2.4",
 # "textual >?=?",
 
 [project.optional-dependencies]
@@ -60,7 +61,7 @@ dev = [
   "pytest >=6",
 ]
 docs = [
-  "Sphinx~=3.0",
+  "Sphinx>=4.0",
   "myst_parser>=0.13",
   "sphinx-book-theme>=0.1.0",
   "sphinx_copybutton",
@@ -75,7 +76,11 @@ uproot-browser = "uproot_browser.__main__:main"
 
 
 [tool.pytest.ini_options]
-addopts = ["-ra"]
+minversion = "6.0"
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
+xfail_strict = true
+filterwarnings = ["error"]
+log_cli_level = "info"
 testpaths = ["tests"]
 
 
@@ -92,3 +97,13 @@ strict = true
 [[tool.mypy.overrides]]
 module = ["plotext.*", "awkward.*", "uproot.*"]
 ignore_missing_imports = true
+
+
+[tool.pylint]
+master.py-version = "3.7"
+master.jobs = "0"
+reports.output-format = "colorized"
+similarities.ignore-imports = "yes"
+messages_control.enable = [
+  "useless-suppression",
+]

@@ -1,3 +1,7 @@
+"""
+Display tools for TTrees.
+"""
+
 from __future__ import annotations
 
 import functools
@@ -39,6 +43,9 @@ RetTuple = Tuple[Dict[str, Any], Tuple[Any, ...]]
 
 @functools.singledispatch
 def process_item(uproot_object: Any) -> RetTuple:
+    """
+    Given an unknown object, return a rich.tree.Tree output. Specialize for known objects.
+    """
     name = getattr(uproot_object, "name", "<unnamed>")
     classname = getattr(uproot_object, "classname", uproot_object.__class__.__name__)
 
@@ -52,7 +59,10 @@ def process_item(uproot_object: Any) -> RetTuple:
 
 
 @process_item.register
-def _process_item_TFile(uproot_object: uproot.reading.ReadOnlyDirectory) -> RetTuple:
+def _process_item_tfile(uproot_object: uproot.reading.ReadOnlyDirectory) -> RetTuple:
+    """
+    Given an TFile, return a rich.tree.Tree output.
+    """
     path = Path(uproot_object.file_path)
     result = {
         "label": f":file_folder: [link file://{path}]{escape(path.name)}",
@@ -64,7 +74,10 @@ def _process_item_TFile(uproot_object: uproot.reading.ReadOnlyDirectory) -> RetT
 
 
 @process_item.register
-def _process_item_TTree(uproot_object: uproot.TTree) -> RetTuple:
+def _process_item_ttree(uproot_object: uproot.TTree) -> RetTuple:
+    """
+    Given an tree, return a rich.tree.Tree output.
+    """
     label = Text.assemble(
         "🌴 ",
         (f"{uproot_object.name} ", "bold"),
@@ -80,7 +93,10 @@ def _process_item_TTree(uproot_object: uproot.TTree) -> RetTuple:
 
 
 @process_item.register
-def _process_item_TBranch(uproot_object: uproot.TBranch) -> RetTuple:
+def _process_item_tbranch(uproot_object: uproot.TBranch) -> RetTuple:
+    """
+    Given an branch, return a rich.tree.Tree output.
+    """
 
     jagged = isinstance(
         uproot_object.interpretation, uproot.interpretation.jagged.AsJagged
@@ -97,7 +113,10 @@ def _process_item_TBranch(uproot_object: uproot.TBranch) -> RetTuple:
 
 
 @process_item.register
-def _process_item_TH(uproot_object: uproot.behaviors.TH1.Histogram) -> RetTuple:
+def _process_item_th(uproot_object: uproot.behaviors.TH1.Histogram) -> RetTuple:
+    """
+    Given an histogram, return a rich.tree.Tree output.
+    """
     icon = "📊 " if uproot_object.kind == "COUNT" else "📈 "
     sizes = " × ".join(f"{len(ax)}" for ax in uproot_object.axes)
 
@@ -117,6 +136,6 @@ def print_tree(entry: str) -> None:
     single filename. Colons are not allowed currently in the filename.
     """
 
-    f = uproot.open(entry)
-    t = make_tree(f)
-    rich.print(t)
+    upfile = uproot.open(entry)
+    tree = make_tree(upfile)
+    rich.print(tree)
