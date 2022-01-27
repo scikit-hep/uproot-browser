@@ -24,6 +24,17 @@ def tests(session: nox.Session) -> None:
 
 
 @nox.session
+def pylint(session: nox.Session) -> None:
+    """
+    Run pylint.
+    """
+
+    session.install("pylint")
+    session.install("-e", ".")
+    session.run("pylint", "src", *session.posargs)
+
+
+@nox.session
 def docs(session: nox.Session) -> None:
     """
     Build the docs. Pass "serve" to serve.

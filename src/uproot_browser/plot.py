@@ -1,3 +1,7 @@
+"""
+Display tools for making plots via plotext.
+"""
+
 from __future__ import annotations
 
 import functools
@@ -10,16 +14,22 @@ import uproot
 
 
 @functools.singledispatch
-def plot(tree: Any, command: str = "") -> None:
+def plot(tree: Any) -> None:
+    """
+    Implement this for each type of plottable.
+    """
     raise RuntimeError("This object is not plottable yet")
 
 
 @plot.register
-def plot_branch(tree: uproot.TBranch, command: str = "") -> None:
+def plot_branch(tree: uproot.TBranch) -> None:
+    """
+    Plot a single tree branch.
+    """
     array = tree.array()
-    h = hist.numpy.histogram(
+    histogram = hist.numpy.histogram(
         ak.flatten(array) if array.ndim > 1 else array, bins=50, histogram=hist.Hist
     )
     plt.clear_figure()
-    plt.bar(h.axes[0].centers, h.values().astype(float))
+    plt.bar(histogram.axes[0].centers, histogram.values().astype(float))
     plt.show()
