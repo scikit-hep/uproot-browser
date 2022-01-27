@@ -15,9 +15,10 @@ def plot(tree: Any, command: str = "") -> None:
 
 @plot.register
 def plot_branch(tree: uproot.TBranch, command: str = "") -> None:
-    h = hist.numpy.histogram(ak.flatten(tree.array()), bins=80, histogram=hist.Hist)
+    array = tree.array()
+    h = hist.numpy.histogram(ak.flatten(array) if array.ndim > 1 else array, bins=50, histogram=hist.Hist)
     plt.clear_figure()
-    plt.bar(h.axes[0].centers, h.values(), marker='small')
+    plt.bar(h.axes[0].centers, h.values().astype(float))
     plt.show()
 
 

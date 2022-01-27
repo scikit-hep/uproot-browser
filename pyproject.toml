@@ -43,7 +43,7 @@ dependencies = [
   "rich >=10.0.0",
   "uproot >=4.0",
   "xxhash",
-  "plotext >=3.1.0",
+  "plotext >=4.1.0",
 ]
 
 # Maybe later:
@@ -68,30 +68,18 @@ docs = [
 
 [project.urls]
 homepage = "https://github.com/henryiii/uproot-browser"
+repository = "https://github.com/henryiii/uproot-browser"
 
 [project.scripts]
 uproot-browser = "uproot_browser.__main__:main"
 
 
 [tool.pytest.ini_options]
-addopts = "-ra -Wd"
+addopts = ["-ra"]
 testpaths = ["tests"]
 
 [tool.mypy]
 files = "src"
 python_version = "3.7"
 warn_unused_configs = true
-
-disallow_any_generics = true
-disallow_subclassing_any = true
-disallow_untyped_calls = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_return_any = true
-no_implicit_reexport = true
-strict_equality = true
+strict = true
