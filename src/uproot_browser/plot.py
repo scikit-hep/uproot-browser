@@ -33,3 +33,14 @@ def plot_branch(tree: uproot.TBranch) -> None:
     plt.clear_figure()
     plt.bar(histogram.axes[0].centers, histogram.values().astype(float))
     plt.show()
+
+
+@plot.register
+def plot_hist(tree: uproot.behaviors.TH1.Histogram) -> None:
+    """
+    Plot a 1-D Histogram.
+    """
+    histogram = tree.to_hist()
+    plt.clear_figure()
+    plt.bar(histogram.axes[0].centers, histogram.values().astype(float))
+    plt.show()
