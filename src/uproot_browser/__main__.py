@@ -30,7 +30,7 @@ def tree(filename: str) -> None:
 @click.argument("filename")
 def plot(filename: str) -> None:
     """
-    Display a tree.
+    Display a plot.
     """
     import uproot_browser.dirs  # pylint: disable=import-outside-toplevel
     import uproot_browser.plot  # pylint: disable=import-outside-toplevel
