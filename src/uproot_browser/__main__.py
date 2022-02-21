@@ -7,8 +7,10 @@ from __future__ import annotations
 import click
 import uproot
 
+CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
-@click.group()
+
+@click.group(context_settings=CONTEXT_SETTINGS)
 def main() -> None:
     """
     Must provide a subcommand.
