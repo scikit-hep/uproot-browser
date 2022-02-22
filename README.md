@@ -60,7 +60,7 @@ Commands:
 
 ## Example
 
-This example uses data from the [scikit-hep-testdata](https://github.com/scikit-hep/scikit-hep-testdata). It is placed in the same directory as the uproot-browser repository.
+This example uses data from the [scikit-hep-testdata](https://github.com/scikit-hep/scikit-hep-testdata) package. It is placed in the same directory as the uproot-browser repository.
 
 **`plot` command:**
 
