@@ -65,13 +65,74 @@ This example uses data from the [scikit-hep-testdata](https://github.com/scikit-
 **`plot` command:**
 
 ```bash
-uproot-browser plot ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.root:htime
+uproot-browser plot ../scikit-hep-testdata/src/skhep_testdata/data/uproot-issue213.root:gen_hits_z_pos
+    ┌─────────────────────────────────────────────────────┐
+21.0┤                          ▐                          │
+    │                          ▐                          │
+17.5┤                          ▐                          │
+    │                          ▐                          │
+14.0┤                          ▐                          │
+    │                          ▐                          │
+10.5┤                          ▐                          │
+    │                          ▐                          │
+    │                          ▐                          │
+ 7.0┤                          ▐                          │
+    │                          ▐                          │
+ 3.5┤                          ▐                          │
+    │                          ▐                          │
+ 0.0┤                      ▐█▌ ▐ █                        │
+    └┬────────────┬────────────┬────────────┬────────────┬┘
+     -59.9      -29.9         0.0         29.9        59.9
 ```
 
 **`tree` command:**
 
 ```bash
-uproot-browser tree ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.root
+uproot-browser tree ../scikit-hep-testdata/src/skhep_testdata/data/uproot-issue213.root
+📁 uproot-issue213.root
+┣━━ 🌴 T (100)
+┃   ┣━━ 🍁 eventPack JPetGeantEventPack
+┃   ┣━━ 🍁 TObject (group of fUniqueID:uint32_t,
+┃   ┃   fBits:uint8_t)
+┃   ┣━━ 🍁 fUniqueID uint32_t
+┃   ┣━━ 🍁 fBits uint8_t
+┃   ┣━━ 🍁 fMCHits int32_t
+┃   ┣━━ 🍃 fMCHits.fUniqueID uint32_t[]
+┃   ┣━━ 🍃 fMCHits.fBits uint8_t[]
+┃   ┣━━ 🍃 fMCHits.fEvtID int32_t[]
+┃   ┣━━ 🍃 fMCHits.fScinID int32_t[]
+┃   ┣━━ 🍃 fMCHits.fTrackID int32_t[]
+┃   ┣━━ 🍃 fMCHits.fTrackPDGencoding int32_t[]
+┃   ┣━━ 🍃 fMCHits.fNumOfInteractions int32_t[]
+┃   ┣━━ 🍃 fMCHits.fGenGammaIndex int32_t[]
+┃   ┣━━ 🍃 fMCHits.fGenGammaMultiplicity int32_t[]
+┃   ┣━━ 🍃 fMCHits.fEneDep float[]
+┃   ┣━━ 🍃 fMCHits.fTime float[]
+┃   ┣━━ 🍃 fMCHits.fPosition TVector3[]
+┃   ┣━━ 🍃 fMCHits.fPolarizationIn TVector3[]
+┃   ┣━━ 🍃 fMCHits.fPolarizationOut TVector3[]
+┃   ┣━━ 🍃 fMCHits.fMomentumIn TVector3[]
+┃   ┣━━ 🍃 fMCHits.fMomentumOut TVector3[]
+┃   ┣━━ 🍁 fMCDecayTrees int32_t
+┃   ┣━━ 🍃 fMCDecayTrees.fUniqueID uint32_t[]
+┃   ┣━━ 🍃 fMCDecayTrees.fBits uint8_t[]
+┃   ┣━━ 🍁 fGenInfo JPetGeantEventInformation*
+┃   ┣━━ 🍁 fEvtIndex uint32_t
+┃   ┣━━ 🍁 fHitIndex uint32_t
+┃   ┗━━ 🍁 fMCDecayTreesIndex uint32_t
+┣━━ 📊 gen_XY TH2F (121 × 121)
+┣━━ 📊 gen_XZ TH2F (121 × 121)
+┣━━ 📊 gen_YZ TH2F (121 × 121)
+┣━━ 📊 gen_gamma_multiplicity TH1F (10)
+┣━━ 📊 gen_hit_eneDepos TH1F (750)
+┣━━ 📊 gen_hit_time TH1F (100)
+┣━━ 📊 gen_hits_xy_pos TH2F (121 × 121)
+┣━━ 📊 gen_hits_z_pos TH1F (100)
+┣━━ 📊 gen_lifetime TH1F (100)
+┣━━ 📊 gen_prompt_XY TH2F (121 × 121)
+┣━━ 📊 gen_prompt_XZ TH2F (121 × 121)
+┣━━ 📊 gen_prompt_YZ TH2F (121 × 121)
+┗━━ 📊 gen_prompt_lifetime TH1F (100)
 ```
 
 ## Development
