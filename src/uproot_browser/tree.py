@@ -40,7 +40,7 @@ def make_tree(uproot_object: Any, *, tree: Tree | None = None) -> Tree:
 
 RetTuple = Tuple[Dict[str, Any], Tuple[Any, ...]]
 
-'''
+"""
 mydir
 - mytree
    - mybranch
@@ -51,7 +51,8 @@ mydir
 
 TreeNode(id="mydir:mytree:mybranch", data=DirEntry(path="mydir:mytree:mybranch", is_dir=False))
 TreeNode(id="mydir:mytree", data=DirEntry(path="mydir:mytree", is_dir=True))
-'''
+"""
+
 
 def process_items(item: Any) -> RetTuple:
     """
@@ -67,7 +68,7 @@ def process_items(item: Any) -> RetTuple:
 
 
 @functools.singledispatch
-def process_item(uproot_object: Any) -> Dict[str, Any]:
+def process_item(uproot_object: Any) -> dict[str, Any]:
     """
     Given an unknown object, return a rich.tree.Tree output. Specialize for known objects.
     """
@@ -84,7 +85,9 @@ def process_item(uproot_object: Any) -> Dict[str, Any]:
 
 
 @process_item.register
-def _process_item_tfile(uproot_object: uproot.reading.ReadOnlyDirectory) -> Dict[str, Any]:
+def _process_item_tfile(
+    uproot_object: uproot.reading.ReadOnlyDirectory,
+) -> dict[str, Any]:
     """
     Given an TFile, return a rich.tree.Tree output.
     """
@@ -97,7 +100,7 @@ def _process_item_tfile(uproot_object: uproot.reading.ReadOnlyDirectory) -> Dict
 
 
 @process_item.register
-def _process_item_ttree(uproot_object: uproot.TTree) -> Dict[str, Any]:
+def _process_item_ttree(uproot_object: uproot.TTree) -> dict[str, Any]:
     """
     Given an tree, return a rich.tree.Tree output.
     """
@@ -115,7 +118,7 @@ def _process_item_ttree(uproot_object: uproot.TTree) -> Dict[str, Any]:
 
 
 @process_item.register
-def _process_item_tbranch(uproot_object: uproot.TBranch) -> Dict[str, Any]:
+def _process_item_tbranch(uproot_object: uproot.TBranch) -> dict[str, Any]:
     """
     Given an branch, return a rich.tree.Tree output.
     """
@@ -135,7 +138,7 @@ def _process_item_tbranch(uproot_object: uproot.TBranch) -> Dict[str, Any]:
 
 
 @process_item.register
-def _process_item_th(uproot_object: uproot.behaviors.TH1.Histogram) -> Dict[str, Any]:
+def _process_item_th(uproot_object: uproot.behaviors.TH1.Histogram) -> dict[str, Any]:
     """
     Given an histogram, return a rich.tree.Tree output.
     """

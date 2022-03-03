@@ -19,6 +19,7 @@ def show() -> None:
     """
     plt.show()
 
+
 @functools.singledispatch
 def plot(tree: Any) -> None:
     """

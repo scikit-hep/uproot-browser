@@ -1,22 +1,27 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
-from pathlib import Path
-from textual.widgets import TreeControl, NodeID, TreeNode
-from textual.reactive import Reactive
-from rich.console import RenderableType
 from functools import lru_cache
+from pathlib import Path
+
+from rich.console import RenderableType
 from rich.text import Text
+from textual.reactive import Reactive
+from textual.widgets import NodeID, TreeControl, TreeNode
+
 
 @dataclass
 class DirEntry:
     path: str
     is_dir: bool  # True if is dir or tree, false if anything else
 
+
 class TreeView(TreeControl[DirEntry]):
     """A tree view for the uproot-browser"""
 
     def __init__(self, path: Path) -> None:
         data = DirEntry(path, True)
-        super().__init__(name = path.name, label = path.stem, data=data)
+        super().__init__(name=path.name, label=path.stem, data=data)
         self.root.tree.guide_style = "black"
 
     has_focus: Reactive[bool] = Reactive(False)
@@ -33,7 +38,6 @@ class TreeView(TreeControl[DirEntry]):
                 "bold not dim red" if node.id == hover_node else "black"
             )
         self.refresh(layout=True)
-
 
     def render_node(self, node: TreeNode[DirEntry]) -> RenderableType:
         return self.render_tree_label(
