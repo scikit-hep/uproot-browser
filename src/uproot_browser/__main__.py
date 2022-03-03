@@ -43,6 +43,7 @@ def plot(filename: str) -> None:
     *_, item = uproot_browser.dirs.apply_selection(my_tree, selections)
 
     uproot_browser.plot.plot(item)
+    uproot_browser.plot.show()
 
 
 if __name__ == "__main__":

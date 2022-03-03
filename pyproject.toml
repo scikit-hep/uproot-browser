@@ -46,10 +46,8 @@ dependencies = [
   "xxhash",
   "plotext >=4.1.0",
   "hist >=2.4",
+  "textual >=0.1.15",
 ]
-
-# Maybe later:
-# "textual >?=?",
 
 [project.optional-dependencies]
 test = [

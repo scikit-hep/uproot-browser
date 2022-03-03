@@ -25,7 +25,7 @@ def make_tree(uproot_object: Any, *, tree: Tree | None = None) -> Tree:
     """
     Given an object, build a rich.tree.Tree output.
     """
-    result, insides = process_item(uproot_object)
+    result, insides = process_items(uproot_object)
 
     if tree is None:
         tree = Tree(**result)
@@ -40,9 +40,34 @@ def make_tree(uproot_object: Any, *, tree: Tree | None = None) -> Tree:
 
 RetTuple = Tuple[Dict[str, Any], Tuple[Any, ...]]
 
+'''
+mydir
+- mytree
+   - mybranch
+   - mybranch2
+- mytree2
+    - mybranch
+    - mybranch2
+
+TreeNode(id="mydir:mytree:mybranch", data=DirEntry(path="mydir:mytree:mybranch", is_dir=False))
+TreeNode(id="mydir:mytree", data=DirEntry(path="mydir:mytree", is_dir=True))
+'''
+
+def process_items(item: Any) -> RetTuple:
+    """
+    Given an item, return a dict and a tuple of items.
+    """
+
+    if isinstance(item, (uproot.reading.ReadOnlyDirectory, uproot.TTree)):
+        items = {key.split(";")[0] for key in item}
+        insides = tuple(item[key] for key in sorted(items))
+        return process_item(item), tuple(process_item(child) for child in insides)
+
+    return process_item(item), ()
+
 
 @functools.singledispatch
-def process_item(uproot_object: Any) -> RetTuple:
+def process_item(uproot_object: Any) -> Dict[str, Any]:
     """
     Given an unknown object, return a rich.tree.Tree output. Specialize for known objects.
     """
@@ -55,11 +80,11 @@ def process_item(uproot_object: Any) -> RetTuple:
         (classname, "italic"),
     )
     result = {"label": label}
-    return result, ()
+    return result
 
 
 @process_item.register
-def _process_item_tfile(uproot_object: uproot.reading.ReadOnlyDirectory) -> RetTuple:
+def _process_item_tfile(uproot_object: uproot.reading.ReadOnlyDirectory) -> Dict[str, Any]:
     """
     Given an TFile, return a rich.tree.Tree output.
     """
@@ -68,13 +93,11 @@ def _process_item_tfile(uproot_object: uproot.reading.ReadOnlyDirectory) -> RetT
         "label": f":file_folder: [link file://{path}]{escape(path.name)}",
         "guide_style": "bold bright_blue",
     }
-    items = {key.split(";")[0] for key in uproot_object}
-    insides = tuple(uproot_object[key] for key in sorted(items))
-    return result, insides
+    return result
 
 
 @process_item.register
-def _process_item_ttree(uproot_object: uproot.TTree) -> RetTuple:
+def _process_item_ttree(uproot_object: uproot.TTree) -> Dict[str, Any]:
     """
     Given an tree, return a rich.tree.Tree output.
     """
@@ -88,12 +111,11 @@ def _process_item_ttree(uproot_object: uproot.TTree) -> RetTuple:
         "label": label,
         "guide_style": "bold bright_green",
     }
-    insides = tuple(v for v in uproot_object.values())
-    return result, insides
+    return result
 
 
 @process_item.register
-def _process_item_tbranch(uproot_object: uproot.TBranch) -> RetTuple:
+def _process_item_tbranch(uproot_object: uproot.TBranch) -> Dict[str, Any]:
     """
     Given an branch, return a rich.tree.Tree output.
     """
@@ -109,11 +131,11 @@ def _process_item_tbranch(uproot_object: uproot.TBranch) -> RetTuple:
         (f"{uproot_object.typename} ", "italic"),
     )
     result = {"label": label}
-    return result, ()
+    return result
 
 
 @process_item.register
-def _process_item_th(uproot_object: uproot.behaviors.TH1.Histogram) -> RetTuple:
+def _process_item_th(uproot_object: uproot.behaviors.TH1.Histogram) -> Dict[str, Any]:
     """
     Given an histogram, return a rich.tree.Tree output.
     """
@@ -127,7 +149,7 @@ def _process_item_th(uproot_object: uproot.behaviors.TH1.Histogram) -> RetTuple:
         f"({sizes})",
     )
     result = {"label": label}
-    return result, ()
+    return result
 
 
 def print_tree(entry: str) -> None:

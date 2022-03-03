@@ -13,6 +13,12 @@ import plotext as plt
 import uproot
 
 
+def show() -> None:
+    """
+    Show the plot.
+    """
+    plt.show()
+
 @functools.singledispatch
 def plot(tree: Any) -> None:
     """
@@ -32,7 +38,6 @@ def plot_branch(tree: uproot.TBranch) -> None:
     )
     plt.clear_figure()
     plt.bar(histogram.axes[0].centers, histogram.values().astype(float))
-    plt.show()
 
 
 @plot.register
@@ -43,4 +48,3 @@ def plot_hist(tree: uproot.behaviors.TH1.Histogram) -> None:
     histogram = tree.to_hist()
     plt.clear_figure()
     plt.bar(histogram.axes[0].centers, histogram.values().astype(float))
-    plt.show()
