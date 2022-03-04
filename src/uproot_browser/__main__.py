@@ -63,7 +63,7 @@ def tui(filename: str) -> None:
     uproot_browser.tui.Browser.run(
         title="uproot-browser",
         log="textual.log",
-        path=Path(filename),
+        path=Path(fname),
     )
 
 

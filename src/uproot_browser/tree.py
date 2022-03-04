@@ -7,7 +7,7 @@ from __future__ import annotations
 import dataclasses
 import functools
 from pathlib import Path
-from typing import Any, Dict, NamedTuple, Tuple
+from typing import Any
 
 import rich
 import uproot

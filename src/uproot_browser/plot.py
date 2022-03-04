@@ -12,6 +12,7 @@ import hist
 import plotext as plt
 import uproot
 
+
 def clf() -> None:
     """
     Clear the plot.

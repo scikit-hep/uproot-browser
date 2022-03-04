@@ -1,26 +1,14 @@
 from __future__ import annotations
 
-import dataclasses
-import sys
 from pathlib import Path
 
-import plotext as plt
-import rich.panel
-import textual.widgets
-import uproot
-from textual.app import App
-import textual.views
-from textual.widget import Widget
-from textual.widgets import Footer, Header
 import textual.geometry
-
-import uproot_browser
-import uproot_browser.dirs
-import uproot_browser.plot
-import uproot_browser.tree
+import textual.views
+import textual.widgets
+from textual.app import App
+from textual.widgets import Footer, Header
 
 from .plot_view import PlotWidget
-from .tree import UprootItem
 from .tree_view import TreeView, UprootClick
 
 

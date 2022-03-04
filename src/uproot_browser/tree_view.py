@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
@@ -8,7 +7,6 @@ import rich.repr
 import textual.events
 import uproot
 from rich.console import RenderableType
-from rich.text import Text
 from textual._types import MessageTarget
 from textual.message import Message
 from textual.reactive import Reactive
