@@ -14,7 +14,7 @@ from textual.message import Message
 from textual.reactive import Reactive
 from textual.widgets import NodeID, TreeControl, TreeNode
 
-from .tree import Node
+from .tree import UprootItem
 
 
 @rich.repr.auto
@@ -24,12 +24,12 @@ class UprootClick(Message, bubble=True):
         super().__init__(sender)
 
 
-class TreeView(TreeControl[Node]):
+class TreeView(TreeControl[UprootItem]):
     """A tree view for the uproot-browser"""
 
     def __init__(self, path: Path) -> None:
         self.upfile = uproot.open(path)
-        data = Node("/", self.upfile)
+        data = UprootItem("/", self.upfile)
         super().__init__(name=path.name, label=path.stem, data=data)
         self.root.tree.guide_style = "black"
 
@@ -48,7 +48,7 @@ class TreeView(TreeControl[Node]):
             )
         self.refresh(layout=True)
 
-    def render_node(self, node: TreeNode[Node]) -> RenderableType:
+    def render_node(self, node: TreeNode[UprootItem]) -> RenderableType:
         return self.render_tree_label(
             node,
             node.data.is_dir,
@@ -61,7 +61,7 @@ class TreeView(TreeControl[Node]):
     @lru_cache(maxsize=1024 * 32)
     def render_tree_label(
         self,
-        node: TreeNode[Node],
+        node: TreeNode[UprootItem],
         is_dir: bool,
         expanded: bool,
         is_cursor: bool,
@@ -80,18 +80,18 @@ class TreeView(TreeControl[Node]):
     async def on_mount(self, event: textual.events.Mount) -> None:
         await self.load_directory(self.root)
 
-    async def load_directory(self, node: TreeNode[Node]):
-        children = node.children
+    async def load_directory(self, node: TreeNode[UprootItem]):
+        children = node.data.children
         for child in children:
-            await node.add(child.name, child.data)
+            await node.add(child.path, child)
         node.loaded = True
         await node.expand()
         self.refresh(layout=True)
 
-    async def handle_tree_click(self, message: UprootClick[Node]) -> None:
-        node = message.node.data
-        if not node.is_dir:
-            await self.emit(UprootClick(self, node.path))
+    async def handle_tree_click(self, message: UprootClick[UprootItem]) -> None:
+        item = message.node.data
+        if not item.is_dir:
+            await self.emit(UprootClick(self, item.path))
         else:
             if not message.node.loaded:
                 await self.load_directory(message.node)

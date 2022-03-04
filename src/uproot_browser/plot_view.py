@@ -3,7 +3,9 @@ from __future__ import annotations
 import plotext as plt
 import rich.ansi
 import rich.console
-import rich.jupyter
+import rich.panel
+import textual.widget
+import textual.view
 
 
 def make_plot(*size):
@@ -14,7 +16,13 @@ def make_plot(*size):
     return plt.build()
 
 
-class plotextMixin(rich.jupyter.JupyterMixin):
+class PlotWidget(textual.widget.Widget):
+    def render(self) -> rich.console.RenderResult:
+        plot = rich.panel.Panel(Plot())
+        return plot
+
+
+class Plot:
     def __init__(self):
         self.decoder = rich.ansi.AnsiDecoder()
 
@@ -22,5 +30,5 @@ class plotextMixin(rich.jupyter.JupyterMixin):
         self.width = options.max_width or console.width
         self.height = options.height or console.height
         canvas = make_plot(self.width, self.height)
-        self.rich_canvas = rich.console.RenderGroup(*self.decoder.decode(canvas))
+        self.rich_canvas = rich.console.Group(*self.decoder.decode(canvas))
         yield self.rich_canvas

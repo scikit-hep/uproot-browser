@@ -15,7 +15,7 @@ from rich.markup import escape
 from rich.text import Text
 from rich.tree import Tree
 
-__all__ = ("make_tree", "process_item", "print_tree")
+__all__ = ("make_tree", "process_item", "print_tree", "UprootItem")
 
 
 def __dir__() -> tuple[str, ...]:
@@ -23,7 +23,7 @@ def __dir__() -> tuple[str, ...]:
 
 
 @dataclasses.dataclass
-class Node:
+class UprootItem:
     path: str
     item: Any
 
@@ -38,14 +38,14 @@ class Node:
         return process_item(self.item)["label"]
 
     @property
-    def children(self) -> list[Node]:
+    def children(self) -> list[UprootItem]:
         if not self.is_dir:
             return []
         items = {key.split(";")[0] for key in self.item.keys()}
-        return [Node(f"{self.path}/{key}", self.item[key]) for key in sorted(items)]
+        return [UprootItem(f"{self.path}/{key}", self.item[key]) for key in sorted(items)]
 
 
-def make_tree(node: Node, *, tree: Tree | None = None) -> Tree:
+def make_tree(node: UprootItem, *, tree: Tree | None = None) -> Tree:
     """
     Given an object, build a rich.tree.Tree output.
     """
@@ -154,5 +154,5 @@ def print_tree(entry: str) -> None:
     """
 
     upfile = uproot.open(entry)
-    tree = make_tree(Node("/", upfile))
+    tree = make_tree(UprootItem("/", upfile))
     rich.print(tree)
