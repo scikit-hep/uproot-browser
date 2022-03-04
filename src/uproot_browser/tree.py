@@ -42,7 +42,9 @@ class UprootItem:
         if not self.is_dir:
             return []
         items = {key.split(";")[0] for key in self.item.keys()}
-        return [UprootItem(f"{self.path}/{key}", self.item[key]) for key in sorted(items)]
+        return [
+            UprootItem(f"{self.path}/{key}", self.item[key]) for key in sorted(items)
+        ]
 
 
 def make_tree(node: UprootItem, *, tree: Tree | None = None) -> Tree:
@@ -85,7 +87,9 @@ def _process_item_tfile(
     """
     path = Path(uproot_object.file_path)
     result = {
-        "label": Text.from_markup(f":file_folder: [link file://{path}]{escape(path.name)}"),
+        "label": Text.from_markup(
+            f":file_folder: [link file://{path}]{escape(path.name)}"
+        ),
         "guide_style": "bold bright_blue",
     }
     return result

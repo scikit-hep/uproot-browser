@@ -12,6 +12,12 @@ import hist
 import plotext as plt
 import uproot
 
+def clf() -> None:
+    """
+    Clear the plot.
+    """
+    plt.clf()
+
 
 def show() -> None:
     """
@@ -37,7 +43,6 @@ def plot_branch(tree: uproot.TBranch) -> None:
     histogram = hist.numpy.histogram(
         ak.flatten(array) if array.ndim > 1 else array, bins=50, histogram=hist.Hist
     )
-    plt.clear_figure()
     plt.bar(histogram.axes[0].centers, histogram.values().astype(float))
 
 
@@ -47,5 +52,4 @@ def plot_hist(tree: uproot.behaviors.TH1.Histogram) -> None:
     Plot a 1-D Histogram.
     """
     histogram = tree.to_hist()
-    plt.clear_figure()
     plt.bar(histogram.axes[0].centers, histogram.values().astype(float))

@@ -44,6 +44,7 @@ def plot(filename: str) -> None:
     my_tree = uproot.open(fname)
     *_, item = uproot_browser.dirs.apply_selection(my_tree, selections)
 
+    uproot_browser.plot.clf()
     uproot_browser.plot.plot(item)
     uproot_browser.plot.show()
 
