@@ -93,7 +93,7 @@ warn_unused_configs = true
 strict = true
 
 [[tool.mypy.overrides]]
-module = ["plotext.*", "awkward.*", "uproot.*"]
+module = ["plotext.*", "awkward.*", "uproot.*", "textual.*"]
 ignore_missing_imports = true
 
 

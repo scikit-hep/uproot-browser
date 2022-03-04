@@ -16,13 +16,13 @@ from .tree import UprootItem
 
 
 @rich.repr.auto
-class UprootClick(Message, bubble=True):
+class UprootClick(Message, bubble=True):  # type: ignore[call-arg, misc]
     def __init__(self, sender: MessageTarget, path: str) -> None:
         self.path = path
         super().__init__(sender)
 
 
-class TreeView(TreeControl[UprootItem]):
+class TreeView(TreeControl[UprootItem]):  # type: ignore[misc]
     """A tree view for the uproot-browser"""
 
     def __init__(self, path: Path) -> None:
@@ -73,12 +73,12 @@ class TreeView(TreeControl[UprootItem]):
         }
         icon_label = node.data.meta()["label"]
         icon_label.apply_meta(meta)
-        return icon_label
+        return icon_label  # type: ignore[no-any-return]
 
     async def on_mount(self, event: textual.events.Mount) -> None:
         await self.load_directory(self.root)
 
-    async def load_directory(self, node: TreeNode[UprootItem]):
+    async def load_directory(self, node: TreeNode[UprootItem]) -> None:
         children = node.data.children
         for child in children:
             await node.add(child.path, child)
@@ -86,7 +86,7 @@ class TreeView(TreeControl[UprootItem]):
         await node.expand()
         self.refresh(layout=True)
 
-    async def handle_tree_click(self, message: UprootClick[UprootItem]) -> None:
+    async def handle_tree_click(self, message: UprootClick[UprootItem]) -> None:  # type: ignore[type-arg]
         item = message.node.data
         if not item.is_dir:
             await self.emit(UprootClick(self, item.path))

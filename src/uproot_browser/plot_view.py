@@ -19,7 +19,7 @@ import uproot_browser.plot
 EMPTY = object()
 
 
-def make_plot(item, *size):
+def make_plot(item: Any, *size: int) -> plt.Figure:
     plt.clf()
     plt.plotsize(*size)
     plt.title("Plotext Integration in Rich - Test")
@@ -32,7 +32,9 @@ class Plot:
         self.decoder = rich.ansi.AnsiDecoder()
         self.item: Any = item
 
-    def __rich_console__(self, console, options):
+    def __rich_console__(
+        self, console: rich.console.Console, options: rich.console.ConsoleOptions
+    ) -> rich.console.RenderResult:
         self.width = options.max_width or console.width
         self.height = options.height or console.height
         canvas = make_plot(self.item, self.width, self.height)
@@ -40,7 +42,7 @@ class Plot:
         yield self.rich_canvas
 
 
-class PlotWidget(textual.widget.Widget):
+class PlotWidget(textual.widget.Widget):  # type: ignore[misc]
     height: textual.widget.Reactive[int | None] = textual.widget.Reactive(None)
 
     def __init__(self, uproot_file: uproot.ReadOnlyFile) -> None:
@@ -48,8 +50,8 @@ class PlotWidget(textual.widget.Widget):
         self.file = uproot_file
         self.plot = EMPTY
 
-    def set_plot(self, plot_path: str) -> None:
-        if plot_path is None or plot_path is EMPTY:
+    def set_plot(self, plot_path: str | None) -> None:
+        if plot_path is None:
             self.plot = plot_path
         else:
             *_, item = uproot_browser.dirs.apply_selection(
@@ -60,7 +62,7 @@ class PlotWidget(textual.widget.Widget):
     async def update(self) -> None:
         self.refresh()
 
-    def render(self) -> rich.console.RenderResult:
+    def render(self) -> rich.console.RenderableType:
         if self.plot is None or self.plot is EMPTY:
             return rich.panel.Panel(
                 rich.align.Align.center(
@@ -73,4 +75,4 @@ class PlotWidget(textual.widget.Widget):
                 height=self.height,
             )
 
-        return rich.panel.Panel(self.plot)
+        return rich.panel.Panel(self.plot)  # type: ignore[arg-type]

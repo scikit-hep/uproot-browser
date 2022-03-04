@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import textual.geometry
 import textual.views
@@ -12,12 +13,12 @@ from .plot_view import PlotWidget
 from .tree_view import TreeView, UprootClick
 
 
-class Browser(App):
+class Browser(App):  # type: ignore[misc]
     """A basic implementation of the uproot-browser TUI"""
 
-    def __init__(self, *args, path: Path, **kwargs) -> None:
+    def __init__(self, path: Path, **kwargs: Any) -> None:
         self.path = path
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
 
     async def on_load(self) -> None:
         """Sent before going in to application mode."""

@@ -35,7 +35,7 @@ class UprootItem:
         return process_item(self.item)
 
     def label(self) -> Text:
-        return process_item(self.item)["label"]
+        return process_item(self.item)["label"]  # type: ignore[no-any-return]
 
     @property
     def children(self) -> list[UprootItem]:
