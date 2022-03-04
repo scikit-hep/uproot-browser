@@ -20,6 +20,9 @@ class Browser(App):  # type: ignore[misc]
         self.path = path
         super().__init__(**kwargs)
 
+        self.tree = TreeView(self.path)
+        self.plot = PlotWidget(self.tree.upfile)
+
     async def on_load(self) -> None:
         """Sent before going in to application mode."""
 
@@ -29,9 +32,6 @@ class Browser(App):  # type: ignore[misc]
 
     async def on_mount(self) -> None:
         """Call after terminal goes in to application mode"""
-
-        self.tree = TreeView(self.path)
-        self.plot = PlotWidget(self.tree.upfile)
 
         # Dock our widget
         await self.view.dock(Header(), edge="top")
@@ -47,7 +47,7 @@ class Browser(App):  # type: ignore[misc]
 
         try:
             self.plot.set_plot(message.path)
-        except Exception:
+        except Exception:  # pylint: disable=broad-except
             self.plot.set_plot(None)
 
         await self.plot.update()

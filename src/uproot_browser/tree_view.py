@@ -47,7 +47,7 @@ class TreeView(TreeControl[UprootItem]):  # type: ignore[misc]
         self.refresh(layout=True)
 
     def render_node(self, node: TreeNode[UprootItem]) -> RenderableType:
-        return self.render_tree_label(
+        return render_tree_label(
             node,
             node.data.is_dir,
             node.expanded,
@@ -56,26 +56,10 @@ class TreeView(TreeControl[UprootItem]):  # type: ignore[misc]
             self.has_focus,
         )
 
-    @lru_cache(maxsize=1024 * 32)
-    def render_tree_label(
+    async def on_mount(
         self,
-        node: TreeNode[UprootItem],
-        is_dir: bool,
-        expanded: bool,
-        is_cursor: bool,
-        is_hover: bool,
-        has_focus: bool,
-    ) -> RenderableType:
-        meta = {
-            "@click": f"click_label({node.id})",
-            "tree_node": node.id,
-            "cursor": node.is_cursor,
-        }
-        icon_label = node.data.meta()["label"]
-        icon_label.apply_meta(meta)
-        return icon_label  # type: ignore[no-any-return]
-
-    async def on_mount(self, event: textual.events.Mount) -> None:
+        event: textual.events.Mount,  # pylint: disable=unused-argument
+    ) -> None:
         await self.load_directory(self.root)
 
     async def load_directory(self, node: TreeNode[UprootItem]) -> None:
@@ -96,3 +80,22 @@ class TreeView(TreeControl[UprootItem]):  # type: ignore[misc]
                 await message.node.expand()
             else:
                 await message.node.toggle()
+
+
+@lru_cache(maxsize=1024 * 32)
+def render_tree_label(
+    node: TreeNode[UprootItem],
+    is_dir: bool,  # pylint: disable=unused-argument
+    expanded: bool,  # pylint: disable=unused-argument
+    is_cursor: bool,  # pylint: disable=unused-argument
+    is_hover: bool,  # pylint: disable=unused-argument
+    has_focus: bool,  # pylint: disable=unused-argument
+) -> RenderableType:
+    meta = {
+        "@click": f"click_label({node.id})",
+        "tree_node": node.id,
+        "cursor": node.is_cursor,
+    }
+    icon_label = node.data.meta()["label"]
+    icon_label.apply_meta(meta)
+    return icon_label  # type: ignore[no-any-return]

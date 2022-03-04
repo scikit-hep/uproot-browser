@@ -105,3 +105,10 @@ similarities.ignore-imports = "yes"
 messages_control.enable = [
   "useless-suppression",
 ]
+messages_control.disable = [
+  "design",
+  "line-too-long",
+  "missing-class-docstring",
+  "missing-function-docstring",
+  "missing-module-docstring",
+]

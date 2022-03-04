@@ -19,7 +19,7 @@ import uproot_browser.plot
 EMPTY = object()
 
 
-def make_plot(item: Any, *size: int) -> plt.Figure:
+def make_plot(item: Any, *size: int) -> Any:
     plt.clf()
     plt.plotsize(*size)
     plt.title("Plotext Integration in Rich - Test")
@@ -35,11 +35,11 @@ class Plot:
     def __rich_console__(
         self, console: rich.console.Console, options: rich.console.ConsoleOptions
     ) -> rich.console.RenderResult:
-        self.width = options.max_width or console.width
-        self.height = options.height or console.height
-        canvas = make_plot(self.item, self.width, self.height)
-        self.rich_canvas = rich.console.Group(*self.decoder.decode(canvas))
-        yield self.rich_canvas
+        width = options.max_width or console.width
+        height = options.height or console.height
+        canvas = make_plot(self.item, width, height)
+        rich_canvas = rich.console.Group(*self.decoder.decode(canvas))
+        yield rich_canvas
 
 
 class PlotWidget(textual.widget.Widget):  # type: ignore[misc]
