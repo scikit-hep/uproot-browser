@@ -46,10 +46,8 @@ dependencies = [
   "xxhash",
   "plotext >=4.1.0",
   "hist >=2.4",
+  "textual >=0.1.15",
 ]
-
-# Maybe later:
-# "textual >?=?",
 
 [project.optional-dependencies]
 test = [
@@ -95,7 +93,7 @@ warn_unused_configs = true
 strict = true
 
 [[tool.mypy.overrides]]
-module = ["plotext.*", "awkward.*", "uproot.*"]
+module = ["plotext.*", "awkward.*", "uproot.*", "textual.*"]
 ignore_missing_imports = true
 
 
@@ -106,4 +104,11 @@ reports.output-format = "colorized"
 similarities.ignore-imports = "yes"
 messages_control.enable = [
   "useless-suppression",
+]
+messages_control.disable = [
+  "design",
+  "line-too-long",
+  "missing-class-docstring",
+  "missing-function-docstring",
+  "missing-module-docstring",
 ]

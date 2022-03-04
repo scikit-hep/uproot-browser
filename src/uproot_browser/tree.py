@@ -4,9 +4,10 @@ Display tools for TTrees.
 
 from __future__ import annotations
 
+import dataclasses
 import functools
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import rich
 import uproot
@@ -14,67 +15,88 @@ from rich.markup import escape
 from rich.text import Text
 from rich.tree import Tree
 
-__all__ = ("make_tree", "process_item", "print_tree")
+__all__ = ("make_tree", "process_item", "print_tree", "UprootItem")
 
 
 def __dir__() -> tuple[str, ...]:
     return __all__
 
 
-def make_tree(uproot_object: Any, *, tree: Tree | None = None) -> Tree:
+@dataclasses.dataclass
+class UprootItem:
+    path: str
+    item: Any
+
+    @property
+    def is_dir(self) -> bool:
+        return isinstance(self.item, (uproot.reading.ReadOnlyDirectory, uproot.TTree))
+
+    def meta(self) -> dict[str, Any]:
+        return process_item(self.item)
+
+    def label(self) -> Text:
+        return process_item(self.item)["label"]  # type: ignore[no-any-return]
+
+    @property
+    def children(self) -> list[UprootItem]:
+        if not self.is_dir:
+            return []
+        items = {key.split(";")[0] for key in self.item.keys()}
+        return [
+            UprootItem(f"{self.path}/{key}", self.item[key]) for key in sorted(items)
+        ]
+
+
+def make_tree(node: UprootItem, *, tree: Tree | None = None) -> Tree:
     """
     Given an object, build a rich.tree.Tree output.
     """
-    result, insides = process_item(uproot_object)
 
     if tree is None:
-        tree = Tree(**result)
+        tree = Tree(**node.meta())
     else:
-        tree = tree.add(**result)
+        tree = tree.add(**node.meta())
 
-    for inside in insides:
-        make_tree(inside, tree=tree)
+    for child in node.children:
+        make_tree(child, tree=tree)
 
     return tree
 
 
-RetTuple = Tuple[Dict[str, Any], Tuple[Any, ...]]
-
-
 @functools.singledispatch
-def process_item(uproot_object: Any) -> RetTuple:
+def process_item(uproot_object: Any) -> dict[str, Any]:
     """
     Given an unknown object, return a rich.tree.Tree output. Specialize for known objects.
     """
     name = getattr(uproot_object, "name", "<unnamed>")
     classname = getattr(uproot_object, "classname", uproot_object.__class__.__name__)
-
     label = Text.assemble(
         "❓ ",
         (f"{name} ", "bold"),
         (classname, "italic"),
     )
-    result = {"label": label}
-    return result, ()
+    return {"label": label}
 
 
 @process_item.register
-def _process_item_tfile(uproot_object: uproot.reading.ReadOnlyDirectory) -> RetTuple:
+def _process_item_tfile(
+    uproot_object: uproot.reading.ReadOnlyDirectory,
+) -> dict[str, Any]:
     """
     Given an TFile, return a rich.tree.Tree output.
     """
     path = Path(uproot_object.file_path)
     result = {
-        "label": f":file_folder: [link file://{path}]{escape(path.name)}",
+        "label": Text.from_markup(
+            f":file_folder: [link file://{path}]{escape(path.name)}"
+        ),
         "guide_style": "bold bright_blue",
     }
-    items = {key.split(";")[0] for key in uproot_object}
-    insides = tuple(uproot_object[key] for key in sorted(items))
-    return result, insides
+    return result
 
 
 @process_item.register
-def _process_item_ttree(uproot_object: uproot.TTree) -> RetTuple:
+def _process_item_ttree(uproot_object: uproot.TTree) -> dict[str, Any]:
     """
     Given an tree, return a rich.tree.Tree output.
     """
@@ -88,12 +110,11 @@ def _process_item_ttree(uproot_object: uproot.TTree) -> RetTuple:
         "label": label,
         "guide_style": "bold bright_green",
     }
-    insides = tuple(v for v in uproot_object.values())
-    return result, insides
+    return result
 
 
 @process_item.register
-def _process_item_tbranch(uproot_object: uproot.TBranch) -> RetTuple:
+def _process_item_tbranch(uproot_object: uproot.TBranch) -> dict[str, Any]:
     """
     Given an branch, return a rich.tree.Tree output.
     """
@@ -106,14 +127,14 @@ def _process_item_tbranch(uproot_object: uproot.TBranch) -> RetTuple:
     label = Text.assemble(
         icon,
         (f"{uproot_object.name} ", "bold"),
-        (f"{uproot_object.typename} ", "italic"),
+        (f"{uproot_object.typename}", "italic"),
     )
     result = {"label": label}
-    return result, ()
+    return result
 
 
 @process_item.register
-def _process_item_th(uproot_object: uproot.behaviors.TH1.Histogram) -> RetTuple:
+def _process_item_th(uproot_object: uproot.behaviors.TH1.Histogram) -> dict[str, Any]:
     """
     Given an histogram, return a rich.tree.Tree output.
     """
@@ -127,7 +148,7 @@ def _process_item_th(uproot_object: uproot.behaviors.TH1.Histogram) -> RetTuple:
         f"({sizes})",
     )
     result = {"label": label}
-    return result, ()
+    return result
 
 
 def print_tree(entry: str) -> None:
@@ -137,5 +158,5 @@ def print_tree(entry: str) -> None:
     """
 
     upfile = uproot.open(entry)
-    tree = make_tree(upfile)
+    tree = make_tree(UprootItem("/", upfile))
     rich.print(tree)

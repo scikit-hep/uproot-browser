@@ -4,6 +4,8 @@ This is the click-powered CLI.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import click
 import uproot
 
@@ -42,7 +44,27 @@ def plot(filename: str) -> None:
     my_tree = uproot.open(fname)
     *_, item = uproot_browser.dirs.apply_selection(my_tree, selections)
 
+    uproot_browser.plot.clf()
     uproot_browser.plot.plot(item)
+    uproot_browser.plot.show()
+
+
+@main.command()
+@click.argument("filename")
+def tui(filename: str) -> None:
+    """
+    Display a TUI.
+    """
+    import uproot_browser.tui  # pylint: disable=import-outside-toplevel
+
+    fname = uproot_browser.dirs.filename(filename)
+
+    # Run the uproot-browser TUI
+    uproot_browser.tui.Browser.run(
+        title="uproot-browser",
+        log="textual.log",
+        path=Path(fname),
+    )
 
 
 if __name__ == "__main__":
