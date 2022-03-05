@@ -51,7 +51,7 @@ def plot(filename: str) -> None:
 
 @main.command()
 @click.argument("filename")
-def tui(filename: str) -> None:
+def browse(filename: str) -> None:
     """
     Display a TUI.
     """
