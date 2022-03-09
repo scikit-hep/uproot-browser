@@ -42,11 +42,9 @@ class Plot:
             canvas = make_plot(self.item, width, height)
             yield rich.console.Group(*self.decoder.decode(canvas))
         except Exception:
-            rich_canvas = rich.console.Group(
-                rich.traceback.Traceback(
-                    extra_lines=1,
-                    max_frames=4,  # Can't be less than 4 frames
-                )
+            rich_canvas = rich.traceback.Traceback(
+                extra_lines=1,
+                max_frames=4,  # Can't be less than 4 frames
             )
 
             if options.height is not None:
