@@ -38,8 +38,22 @@ class Plot:
     ) -> rich.console.RenderResult:
         width = options.max_width or console.width
         height = options.height or console.height
-        canvas = make_plot(self.item, width, height)
-        rich_canvas = rich.console.Group(*self.decoder.decode(canvas))
+        try:
+            canvas = make_plot(self.item, width, height)
+            rich_canvas = rich.console.Group(*self.decoder.decode(canvas))
+        except Exception:
+            rich_canvas = rich.console.Group(
+                rich.traceback.Traceback(
+                    extra_lines=1,
+                    max_frames=4,  # Can't be less than 4 frames
+                )
+            )
+
+            if options.height is not None:
+                options.height -= 4
+            yield from rich_canvas.__rich_console__(console, options)
+            return
+
         yield rich_canvas
 
 
