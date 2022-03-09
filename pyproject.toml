@@ -112,3 +112,4 @@ messages_control.disable = [
   "missing-function-docstring",
   "missing-module-docstring",
 ]
+disable = "broad-except"
