@@ -40,7 +40,7 @@ class Plot:
         height = options.height or console.height
         try:
             canvas = make_plot(self.item, width, height)
-            rich_canvas = rich.console.Group(*self.decoder.decode(canvas))
+            yield rich.console.Group(*self.decoder.decode(canvas))
         except Exception:
             rich_canvas = rich.console.Group(
                 rich.traceback.Traceback(
@@ -52,9 +52,6 @@ class Plot:
             if options.height is not None:
                 options.height -= 4
             yield from rich_canvas.__rich_console__(console, options)
-            return
-
-        yield rich_canvas
 
 
 class PlotWidget(textual.widget.Widget):  # type: ignore[misc]
