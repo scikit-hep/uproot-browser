@@ -9,6 +9,7 @@ import rich.box
 import rich.console
 import rich.panel
 import rich.pretty
+import rich.text
 import textual.view
 import textual.widget
 import uproot
@@ -63,14 +64,33 @@ class PlotWidget(textual.widget.Widget):  # type: ignore[misc]
         self.refresh()
 
     def render(self) -> rich.console.RenderableType:
-        if self.plot is None or self.plot is EMPTY:
+        if self.plot is None:
             return rich.panel.Panel(
                 rich.align.Align.center(
-                    rich.pretty.Pretty(self, no_wrap=True, overflow="ellipsis"),
+                    rich.pretty.Pretty(
+                        "No plot selected!", no_wrap=True, overflow="ellipsis"
+                    ),
                     vertical="middle",
                 ),
-                title=self.__class__.__name__,
-                border_style="green" if self.plot is EMPTY else "red",
+                border_style="red",
+                box=rich.box.ROUNDED,
+                height=self.height,
+            )
+
+        if self.plot is EMPTY:
+            return rich.panel.Panel(
+                rich.align.Align.center(
+                    rich.text.Text.from_ansi(
+                        """
+┬ ┬┌─┐┬─┐┌─┐┌─┐┌┬┐4 ┌┐ ┬─┐┌─┐┬ ┬┌─┐┌─┐┬─┐
+│ │├─┘├┬┘│ ││ │ │───├┴┐├┬┘│ ││││└─┐├┤ ├┬┘
+└─┘┴  ┴└─└─┘└─┘ ┴   └─┘┴└─└─┘└┴┘└─┘└─┘┴└─
+                          powered by Hist""",
+                        no_wrap=True,
+                    ),
+                    vertical="middle",
+                ),
+                border_style="green",
                 box=rich.box.ROUNDED,
                 height=self.height,
             )
