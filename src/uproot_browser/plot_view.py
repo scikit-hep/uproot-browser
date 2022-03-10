@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import numpy as np
@@ -24,14 +25,16 @@ EMPTY = object()
 def make_plot(item: Any, *size: int) -> Any:
     plt.clf()
     plt.plotsize(*size)
-    h = uproot_browser.plot.plot(item)
-    if math.isclose(np.sum(h.values()), np.sum(h.values(flow=True))):
-        plt.title(f"{item.name} - Entries = {np.sum(h.values()):g}")
+    h_item = uproot_browser.plot.plot(item)
+    inner_sum = np.sum(h_item.values())
+    full_sum = np.sum(h_item.values(flow=True))
+    if math.isclose(inner_sum, full_sum):
+        plt.title(f"{item.name} - Entries = {inner_sum:g}")
     else:
         plt.title(
-            f"{item.name} - Entries = {np.sum(h.values()):g} ({np.sum(h.values(flow=True))} with flow)"
+            f"{item.name} - Entries = {inner_sum:g} ({outer_sum:g} with flow)"
         )
-    plt.xlabel(f"{h.axes[0].name}")
+    plt.xlabel(f"{h_item.axes[0].name}")
     return plt.build()
 
 
