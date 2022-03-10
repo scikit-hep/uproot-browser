@@ -45,7 +45,7 @@ def plot_branch(tree: uproot.TBranch) -> hist.Hist:
         ak.flatten(array) if array.ndim > 1 else array, bins=50, histogram=hist.Hist
     )
     plt.bar(histogram.axes[0].centers, histogram.values().astype(float))
-    return histogram
+    return hist.Hist(histogram)
 
 
 @plot.register
