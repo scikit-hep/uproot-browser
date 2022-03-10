@@ -19,6 +19,13 @@ import uproot_browser.plot
 
 EMPTY = object()
 
+LOGO = """\
+Scikit-HEP
+┬ ┬┌─┐┬─┐┌─┐┌─┐┌┬┐4 ┌┐ ┬─┐┌─┐┬ ┬┌─┐┌─┐┬─┐
+│ │├─┘├┬┘│ ││ │ │───├┴┐├┬┘│ ││││└─┐├┤ ├┬┘
+└─┘┴  ┴└─└─┘└─┘ ┴   └─┘┴└─└─┘└┴┘└─┘└─┘┴└─
+                Powered by Textual & Hist"""
+
 
 def make_plot(item: Any, *size: int) -> Any:
     plt.clf()
@@ -89,15 +96,7 @@ class PlotWidget(textual.widget.Widget):
         if self.plot is EMPTY:
             return rich.panel.Panel(
                 rich.align.Align.center(
-                    rich.text.Text.from_ansi(
-                        """
-┬ ┬┌─┐┬─┐┌─┐┌─┐┌┬┐4 ┌┐ ┬─┐┌─┐┬ ┬┌─┐┌─┐┬─┐
-│ │├─┘├┬┘│ ││ │ │───├┴┐├┬┘│ ││││└─┐├┤ ├┬┘
-└─┘┴  ┴└─└─┘└─┘ ┴   └─┘┴└─└─┘└┴┘└─┘└─┘┴└─
-                          powered by Hist""",
-                        no_wrap=True,
-                    ),
-                    vertical="middle",
+                    rich.text.Text.from_ansi(LOGO, no_wrap=True), vertical="middle"
                 ),
                 border_style="green",
                 box=rich.box.ROUNDED,
