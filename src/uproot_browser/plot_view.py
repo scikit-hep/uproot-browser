@@ -6,14 +6,11 @@ from typing import Any
 import numpy as np
 import plotext as plt
 import rich.align
-import rich.ansi
 import rich.box
 import rich.console
 import rich.panel
 import rich.pretty
 import rich.text
-import textual.reactive
-import textual.view
 import textual.widget
 import uproot
 
@@ -39,7 +36,6 @@ def make_plot(item: Any, *size: int) -> Any:
 
 class Plot:
     def __init__(self, item: Any) -> None:
-        self.decoder = rich.ansi.AnsiDecoder()
         self.item: Any = item
 
     def __rich_console__(
@@ -49,7 +45,7 @@ class Plot:
         height = options.height or console.height
         try:
             canvas = make_plot(self.item, width, height)
-            yield rich.console.Group(*self.decoder.decode(canvas))
+            yield rich.text.Text.from_ansi(canvas)
         except Exception:
             tb = rich.traceback.Traceback(
                 extra_lines=1,
