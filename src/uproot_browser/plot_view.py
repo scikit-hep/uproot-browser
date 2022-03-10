@@ -31,9 +31,7 @@ def make_plot(item: Any, *size: int) -> Any:
     if math.isclose(inner_sum, full_sum):
         plt.title(f"{item.name} - Entries = {inner_sum:g}")
     else:
-        plt.title(
-            f"{item.name} - Entries = {inner_sum:g} ({outer_sum:g} with flow)"
-        )
+        plt.title(f"{item.name} - Entries = {inner_sum:g} ({full_sum:g} with flow)")
     plt.xlabel(f"{h_item.axes[0].name}")
     return plt.build()
 
