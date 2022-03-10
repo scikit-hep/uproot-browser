@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import math
 from typing import Any
 
-import numpy as np
 import plotext as plt
 import rich.align
 import rich.box
@@ -30,14 +28,7 @@ Scikit-HEP
 def make_plot(item: Any, *size: int) -> Any:
     plt.clf()
     plt.plotsize(*size)
-    h_item = uproot_browser.plot.plot(item)
-    inner_sum = np.sum(h_item.values())
-    full_sum = np.sum(h_item.values(flow=True))
-    if math.isclose(inner_sum, full_sum):
-        plt.title(f"{item.name} - Entries = {inner_sum:g}")
-    else:
-        plt.title(f"{item.name} - Entries = {inner_sum:g} ({full_sum:g} with flow)")
-    plt.xlabel(f"{h_item.axes[0].name}")
+    uproot_browser.plot.plot(item)
     return plt.build()
 
 
