@@ -28,7 +28,7 @@ def show() -> None:
 
 
 @functools.singledispatch
-def plot(tree: Any) -> None:
+def plot(tree: Any) -> hist.Hist:
     """
     Implement this for each type of plottable.
     """
@@ -36,7 +36,7 @@ def plot(tree: Any) -> None:
 
 
 @plot.register
-def plot_branch(tree: uproot.TBranch) -> None:
+def plot_branch(tree: uproot.TBranch) -> hist.Hist:
     """
     Plot a single tree branch.
     """
@@ -45,12 +45,14 @@ def plot_branch(tree: uproot.TBranch) -> None:
         ak.flatten(array) if array.ndim > 1 else array, bins=50, histogram=hist.Hist
     )
     plt.bar(histogram.axes[0].centers, histogram.values().astype(float))
+    return hist.Hist(histogram)
 
 
 @plot.register
-def plot_hist(tree: uproot.behaviors.TH1.Histogram) -> None:
+def plot_hist(tree: uproot.behaviors.TH1.Histogram) -> hist.Hist:
     """
     Plot a 1-D Histogram.
     """
-    histogram = tree.to_hist()
+    histogram = hist.Hist(tree.to_hist())
     plt.bar(histogram.axes[0].centers, histogram.values().astype(float))
+    return histogram
