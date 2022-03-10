@@ -106,10 +106,11 @@ messages_control.enable = [
   "useless-suppression",
 ]
 messages_control.disable = [
+  "broad-except",
   "design",
+  "invalid-name",
   "line-too-long",
   "missing-class-docstring",
   "missing-function-docstring",
   "missing-module-docstring",
-  "broad-except"
 ]
