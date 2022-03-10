@@ -53,6 +53,6 @@ def plot_hist(tree: uproot.behaviors.TH1.Histogram) -> hist.Hist:
     """
     Plot a 1-D Histogram.
     """
-    histogram = Hist(tree.to_hist())
+    histogram = hist.Hist(tree.to_hist())
     plt.bar(histogram.axes[0].centers, histogram.values().astype(float))
     return histogram
