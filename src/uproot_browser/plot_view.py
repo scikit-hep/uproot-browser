@@ -6,14 +6,11 @@ from typing import Any
 import numpy as np
 import plotext as plt
 import rich.align
-import rich.ansi
 import rich.box
 import rich.console
 import rich.panel
 import rich.pretty
 import rich.text
-import textual.reactive
-import textual.view
 import textual.widget
 import uproot
 
@@ -21,6 +18,13 @@ import uproot_browser.dirs
 import uproot_browser.plot
 
 EMPTY = object()
+
+LOGO = """\
+Scikit-HEP
+┬ ┬┌─┐┬─┐┌─┐┌─┐┌┬┐4 ┌┐ ┬─┐┌─┐┬ ┬┌─┐┌─┐┬─┐
+│ │├─┘├┬┘│ ││ │ │───├┴┐├┬┘│ ││││└─┐├┤ ├┬┘
+└─┘┴  ┴└─└─┘└─┘ ┴   └─┘┴└─└─┘└┴┘└─┘└─┘┴└─
+                Powered by Textual & Hist"""
 
 
 def make_plot(item: Any, *size: int) -> Any:
@@ -39,7 +43,6 @@ def make_plot(item: Any, *size: int) -> Any:
 
 class Plot:
     def __init__(self, item: Any) -> None:
-        self.decoder = rich.ansi.AnsiDecoder()
         self.item: Any = item
 
     def __rich_console__(
@@ -49,7 +52,7 @@ class Plot:
         height = options.height or console.height
         try:
             canvas = make_plot(self.item, width, height)
-            yield rich.console.Group(*self.decoder.decode(canvas))
+            yield rich.text.Text.from_ansi(canvas)
         except Exception:
             tb = rich.traceback.Traceback(
                 extra_lines=1,
@@ -60,8 +63,6 @@ class Plot:
 
 
 class PlotWidget(textual.widget.Widget):
-    height: textual.reactive.Reactive[int | None] = textual.reactive.Reactive(None)
-
     def __init__(self, uproot_file: uproot.ReadOnlyFile) -> None:
         super().__init__()
         self.file = uproot_file
@@ -90,25 +91,15 @@ class PlotWidget(textual.widget.Widget):
                 ),
                 border_style="red",
                 box=rich.box.ROUNDED,
-                height=self.height,
             )
 
         if self.plot is EMPTY:
             return rich.panel.Panel(
                 rich.align.Align.center(
-                    rich.text.Text.from_ansi(
-                        """
-┬ ┬┌─┐┬─┐┌─┐┌─┐┌┬┐4 ┌┐ ┬─┐┌─┐┬ ┬┌─┐┌─┐┬─┐
-│ │├─┘├┬┘│ ││ │ │───├┴┐├┬┘│ ││││└─┐├┤ ├┬┘
-└─┘┴  ┴└─└─┘└─┘ ┴   └─┘┴└─└─┘└┴┘└─┘└─┘┴└─
-                          powered by Hist""",
-                        no_wrap=True,
-                    ),
-                    vertical="middle",
+                    rich.text.Text.from_ansi(LOGO, no_wrap=True), vertical="middle"
                 ),
                 border_style="green",
                 box=rich.box.ROUNDED,
-                height=self.height,
             )
 
         return rich.panel.Panel(self.plot)  # type: ignore[arg-type]
