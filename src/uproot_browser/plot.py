@@ -36,7 +36,7 @@ def plot(tree: Any) -> hist.Hist:
 
 
 @plot.register
-def plot_branch(tree: uproot.TBranch) -> Any:
+def plot_branch(tree: uproot.TBranch) -> hist.Hist:
     """
     Plot a single tree branch.
     """
@@ -49,10 +49,10 @@ def plot_branch(tree: uproot.TBranch) -> Any:
 
 
 @plot.register
-def plot_hist(tree: uproot.behaviors.TH1.Histogram) -> Any:
+def plot_hist(tree: uproot.behaviors.TH1.Histogram) -> hist.Hist:
     """
     Plot a 1-D Histogram.
     """
-    histogram = tree.to_hist()
+    histogram = Hist(tree.to_hist())
     plt.bar(histogram.axes[0].centers, histogram.values().astype(float))
     return histogram
