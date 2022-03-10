@@ -25,7 +25,7 @@ def make_plot(item: Any, *size: int) -> Any:
     plt.clf()
     plt.plotsize(*size)
     h = uproot_browser.plot.plot(item)
-    if (np.sum(h.values())) == (np.sum(h.values(flow=True))):
+    if math.isclose(np.sum(h.values()), np.sum(h.values(flow=True))):
         plt.title(f"{item.name} - Entries = {np.sum(h.values()):g}")
     else:
         plt.title(
