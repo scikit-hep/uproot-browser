@@ -41,12 +41,12 @@ dependencies = [
   "click >=8",
   "lz4",
   "numpy >=1.13.3",
-  "rich >=10.0.0",
+  "rich >=12.0.0",
   "uproot >=4.0",
   "xxhash",
   "plotext >=4.1.0",
   "hist >=2.4",
-  "textual >=0.1.15",
+  "textual >=0.1.17",
 ]
 
 [project.optional-dependencies]
@@ -93,7 +93,7 @@ warn_unused_configs = true
 strict = true
 
 [[tool.mypy.overrides]]
-module = ["plotext.*", "awkward.*", "uproot.*", "textual.*"]
+module = ["plotext.*", "awkward.*", "uproot.*"]
 ignore_missing_imports = true
 
 

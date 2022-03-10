@@ -12,6 +12,7 @@ import rich.console
 import rich.panel
 import rich.pretty
 import rich.text
+import textual.reactive
 import textual.view
 import textual.widget
 import uproot
@@ -50,18 +51,16 @@ class Plot:
             canvas = make_plot(self.item, width, height)
             yield rich.console.Group(*self.decoder.decode(canvas))
         except Exception:
-            rich_canvas = rich.traceback.Traceback(
+            tb = rich.traceback.Traceback(
                 extra_lines=1,
                 max_frames=4,  # Can't be less than 4 frames
             )
-
-            if options.height is not None:
-                options.height -= 4
-            yield from rich_canvas.__rich_console__(console, options)
+            tb.max_frames = 2
+            yield tb
 
 
-class PlotWidget(textual.widget.Widget):  # type: ignore[misc]
-    height: textual.widget.Reactive[int | None] = textual.widget.Reactive(None)
+class PlotWidget(textual.widget.Widget):
+    height: textual.reactive.Reactive[int | None] = textual.reactive.Reactive(None)
 
     def __init__(self, uproot_file: uproot.ReadOnlyFile) -> None:
         super().__init__()
