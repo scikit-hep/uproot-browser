@@ -60,8 +60,6 @@ class Plot:
 
 
 class PlotWidget(textual.widget.Widget):
-    height: textual.reactive.Reactive[int | None] = textual.reactive.Reactive(None)
-
     def __init__(self, uproot_file: uproot.ReadOnlyFile) -> None:
         super().__init__()
         self.file = uproot_file
@@ -90,7 +88,6 @@ class PlotWidget(textual.widget.Widget):
                 ),
                 border_style="red",
                 box=rich.box.ROUNDED,
-                height=self.height,
             )
 
         if self.plot is EMPTY:
@@ -108,7 +105,6 @@ class PlotWidget(textual.widget.Widget):
                 ),
                 border_style="green",
                 box=rich.box.ROUNDED,
-                height=self.height,
             )
 
         return rich.panel.Panel(self.plot)  # type: ignore[arg-type]
