@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
 import plotext as plt
 import rich.align
 import rich.ansi
@@ -23,8 +24,14 @@ EMPTY = object()
 def make_plot(item: Any, *size: int) -> Any:
     plt.clf()
     plt.plotsize(*size)
-    plt.title("Plotext Integration in Rich - Test")
-    uproot_browser.plot.plot(item)
+    h = uproot_browser.plot.plot(item)
+    if (np.sum(h.values())) == (np.sum(h.values(flow=True))):
+        plt.title(f"{item.name} - Entries = {np.sum(h.values()):g}")
+    else:
+        plt.title(
+            f"{item.name} - Entries = {np.sum(h.values()):g} ({np.sum(h.values(flow=True))} with flow)"
+        )
+    plt.xlabel(f"{h.axes[0].name}")
     return plt.build()
 
 
