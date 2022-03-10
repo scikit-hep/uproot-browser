@@ -4,6 +4,7 @@ This is the click-powered CLI.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import click
@@ -32,21 +33,36 @@ def tree(filename: str) -> None:
 
 @main.command()
 @click.argument("filename")
-def plot(filename: str) -> None:
+@click.option(
+    "--iterm", is_flag=True, help="Display an iTerm plot (requires [iterm] extra)."
+)
+def plot(filename: str, iterm: bool) -> None:
     """
     Display a plot.
     """
+    if iterm:
+        os.environ.setdefault("MPLBACKEND", r"module://itermplot")
+
+        import matplotlib.pyplot as plt  # pylint: disable=import-outside-toplevel
+
+        import uproot_browser.plot_mpl  # pylint: disable=import-outside-toplevel
+    else:
+        import uproot_browser.plot  # pylint: disable=import-outside-toplevel
+
     import uproot_browser.dirs  # pylint: disable=import-outside-toplevel
-    import uproot_browser.plot  # pylint: disable=import-outside-toplevel
 
     fname = uproot_browser.dirs.filename(filename)
     selections = uproot_browser.dirs.selections(filename)
     my_tree = uproot.open(fname)
     *_, item = uproot_browser.dirs.apply_selection(my_tree, selections)
 
-    uproot_browser.plot.clf()
-    uproot_browser.plot.plot(item)
-    uproot_browser.plot.show()
+    if iterm:
+        uproot_browser.plot_mpl.plot(item)
+        plt.show()
+    else:
+        uproot_browser.plot.clf()
+        uproot_browser.plot.plot(item)
+        uproot_browser.plot.show()
 
 
 @main.command()

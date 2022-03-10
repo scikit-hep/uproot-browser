@@ -53,6 +53,11 @@ dependencies = [
 test = [
   "pytest >=6",
 ]
+iterm = [
+  "matplotlib",
+  "itermplot",
+  "mplhep",
+]
 dev = [
   "flit >=3.3",
   "ipython >=6",
@@ -93,7 +98,7 @@ warn_unused_configs = true
 strict = true
 
 [[tool.mypy.overrides]]
-module = ["plotext.*", "awkward.*", "uproot.*"]
+module = ["plotext.*", "awkward.*", "uproot.*", "matplotlib.*"]
 ignore_missing_imports = true
 
 
@@ -113,4 +118,5 @@ messages_control.disable = [
   "missing-class-docstring",
   "missing-function-docstring",
   "missing-module-docstring",
+  "duplicate-code",
 ]
