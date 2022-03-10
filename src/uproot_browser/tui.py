@@ -13,7 +13,7 @@ from .plot_view import PlotWidget
 from .tree_view import TreeView, UprootClick
 
 
-class Browser(App):  # type: ignore[misc]
+class Browser(App):
     """A basic implementation of the uproot-browser TUI"""
 
     def __init__(self, path: Path, **kwargs: Any) -> None:
