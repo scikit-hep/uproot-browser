@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from logging import getLogger
 
 from rich.console import RenderableType
 from rich.panel import Panel
@@ -11,8 +10,6 @@ from textual import events
 from textual.reactive import Reactive, watch
 from textual.widget import Widget
 
-log = getLogger("rich")
-
 
 class Header(Widget):
     def __init__(
@@ -21,17 +18,14 @@ class Header(Widget):
         tall: bool = True,
         style: str = "white on dark_green",
         clock: bool = True,
-        close: bool = True,
     ) -> None:
         super().__init__()
         self.tall = tall
         self.style = style
         self.clock = clock
-        self.close = close
 
     tall: Reactive[bool] = Reactive(True, layout=True)
     clock: Reactive[bool] = Reactive(True)
-    close: Reactive[bool] = Reactive(True)
     title: Reactive[str] = Reactive("")
     sub_title: Reactive[str] = Reactive("")
 
@@ -51,15 +45,16 @@ class Header(Widget):
 
     def render(self) -> RenderableType:
         header_table = Table.grid(padding=(0, 1), expand=True)
-        header_table.style = self.style  # type: ignore
+        header_table.style = self.style or ""
         header_table.add_column(justify="left", ratio=0, width=8)
         header_table.add_column("title", justify="center", ratio=1)
         header_table.add_column("clock", justify="right", width=8)
         header_table.add_row(
             "📊", self.full_title, self.get_clock() if self.clock else ""
         )
-        header: RenderableType
-        header = Panel(header_table, style=self.style) if self.tall else header_table  # type: ignore
+        header: RenderableType = (
+            Panel(header_table, style=self.style or "") if self.tall else header_table
+        )
         return header
 
     async def on_mount(self) -> None:
