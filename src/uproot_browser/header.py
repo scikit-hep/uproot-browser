@@ -45,7 +45,8 @@ class Header(Widget):
     async def watch_tall(self, tall: bool) -> None:
         self.layout_size = 3 if tall else 1
 
-    def get_clock(self) -> str:
+    @staticmethod
+    def get_clock() -> str:
         return datetime.now().time().strftime("%X")
 
     def render(self) -> RenderableType:
