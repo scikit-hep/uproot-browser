@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from logging import getLogger
 
 from rich.console import RenderableType
 from rich.panel import Panel
@@ -10,8 +9,6 @@ from rich.table import Table
 from textual import events
 from textual.reactive import Reactive, watch
 from textual.widget import Widget
-
-log = getLogger("rich")
 
 
 class Header(Widget):
