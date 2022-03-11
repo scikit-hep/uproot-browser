@@ -6,6 +6,7 @@ from rich.console import RenderableType
 from rich.panel import Panel
 from rich.repr import Result
 from rich.table import Table
+from rich.text import Text
 from textual import events
 from textual.reactive import Reactive, watch
 from textual.widget import Widget
@@ -28,6 +29,7 @@ class Header(Widget):
     clock: Reactive[bool] = Reactive(True)
     title: Reactive[str] = Reactive("")
     sub_title: Reactive[str] = Reactive("")
+    highlight_button: Reactive[str | None] = Reactive(None)
 
     @property
     def full_title(self) -> str:
@@ -49,13 +51,27 @@ class Header(Widget):
         header_table.add_column(justify="left", ratio=0, width=8)
         header_table.add_column("title", justify="center", ratio=1)
         header_table.add_column("clock", justify="right", width=8)
+        if self.highlight_button == "quit":
+            str_icon = ("❌", "reverse")
+        else:
+            str_icon = "❌"
+        icon = Text.assemble(str_icon, meta={"@click": "app.quit", "button": "quit"})
         header_table.add_row(
-            "📊", self.full_title, self.get_clock() if self.clock else ""
+            icon, self.full_title, self.get_clock() if self.clock else ""
         )
+            
         header: RenderableType = (
             Panel(header_table, style=self.style or "") if self.tall else header_table
         )
         return header
+
+    async def on_mouse_move(self, event: events.MouseMove) -> None:
+        """Store any key we are moving over."""
+        self.highlight_button = event.style.meta.get("button")
+
+    async def on_leave(self, event: events.Leave) -> None:
+        """Clear any highlight when the mouse leave the widget"""
+        self.highlight_button = None
 
     async def on_mount(self) -> None:
         self.set_interval(1.0, callback=self.refresh)
