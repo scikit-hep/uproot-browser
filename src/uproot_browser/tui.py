@@ -7,8 +7,9 @@ import textual.geometry
 import textual.views
 import textual.widgets
 from textual.app import App
-from textual.widgets import Footer, Header
+from textual.widgets import Footer
 
+from .header import Header
 from .plot_view import PlotWidget
 from .tree_view import TreeView, UprootClick
 
@@ -32,6 +33,9 @@ class Browser(App):
 
     async def on_mount(self) -> None:
         """Call after terminal goes in to application mode"""
+
+        # Set our file name as subtitle
+        self.app.sub_title = self.path.name
 
         # Dock our widget
         await self.view.dock(Header(), edge="top")
