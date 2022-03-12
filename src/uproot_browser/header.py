@@ -52,14 +52,14 @@ class Header(Widget):
         header_table.add_column("title", justify="center", ratio=1)
         header_table.add_column("clock", justify="right", width=8)
         if self.highlight_button == "quit":
-            str_icon = ("❌", "reverse")
+            str_icon = "❎ exit"
         else:
-            str_icon = "❌"
+            str_icon = "❌     "
         icon = Text.assemble(str_icon, meta={"@click": "app.quit", "button": "quit"})
         header_table.add_row(
             icon, self.full_title, self.get_clock() if self.clock else ""
         )
-            
+
         header: RenderableType = (
             Panel(header_table, style=self.style or "") if self.tall else header_table
         )
