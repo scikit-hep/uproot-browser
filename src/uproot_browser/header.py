@@ -52,7 +52,7 @@ class Header(Widget):
         header_table.add_column("title", justify="center", ratio=1)
         header_table.add_column("clock", justify="right", width=8)
         if self.highlight_button == "quit":
-            str_icon = "❎ exit"
+            str_icon = "❎ Exit"
         else:
             str_icon = "❌     "
         icon = Text.assemble(str_icon, meta={"@click": "app.quit", "button": "quit"})
@@ -69,7 +69,7 @@ class Header(Widget):
         """Store any key we are moving over."""
         self.highlight_button = event.style.meta.get("button")
 
-    async def on_leave(self, event: events.Leave) -> None:
+    async def on_leave(self) -> None:
         """Clear any highlight when the mouse leave the widget"""
         self.highlight_button = None
 
