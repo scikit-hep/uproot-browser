@@ -28,6 +28,18 @@ You can also use `pipx` to run the library without installing it:
 pipx run uproot-browser
 ```
 
+You can also get an iterm plot if you are on iTerm2. The required dependencies can be installed via:
+
+```bash
+python3 -m pip install uproot-browser[iterm]
+```
+
+Or can be run via `pipx` without installing:
+
+```bash
+pipx run uproot-browser[iterm]
+```
+
 ## Features
 
 uproot-browser currently provides the following features:
@@ -75,7 +87,7 @@ uproot-browser browse ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Even
 
 ```bash
 uproot-browser plot ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.root:hstat
-                        hstat -- Entries: 1000                       
+                        hstat -- Entries: 1000
     ┌───────────────────────────────────────────────────────────────┐
 18.0┤▐▌                                                             │
     │▐▌                                                 ▗▖         ▄│
@@ -90,8 +102,14 @@ uproot-browser plot ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.
     │████████████████████████████▌██████████████████████████████████│
  3.3┤███████████████████████████████████████████████████████████████│
     └┬───────────────┬──────────────┬───────────────┬──────────────┬┘
-     0.00          0.25           0.50            0.75          1.00 
-                               [x] xaxis                             
+     0.00          0.25           0.50            0.75          1.00
+                               [x] xaxis
+```
+
+Adding the argument `--iterm` gives us the plot:
+
+```bash
+uproot-browser plot ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.root:hstat --iterm
 ```
 
 **`tree` command:**
