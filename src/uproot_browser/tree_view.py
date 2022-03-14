@@ -41,9 +41,7 @@ class TreeView(textual.widgets.TreeControl[UprootItem]):
 
     async def watch_hover_node(self, hover_node: textual.widgets.NodeID) -> None:
         for node in self.nodes.values():
-            node.tree.guide_style = (
-                "bold" if node.id == hover_node else ""
-            )
+            node.tree.guide_style = "bold" if node.id == hover_node else ""
         self.refresh(layout=True)
 
     def render_node(
@@ -90,7 +88,7 @@ class TreeView(textual.widgets.TreeControl[UprootItem]):
 def render_tree_label(
     node: textual.widgets.TreeNode[UprootItem],
     is_dir: bool,
-    expanded: bool,  # pylint: disable=unused-argument
+    expanded: bool,
     is_cursor: bool,
     is_hover: bool,
     has_focus: bool,
@@ -108,8 +106,6 @@ def render_tree_label(
     if is_cursor and has_focus:
         icon_label.stylize("reverse")
     if is_dir:
-        icon_label.stylize("green4") if expanded else icon_label.stylize(
-            "spring_green3"
-        )
+        icon_label.stylize("green4" if expanded else "spring_green3")
 
     return icon_label  # type: ignore[no-any-return]
