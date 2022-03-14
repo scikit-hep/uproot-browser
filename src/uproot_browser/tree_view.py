@@ -91,9 +91,9 @@ def render_tree_label(
     node: textual.widgets.TreeNode[UprootItem],
     is_dir: bool,
     expanded: bool,  # pylint: disable=unused-argument
-    is_cursor: bool,  # pylint: disable=unused-argument
+    is_cursor: bool,
     is_hover: bool,
-    has_focus: bool,  # pylint: disable=unused-argument
+    has_focus: bool,
 ) -> rich.console.RenderableType:
     meta = {
         "@click": f"click_label({node.id})",
@@ -105,6 +105,8 @@ def render_tree_label(
 
     if is_hover:
         icon_label.stylize("underline")
+    if is_cursor and has_focus:
+        icon_label.stylize("reverse")
     if is_dir:
         icon_label.stylize("bold magenta")
 
