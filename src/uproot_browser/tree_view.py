@@ -42,7 +42,7 @@ class TreeView(textual.widgets.TreeControl[UprootItem]):
     async def watch_hover_node(self, hover_node: textual.widgets.NodeID) -> None:
         for node in self.nodes.values():
             node.tree.guide_style = (
-                "bold dark_cyan" if node.id == hover_node else "dim dark_cyan"
+                "bold" if node.id == hover_node else ""
             )
         self.refresh(layout=True)
 
