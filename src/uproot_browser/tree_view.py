@@ -89,10 +89,10 @@ class TreeView(textual.widgets.TreeControl[UprootItem]):
 @lru_cache(maxsize=1024 * 32)
 def render_tree_label(
     node: textual.widgets.TreeNode[UprootItem],
-    is_dir: bool,  # pylint: disable=unused-argument
+    is_dir: bool,
     expanded: bool,  # pylint: disable=unused-argument
     is_cursor: bool,  # pylint: disable=unused-argument
-    is_hover: bool,  # pylint: disable=unused-argument
+    is_hover: bool,
     has_focus: bool,  # pylint: disable=unused-argument
 ) -> rich.console.RenderableType:
     meta = {
@@ -102,4 +102,10 @@ def render_tree_label(
     }
     icon_label = node.data.meta()["label"]
     icon_label.apply_meta(meta)
+
+    if is_hover:
+        icon_label.stylize("underline")
+    if is_dir:
+        icon_label.stylize("bold magenta")
+
     return icon_label  # type: ignore[no-any-return]
