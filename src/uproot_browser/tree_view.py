@@ -41,9 +41,7 @@ class TreeView(textual.widgets.TreeControl[UprootItem]):
 
     async def watch_hover_node(self, hover_node: textual.widgets.NodeID) -> None:
         for node in self.nodes.values():
-            node.tree.guide_style = (
-                "bold not dim red" if node.id == hover_node else "black"
-            )
+            node.tree.guide_style = "bold" if node.id == hover_node else ""
         self.refresh(layout=True)
 
     def render_node(
@@ -89,11 +87,11 @@ class TreeView(textual.widgets.TreeControl[UprootItem]):
 @lru_cache(maxsize=1024 * 32)
 def render_tree_label(
     node: textual.widgets.TreeNode[UprootItem],
-    is_dir: bool,  # pylint: disable=unused-argument
-    expanded: bool,  # pylint: disable=unused-argument
-    is_cursor: bool,  # pylint: disable=unused-argument
-    is_hover: bool,  # pylint: disable=unused-argument
-    has_focus: bool,  # pylint: disable=unused-argument
+    is_dir: bool,
+    expanded: bool,
+    is_cursor: bool,
+    is_hover: bool,
+    has_focus: bool,
 ) -> rich.console.RenderableType:
     meta = {
         "@click": f"click_label({node.id})",
@@ -102,4 +100,12 @@ def render_tree_label(
     }
     icon_label = node.data.meta()["label"]
     icon_label.apply_meta(meta)
+
+    if is_hover:
+        icon_label.stylize("underline")
+    if is_cursor and has_focus:
+        icon_label.stylize("reverse")
+    if is_dir:
+        icon_label.stylize("green4" if expanded else "spring_green3")
+
     return icon_label  # type: ignore[no-any-return]
