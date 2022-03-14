@@ -42,7 +42,7 @@ class TreeView(textual.widgets.TreeControl[UprootItem]):
     async def watch_hover_node(self, hover_node: textual.widgets.NodeID) -> None:
         for node in self.nodes.values():
             node.tree.guide_style = (
-                "bold not dim red" if node.id == hover_node else "black"
+                "bold dark_cyan" if node.id == hover_node else "dim dark_cyan"
             )
         self.refresh(layout=True)
 
@@ -108,6 +108,8 @@ def render_tree_label(
     if is_cursor and has_focus:
         icon_label.stylize("reverse")
     if is_dir:
-        icon_label.stylize("bold magenta")
+        icon_label.stylize("green4") if expanded else icon_label.stylize(
+            "spring_green3"
+        )
 
     return icon_label  # type: ignore[no-any-return]
