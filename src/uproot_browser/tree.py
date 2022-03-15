@@ -7,7 +7,7 @@ from __future__ import annotations
 import dataclasses
 import functools
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict
 
 import rich
 import uproot
@@ -64,7 +64,7 @@ def make_tree(node: UprootItem, *, tree: Tree | None = None) -> Tree:
 
 
 @functools.singledispatch
-def process_item(uproot_object: Any) -> dict[str, Any]:
+def process_item(uproot_object: Any) -> Dict[str, Any]:
     """
     Given an unknown object, return a rich.tree.Tree output. Specialize for known objects.
     """
@@ -96,7 +96,7 @@ def _process_item_tfile(
 
 
 @process_item.register
-def _process_item_ttree(uproot_object: uproot.TTree) -> dict[str, Any]:
+def _process_item_ttree(uproot_object: uproot.TTree) -> Dict[str, Any]:
     """
     Given an tree, return a rich.tree.Tree output.
     """
@@ -114,7 +114,7 @@ def _process_item_ttree(uproot_object: uproot.TTree) -> dict[str, Any]:
 
 
 @process_item.register
-def _process_item_tbranch(uproot_object: uproot.TBranch) -> dict[str, Any]:
+def _process_item_tbranch(uproot_object: uproot.TBranch) -> Dict[str, Any]:
     """
     Given an branch, return a rich.tree.Tree output.
     """
@@ -134,7 +134,7 @@ def _process_item_tbranch(uproot_object: uproot.TBranch) -> dict[str, Any]:
 
 
 @process_item.register
-def _process_item_th(uproot_object: uproot.behaviors.TH1.Histogram) -> dict[str, Any]:
+def _process_item_th(uproot_object: uproot.behaviors.TH1.Histogram) -> Dict[str, Any]:
     """
     Given an histogram, return a rich.tree.Tree output.
     """
