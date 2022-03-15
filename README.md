@@ -1,7 +1,6 @@
 # uproot-browser
 
 [![Actions Status][actions-badge]][actions-link]
-[![Documentation Status][rtd-badge]][rtd-link]
 [![Code style: black][black-badge]][black-link]
 
 [![PyPI version][pypi-version]][pypi-link]
@@ -12,7 +11,7 @@
 [![Gitter][gitter-badge]][gitter-link]
 [![Scikit-HEP][sk-badge]](https://scikit-hep.org/)
 
-uproot-browser is a [plotext](https://github.com/piccolomo/plotext) based command line library. Its aim is to enable a user to browse and look inside a ROOT file, completely via the terminal. It takes its inspiration from the [ROOT object browser](https://root.cern/doc/master/classTRootBrowser.html).
+uproot-browser is a [plotext](https://github.com/piccolomo/plotext) based command line library in which the command line interface is provided by [Click](https://github.com/pallets/click). It is powered by [Hist](https://github.com/scikit-hep/hist) and it's TUI is put together by [Textual](https://github.com/Textualize/textual). Its aim is to enable a user to browse and look inside a ROOT file, completely via the terminal. It takes its inspiration from the [ROOT object browser](https://root.cern/doc/master/classTRootBrowser.html).
 
 ## Installation
 
@@ -44,6 +43,7 @@ pipx run uproot-browser[iterm]
 
 uproot-browser currently provides the following features:
 
+- `browse` can be used to display a TUI.
 - `plot` can be used to display a plot.
 - `tree` can be used to display a tree.
 
@@ -81,7 +81,7 @@ This example uses data from the [scikit-hep-testdata](https://github.com/scikit-
 uproot-browser browse ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.root
 ```
 
-[comment]: <> (add GIF)
+![GIF of the TUI functionality](https://github.com/henryiii/uproot-browser/releases/download/v0.3.0/tui.gif)
 
 **`plot` command:**
 
@@ -106,11 +106,28 @@ uproot-browser plot ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.
                                [x] xaxis
 ```
 
+<details>
+<summary>If you're on macOS and using iTerm2, click here:</summary><br>
+
+You can get an iterm plot, the required dependencies can be installed via:
+
+```bash
+python3 -m pip install uproot-browser[iterm]
+```
+
+Or can be run via `pipx` without installing:
+
+```bash
+pipx run uproot-browser[iterm]
+```
+
 Adding the argument `--iterm` gives us the plot:
 
 ```bash
 uproot-browser plot ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.root:hstat --iterm
 ```
+
+</details><br>
 
 **`tree` command:**
 
@@ -195,11 +212,9 @@ See [CONTRIBUTING.md](https://github.com/henryiii/uproot-browser/blob/main/.gith
 [conda-link]:               https://github.com/conda-forge/uproot-browser-feedstock
 [github-discussions-badge]: https://img.shields.io/static/v1?label=Discussions&message=Ask&color=blue&logo=github
 [github-discussions-link]:  https://github.com/henryiii/uproot-browser/discussions
-[gitter-badge]:             https://badges.gitter.im/https://github.com/Scikit-HEP/uproot-browser/community.svg
-[gitter-link]:              https://gitter.im/https://github.com/Scikit-HEP/uproot-browser/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge
+[gitter-badge]:  https://badges.gitter.im/Scikit-HEP/community.svg
+[gitter-link]:   https://gitter.im/Scikit-HEP/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge
 [pypi-link]:                https://pypi.org/project/uproot-browser/
 [pypi-platforms]:           https://img.shields.io/pypi/pyversions/uproot-browser
 [pypi-version]:             https://badge.fury.io/py/uproot-browser.svg
-[rtd-badge]:                https://readthedocs.org/projects/uproot-browser/badge/?version=latest
-[rtd-link]:                 https://uproot-browser.readthedocs.io/en/latest/?badge=latest
 [sk-badge]:                 https://scikit-hep.org/assets/images/Scikit--HEP-Project-blue.svg
