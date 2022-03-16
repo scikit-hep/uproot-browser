@@ -90,7 +90,7 @@ Adding the argument `--iterm` gives us the plot:
 ```bash
 uproot-browser plot ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.root:hstat --iterm
 ```
-  
+
 <img alt="iterm example" width="600px" src="https://raw.githubusercontent.com/henryiii/uproot-browser/main/docs/_images/iterm.png"/>
 
 </details><br>
