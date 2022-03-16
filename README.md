@@ -29,51 +29,16 @@ You can also use `pipx` to run the library without installing it:
 pipx run uproot-browser
 ```
 
-You can also get an iterm plot if you are on iTerm2. The required dependencies can be installed via:
-
-```bash
-python3 -m pip install uproot-browser[iterm]
-```
-
-Or can be run via `pipx` without installing:
-
-```bash
-pipx run uproot-browser[iterm]
-```
-
 ## Features
 
-uproot-browser currently provides the following features:
+uproot-browser currently provides the following features (get help with `-h` or `--help`):
 
 - `browse` can be used to display a TUI.
 - `plot` can be used to display a plot.
 - `tree` can be used to display a tree.
 
-## Usage
 
-**`-h` or `--help` option:**
-
-```bash
-uproot-browser -h
-```
-
-The help page is also shown if no argument or command is passed.
-
-```bash
-Usage: uproot-browser [OPTIONS] COMMAND [ARGS]...
-
-  Must provide a subcommand.
-
-Options:
-  -h, --help  Show this message and exit.
-
-Commands:
-  browse  Display a TUI.
-  plot    Display a plot.
-  tree    Display a tree.
-```
-
-## Example
+## Examples
 
 This example uses data from the [scikit-hep-testdata](https://github.com/scikit-hep/scikit-hep-testdata) package. It is placed in the same directory as the uproot-browser repository.
 
@@ -131,7 +96,7 @@ uproot-browser plot ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.
 
 </details><br>
 
-![iterm example](https://raw.githubusercontent.com/henryiii/uproot-browser/main/docs/_images/iterm.png)
+<img alt="iterm example" width="600px" src="https://raw.githubusercontent.com/henryiii/uproot-browser/main/docs/_images/iterm.png"/>
 
 **`tree` command:**
 
