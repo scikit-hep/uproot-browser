@@ -168,8 +168,8 @@ uproot-browser tree ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.
 
 ## Development
 
-[![pre-commit.ci status][pre-commit-badge]][pre-commit-link]
-<!-- [![Code style: black][black-badge]][black-link] -->
+<!-- [![pre-commit.ci status][pre-commit-badge]][pre-commit-link] -->
+[![Code style: black][black-badge]][black-link]
 
 See [CONTRIBUTING.md](https://github.com/henryiii/uproot-browser/blob/main/.github/CONTRIBUTING.md) for details on how to set up a development environment.
 
