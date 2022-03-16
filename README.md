@@ -1,3 +1,5 @@
+<img alt="uproot-browser" width="100%" src="https://raw.githubusercontent.com/henryiii/uproot-browser/main/docs/_images/uproot-browser-logo.png"/>
+
 # uproot-browser
 
 [![Actions Status][actions-badge]][actions-link]
@@ -128,6 +130,8 @@ uproot-browser plot ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.
 ```
 
 </details><br>
+
+![](https://raw.githubusercontent.com/henryiii/uproot-browswer/main/docs/_images/iterm.png)
 
 **`tree` command:**
 
