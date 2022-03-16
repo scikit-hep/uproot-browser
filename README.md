@@ -30,7 +30,7 @@ pipx run uproot-browser
 
 uproot-browser currently provides the following features (get help with `-h` or `--help`):
 
-- `browse` can be used to display a TUI.
+- `browse` can be used to display a TUI (terminal user interface).
 - `plot` can be used to display a plot.
 - `tree` can be used to display a tree.
 
@@ -90,10 +90,10 @@ Adding the argument `--iterm` gives us the plot:
 ```bash
 uproot-browser plot ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.root:hstat --iterm
 ```
+  
+<img alt="iterm example" width="600px" src="https://raw.githubusercontent.com/henryiii/uproot-browser/main/docs/_images/iterm.png"/>
 
 </details><br>
-
-<img alt="iterm example" width="600px" src="https://raw.githubusercontent.com/henryiii/uproot-browser/main/docs/_images/iterm.png"/>
 
 **`tree` command:**
 
@@ -168,7 +168,8 @@ uproot-browser tree ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.
 
 ## Development
 
-[![Code style: black][black-badge]][black-link]
+[![pre-commit.ci status][pre-commit-badge]][pre-commit-link]
+<!-- [![Code style: black][black-badge]][black-link] -->
 
 See [CONTRIBUTING.md](https://github.com/henryiii/uproot-browser/blob/main/.github/CONTRIBUTING.md) for details on how to set up a development environment.
 
@@ -180,9 +181,11 @@ See [CONTRIBUTING.md](https://github.com/henryiii/uproot-browser/blob/main/.gith
 [conda-link]:               https://github.com/conda-forge/uproot-browser-feedstock
 [github-discussions-badge]: https://img.shields.io/static/v1?label=Discussions&message=Ask&color=blue&logo=github
 [github-discussions-link]:  https://github.com/henryiii/uproot-browser/discussions
-[gitter-badge]:  https://badges.gitter.im/Scikit-HEP/community.svg
-[gitter-link]:   https://gitter.im/Scikit-HEP/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge
+[gitter-badge]:             https://badges.gitter.im/Scikit-HEP/community.svg
+[gitter-link]:              https://gitter.im/Scikit-HEP/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge
 [pypi-link]:                https://pypi.org/project/uproot-browser/
 [pypi-platforms]:           https://img.shields.io/pypi/pyversions/uproot-browser
 [pypi-version]:             https://badge.fury.io/py/uproot-browser.svg
 [sk-badge]:                 https://scikit-hep.org/assets/images/Scikit--HEP-Project-blue.svg
+[pre-commit-badge]:         https://results.pre-commit.ci/badge/github/henryiii/uproot-browser/main.svg
+[pre-commit-link]:          https://results.pre-commit.ci/repo/github/henryiii/uproot-browser
