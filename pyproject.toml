@@ -51,6 +51,7 @@ dependencies = [
 [project.optional-dependencies]
 test = [
   "pytest >=6",
+  "scikit-hep-testdata",
 ]
 iterm = [
   "matplotlib",
