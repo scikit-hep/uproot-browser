@@ -13,7 +13,7 @@ OUT1 = """\
 ┃   ┣━━ 🍁 TObject (group of fUniqueID:uint32_t, fBits:uint32_t)
 ┃   ┣━━ 🍁 fBits uint32_t
 ┃   ┣━━ 🍁 fUniqueID uint32_t
-┃   ┣━━ 🍁 fClosestDistance unknown*
+┃   ┣━━ 🍁 fClosestDistance unknown[]
 ┃   ┣━━ 🍁 fEventName char*
 ┃   ┣━━ 🍁 fEvtHdr EventHeader
 ┃   ┣━━ 🍁 fEvtHdr.fDate int32_t
@@ -40,13 +40,13 @@ OUT1 = """\
 ┃   ┣━━ 🍃 fTracks.fMeanCharge float[]
 ┃   ┣━━ 🍃 fTracks.fNpoint int32_t[]
 ┃   ┣━━ 🍃 fTracks.fNsp uint32_t[]
-┃   ┣━━ 🍁 fTracks.fPointValue unknown**
+┃   ┣━━ 🍁 fTracks.fPointValue unknown[][]
 ┃   ┣━━ 🍃 fTracks.fPx float[]
 ┃   ┣━━ 🍃 fTracks.fPy float[]
 ┃   ┣━━ 🍃 fTracks.fPz float[]
 ┃   ┣━━ 🍃 fTracks.fRandom float[]
 ┃   ┣━━ 🍃 fTracks.fTArray[3] float[][3]
-┃   ┣━━ 🍁 fTracks.fTriggerBits.fAllBits uint8_t**
+┃   ┣━━ 🍁 fTracks.fTriggerBits.fAllBits uint8_t[][]
 ┃   ┣━━ 🍃 fTracks.fTriggerBits.fBits uint32_t[]
 ┃   ┣━━ 🍃 fTracks.fTriggerBits.fNbits uint32_t[]
 ┃   ┣━━ 🍃 fTracks.fTriggerBits.fNbytes uint32_t[]
@@ -64,7 +64,7 @@ OUT1 = """\
 ┃   ┣━━ 🍁 fTriggerBits.TObject (group of fTriggerBits.fUniqueID:uint32_t, fTriggerBits.fBits:uint32_t)
 ┃   ┣━━ 🍁 fTriggerBits.fBits uint32_t
 ┃   ┣━━ 🍁 fTriggerBits.fUniqueID uint32_t
-┃   ┣━━ 🍃 fTriggerBits.fAllBits uint8_t*
+┃   ┣━━ 🍃 fTriggerBits.fAllBits uint8_t[]
 ┃   ┣━━ 🍁 fTriggerBits.fNbits uint32_t
 ┃   ┣━━ 🍁 fTriggerBits.fNbytes uint32_t
 ┃   ┣━━ 🍁 fType[20] int8_t[20]
