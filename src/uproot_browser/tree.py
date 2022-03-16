@@ -83,7 +83,7 @@ def process_item(uproot_object: Any) -> Dict[str, Any]:
 @process_item.register
 def _process_item_tfile(
     uproot_object: uproot.reading.ReadOnlyDirectory,
-) -> dict[str, Any]:
+) -> Dict[str, Any]:
     """
     Given an TFile, return a rich.tree.Tree output.
     """
