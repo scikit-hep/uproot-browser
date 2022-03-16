@@ -131,7 +131,7 @@ uproot-browser plot ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.
 
 </details><br>
 
-![](https://raw.githubusercontent.com/henryiii/uproot-browswer/main/docs/_images/iterm.png)
+![iterm example](https://raw.githubusercontent.com/henryiii/uproot-browser/main/docs/_images/iterm.png)
 
 **`tree` command:**
 
