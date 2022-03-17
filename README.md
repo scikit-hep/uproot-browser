@@ -1,4 +1,4 @@
-<img alt="uproot-browser" width="100%" src="https://raw.githubusercontent.com/henryiii/uproot-browser/main/docs/_images/uproot-browser-logo.png"/>
+<img alt="uproot-browser" width="100%" src="https://raw.githubusercontent.com/scikit-hep/uproot-browser/main/docs/_images/uproot-browser-logo.png"/>
 
 # uproot-browser
 
@@ -45,7 +45,7 @@ This example uses data from the [scikit-hep-testdata](https://github.com/scikit-
 uproot-browser browse ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.root
 ```
 
-![GIF of the TUI functionality](https://github.com/henryiii/uproot-browser/releases/download/v0.3.0/tui.gif)
+![GIF of the TUI functionality](https://github.com/scikit-hep/uproot-browser/releases/download/v0.3.0/tui.gif)
 
 **`plot` command:**
 
@@ -91,7 +91,7 @@ Adding the argument `--iterm` gives us the plot:
 uproot-browser plot ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.root:hstat --iterm
 ```
 
-<img alt="iterm example" width="600px" src="https://raw.githubusercontent.com/henryiii/uproot-browser/main/docs/_images/iterm.png"/>
+<img alt="iterm example" width="600px" src="https://raw.githubusercontent.com/scikit-hep/uproot-browser/main/docs/_images/iterm.png"/>
 
 </details><br>
 
@@ -171,21 +171,21 @@ uproot-browser tree ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.
 <!-- [![pre-commit.ci status][pre-commit-badge]][pre-commit-link] -->
 [![Code style: black][black-badge]][black-link]
 
-See [CONTRIBUTING.md](https://github.com/henryiii/uproot-browser/blob/main/.github/CONTRIBUTING.md) for details on how to set up a development environment.
+See [CONTRIBUTING.md](https://github.com/scikit-hep/uproot-browser/blob/main/.github/CONTRIBUTING.md) for details on how to set up a development environment.
 
-[actions-badge]:            https://github.com/henryiii/uproot-browser/workflows/CI/badge.svg
-[actions-link]:             https://github.com/henryiii/uproot-browser/actions
+[actions-badge]:            https://github.com/scikit-hep/uproot-browser/workflows/CI/badge.svg
+[actions-link]:             https://github.com/scikit-hep/uproot-browser/actions
 [black-badge]:              https://img.shields.io/badge/code%20style-black-000000.svg
 [black-link]:               https://github.com/psf/black
 [conda-badge]:              https://img.shields.io/conda/vn/conda-forge/uproot-browser
 [conda-link]:               https://github.com/conda-forge/uproot-browser-feedstock
 [github-discussions-badge]: https://img.shields.io/static/v1?label=Discussions&message=Ask&color=blue&logo=github
-[github-discussions-link]:  https://github.com/henryiii/uproot-browser/discussions
+[github-discussions-link]:  https://github.com/scikit-hep/uproot-browser/discussions
 [gitter-badge]:             https://badges.gitter.im/Scikit-HEP/community.svg
 [gitter-link]:              https://gitter.im/Scikit-HEP/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge
 [pypi-link]:                https://pypi.org/project/uproot-browser/
 [pypi-platforms]:           https://img.shields.io/pypi/pyversions/uproot-browser
 [pypi-version]:             https://badge.fury.io/py/uproot-browser.svg
 [sk-badge]:                 https://scikit-hep.org/assets/images/Scikit--HEP-Project-blue.svg
-[pre-commit-badge]:         https://results.pre-commit.ci/badge/github/henryiii/uproot-browser/main.svg
-[pre-commit-link]:          https://results.pre-commit.ci/repo/github/henryiii/uproot-browser
+[pre-commit-badge]:         https://results.pre-commit.ci/badge/github/scikit-hep/uproot-browser/main.svg
+[pre-commit-link]:          https://results.pre-commit.ci/repo/github/scikit-hep/uproot-browser
