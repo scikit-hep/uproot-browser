@@ -5,9 +5,10 @@ This is the click-powered CLI.
 from __future__ import annotations
 
 import asyncio
+import functools
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import click
 import rich
@@ -32,6 +33,20 @@ def tree(filename: str) -> None:
     import uproot_browser.tree  # pylint: disable=import-outside-toplevel
 
     uproot_browser.tree.print_tree(filename)
+
+
+def intercept(func: Callable[..., Any], *names: str) -> Callable[..., Any]:
+    """
+    Intercept function arguments and remove them
+    """
+
+    @functools.wraps(func)
+    def new_func(*args: Any, **kwargs: Any) -> Any:
+        for name in names:
+            kwargs.pop(name)
+        return func(*args, **kwargs)
+
+    return new_func
 
 
 @main.command()
@@ -61,6 +76,13 @@ def plot(filename: str, iterm: bool) -> None:
 
     if iterm:
         uproot_browser.plot_mpl.plot(item)
+        if plt.get_backend() == r"module://itermplot":
+            fm = plt.get_current_fig_manager()
+            canvas = fm.canvas
+            canvas.__class__.print_figure = intercept(
+                canvas.__class__.print_figure, "facecolor", "edgecolor"
+            )
+
         plt.show()
     else:
         uproot_browser.plot.clf()
