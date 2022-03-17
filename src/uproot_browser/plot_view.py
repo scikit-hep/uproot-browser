@@ -25,6 +25,15 @@ Scikit-HEP
                 Powered by Textual & Hist"""
 
 
+LOGO_PANEL = rich.panel.Panel(
+    rich.align.Align.center(
+        rich.text.Text.from_ansi(LOGO, no_wrap=True), vertical="middle"
+    ),
+    border_style="green",
+    box=rich.box.ROUNDED,
+)
+
+
 def make_plot(item: Any, *size: int) -> Any:
     plt.clf()
     plt.plotsize(*size)
@@ -35,6 +44,7 @@ def make_plot(item: Any, *size: int) -> Any:
 class Plot:
     def __init__(self, item: Any) -> None:
         self.item: Any = item
+        self.max_frames = 2
 
     def __rich_console__(
         self, console: rich.console.Console, options: rich.console.ConsoleOptions
@@ -47,9 +57,10 @@ class Plot:
         except Exception:
             tb = rich.traceback.Traceback(
                 extra_lines=1,
-                max_frames=4,  # Can't be less than 4 frames
+                max_frames=self.max_frames,  # Can't be less than 4 frames
+                width=width,
             )
-            tb.max_frames = 2
+            tb.max_frames = self.max_frames
             yield tb
 
 
@@ -57,9 +68,11 @@ class PlotWidget(textual.widget.Widget):
     def __init__(self, uproot_file: uproot.ReadOnlyFile) -> None:
         super().__init__()
         self.file = uproot_file
-        self.plot = EMPTY
+        self.plot: rich.panel.Panel | Plot | None = LOGO_PANEL
+        self.plot_path: str | None = None
 
     def set_plot(self, plot_path: str | None) -> None:
+        self.plot_path = plot_path
         if plot_path is None:
             self.plot = plot_path
         else:
@@ -84,13 +97,7 @@ class PlotWidget(textual.widget.Widget):
                 box=rich.box.ROUNDED,
             )
 
-        if self.plot is EMPTY:
-            return rich.panel.Panel(
-                rich.align.Align.center(
-                    rich.text.Text.from_ansi(LOGO, no_wrap=True), vertical="middle"
-                ),
-                border_style="green",
-                box=rich.box.ROUNDED,
-            )
+        if isinstance(self.plot, rich.panel.Panel):
+            return self.plot
 
-        return rich.panel.Panel(self.plot)  # type: ignore[arg-type]
+        return rich.panel.Panel(self.plot)

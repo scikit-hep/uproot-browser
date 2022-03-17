@@ -4,10 +4,13 @@ This is the click-powered CLI.
 
 from __future__ import annotations
 
+import asyncio
 import os
 from pathlib import Path
+from typing import Any
 
 import click
+import rich
 import uproot
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
@@ -76,11 +79,19 @@ def browse(filename: str) -> None:
     fname = uproot_browser.dirs.filename(filename)
 
     # Run the uproot-browser TUI
-    uproot_browser.tui.Browser.run(
-        title="uproot-browser",
-        log="textual.log",
-        path=Path(fname),
-    )
+    async def amain() -> list[Any]:
+        app = uproot_browser.tui.Browser(
+            title="uproot-browser",
+            log="textual.log",
+            path=Path(fname),
+        )
+        await app.process_messages()
+        return app.results
+
+    results = asyncio.run(amain())
+
+    for result in results:
+        rich.print(result)
 
 
 if __name__ == "__main__":
