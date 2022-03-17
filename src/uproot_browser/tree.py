@@ -9,13 +9,15 @@ import functools
 from pathlib import Path
 from typing import Any, Dict
 
-import rich
 import uproot
+from rich.console import Console
 from rich.markup import escape
 from rich.text import Text
 from rich.tree import Tree
 
-__all__ = ("make_tree", "process_item", "print_tree", "UprootItem")
+console = Console()
+
+__all__ = ("make_tree", "process_item", "print_tree", "UprootItem", "console")
 
 
 def __dir__() -> tuple[str, ...]:
@@ -81,7 +83,7 @@ def process_item(uproot_object: Any) -> Dict[str, Any]:
 @process_item.register
 def _process_item_tfile(
     uproot_object: uproot.reading.ReadOnlyDirectory,
-) -> dict[str, Any]:
+) -> Dict[str, Any]:
     """
     Given an TFile, return a rich.tree.Tree output.
     """
@@ -151,7 +153,8 @@ def _process_item_th(uproot_object: uproot.behaviors.TH1.Histogram) -> Dict[str,
     return result
 
 
-def print_tree(entry: str) -> None:
+# pylint: disable-next=redefined-outer-name
+def print_tree(entry: str, *, console: Console = console) -> None:
     """
     Prints a tree given a specification string. Currently, that must be a
     single filename. Colons are not allowed currently in the filename.
@@ -159,4 +162,4 @@ def print_tree(entry: str) -> None:
 
     upfile = uproot.open(entry)
     tree = make_tree(UprootItem("/", upfile))
-    rich.print(tree)
+    console.print(tree)
