@@ -4,6 +4,7 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "uproot_browser"
+version = "0.4.0"
 authors = [
   { name = "Henry Schreiner", email = "henryfs@princeton.edu" },
 ]
@@ -34,8 +35,6 @@ classifiers = [
   "Typing :: Typed",
 ]
 
-
-dynamic = ["version"]
 dependencies = [
   "awkward >=1",
   "click >=8",
