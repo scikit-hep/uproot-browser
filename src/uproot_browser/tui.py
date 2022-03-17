@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import rich.syntax
 import textual.geometry
 import textual.views
 import textual.widgets
@@ -67,5 +68,10 @@ class Browser(App):
         msg = f'import uproot\nuproot_file = uproot.open("{self.path}")'
         if self.plot.plot_path:
             msg += f'\nitem = uproot_file["{self.plot.plot_path.lstrip("/")}"]'
-        self.results = [plot, msg]
+        self.results = [
+            plot,
+            "",
+            rich.syntax.Syntax(msg, "python", theme="default"),
+            "",
+        ]
         await self.shutdown()  # type: ignore[no-untyped-call]
