@@ -35,8 +35,6 @@ classifiers = [
   "Typing :: Typed",
 ]
 
-
-dynamic = ["version"]
 dependencies = [
   "awkward >=1",
   "click >=8",
@@ -66,8 +64,8 @@ dev = [
 ]
 
 [project.urls]
-homepage = "https://github.com/henryiii/uproot-browser"
-repository = "https://github.com/henryiii/uproot-browser"
+homepage = "https://github.com/scikit-hep/uproot-browser"
+repository = "https://github.com/scikit-hep/uproot-browser"
 
 [project.scripts]
 uproot-browser = "uproot_browser.__main__:main"
