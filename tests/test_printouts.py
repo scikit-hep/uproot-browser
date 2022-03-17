@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import sys
+
+import pytest
 import rich.console
 from skhep_testdata import data_path
 
@@ -74,6 +77,10 @@ OUT1 = """\
 """
 
 
+@pytest.mark.xfail(
+    sys.platform.startswith("win"),
+    reason="Unicode is different on Windows, for some reason?",
+)
 def test_tree(capsys):
     filename = data_path("uproot-Event.root")
     console = rich.console.Console(width=120)
