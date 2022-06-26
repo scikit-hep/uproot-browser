@@ -7,6 +7,7 @@
 [![PyPI platforms][pypi-platforms]][pypi-link]
 [![GitHub Discussion][github-discussions-badge]][github-discussions-link]
 [![Gitter][gitter-badge]][gitter-link]
+[![License][license-badge]][license-link]
 [![Scikit-HEP][sk-badge]](https://scikit-hep.org/)
 [![Conda-Forge][conda-badge]][conda-link]
 
@@ -183,6 +184,8 @@ See [CONTRIBUTING.md](https://github.com/scikit-hep/uproot-browser/blob/main/.gi
 [github-discussions-link]:  https://github.com/scikit-hep/uproot-browser/discussions
 [gitter-badge]:             https://badges.gitter.im/Scikit-HEP/community.svg
 [gitter-link]:              https://gitter.im/Scikit-HEP/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge
+[license-badge]:            https://img.shields.io/badge/License-BSD_3--Clause-blue.svg
+[license-link]:             https://opensource.org/licenses/BSD-3-Clause
 [pypi-link]:                https://pypi.org/project/uproot-browser/
 [pypi-platforms]:           https://img.shields.io/pypi/pyversions/uproot-browser
 [pypi-version]:             https://badge.fury.io/py/uproot-browser.svg
