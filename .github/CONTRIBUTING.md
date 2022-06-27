@@ -43,7 +43,7 @@ you can instead do:
 ```bash
 py -m venv .venv
 py -m pip install -U pip
-py -m pip instal -e '.[dev]'
+py -m pip install -e '.[dev]'
 ```
 
 
