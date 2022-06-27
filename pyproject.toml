@@ -1,6 +1,6 @@
 [build-system]
-requires = ["flit_core>=3.3"]
-build-backend = "flit_core.buildapi"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "uproot_browser"
@@ -58,9 +58,9 @@ iterm = [
   "mplhep",
 ]
 dev = [
-  "flit >=3.3",
   "ipython >=6",
   "pytest >=6",
+  "scikit-hep-testdata",
 ]
 
 [project.urls]
