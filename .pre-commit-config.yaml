@@ -52,7 +52,7 @@ repos:
     additional_dependencies: [rich>=12, click>=8.1.1, hist, numpy, textual==0.1.17]
 
 - repo: https://github.com/codespell-project/codespell
-  rev: v2.1.0
+  rev: v2.2.1
   hooks:
   - id: codespell
     args: [-L, "hist,iterm"]
