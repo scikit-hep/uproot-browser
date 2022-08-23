@@ -92,7 +92,10 @@ def plot(filename: str, iterm: bool) -> None:
 
 @main.command()
 @click.argument("filename")
-def browse(filename: str) -> None:
+@click.option(
+    "--logging", is_flag=True, help="Write log information to the textual.log file."
+)
+def browse(filename: str, logging: bool) -> None:
     """
     Display a TUI.
     """
@@ -102,11 +105,18 @@ def browse(filename: str) -> None:
 
     # Run the uproot-browser TUI
     async def amain() -> list[Any]:
-        app = uproot_browser.tui.Browser(
-            title="uproot-browser",
-            log="textual.log",
-            path=Path(fname),
-        )
+        if logging:
+            app = uproot_browser.tui.Browser(
+                title="uproot-browser",
+                log="textual.log",
+                path=Path(fname),
+            )
+
+        else:
+            app = uproot_browser.tui.Browser(
+                title="uproot-browser",
+                path=Path(fname),
+            )
         await app.process_messages()
         return app.results
 
