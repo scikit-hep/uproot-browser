@@ -105,18 +105,11 @@ def browse(filename: str, logging: bool) -> None:
 
     # Run the uproot-browser TUI
     async def amain() -> list[Any]:
-        if logging:
-            app = uproot_browser.tui.Browser(
-                title="uproot-browser",
-                log="textual.log",
-                path=Path(fname),
-            )
-
-        else:
-            app = uproot_browser.tui.Browser(
-                title="uproot-browser",
-                path=Path(fname),
-            )
+        app = uproot_browser.tui.Browser(
+            title="uproot-browser",
+            path=Path(fname),
+            log="textual.log" if logging else None,
+        )
         await app.process_messages()
         return app.results
 
