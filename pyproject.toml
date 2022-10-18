@@ -45,7 +45,7 @@ dependencies = [
   "uproot >=4.2.1",
   "plotext >=5.2.2",
   "hist >=2.4",
-  "textual >=0.1.17",
+  "textual >=0.1.17,<0.2.0",
 ]
 
 [project.optional-dependencies]
