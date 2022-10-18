@@ -88,10 +88,20 @@ def _process_item_tfile(
     Given an TFile, return a rich.tree.Tree output.
     """
     path = Path(uproot_object.file_path)
+
+    if uproot_object.path:
+        # path is to a TDirectory on tree
+        path_name = escape(uproot_object.path[0])
+        link_text = f"file://{path}:/{path_name}"
+    else:
+        # path is the top of the tree: the file
+        path_name = escape(path.name)
+        link_text = f"file://{path}"
+
+    label = Text.from_markup(f":file_folder: [link {link_text}]{path_name}")
+
     result = {
-        "label": Text.from_markup(
-            f":file_folder: [link file://{path}]{escape(path.name)}"
-        ),
+        "label": label,
         "guide_style": "bold bright_blue",
     }
     return result
