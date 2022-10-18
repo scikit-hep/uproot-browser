@@ -42,7 +42,7 @@ dependencies = [
   "numpy >=1.13.3",
   "rich >=12.0.0",
   "uproot >=4.2.1",
-  "plotext >=4.1.0",
+  "plotext >=5.2.2",
   "hist >=2.4",
   "textual >=0.1.17",
 ]
