@@ -54,14 +54,26 @@ class Plot:
         try:
             canvas = make_plot(self.item, width, height)
             yield rich.text.Text.from_ansi(canvas)
-        except Exception:
-            tb = rich.traceback.Traceback(
-                extra_lines=1,
-                max_frames=self.max_frames,  # Can't be less than 4 frames
-                width=width,
-            )
-            tb.max_frames = self.max_frames
-            yield tb
+        except Exception as err:
+            if isinstance(err, ValueError):
+                yield rich.panel.Panel(
+                    rich.align.Align.center(
+                        rich.pretty.Pretty(f"{self.item.name} is EMPTY", no_wrap=True),
+                        vertical="middle",
+                    ),
+                    border_style="red",
+                    box=rich.box.ROUNDED,
+                    width=width,
+                    height=height,
+                )
+            else:
+                tb = rich.traceback.Traceback(
+                    extra_lines=1,
+                    max_frames=self.max_frames,  # Can't be less than 4 frames
+                    width=width,
+                )
+                tb.max_frames = self.max_frames
+                yield tb
 
 
 class PlotWidget(textual.widget.Widget):
