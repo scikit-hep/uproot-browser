@@ -14,6 +14,9 @@ import numpy as np
 import plotext as plt
 import uproot
 
+class EmptyTreeError(ValueError):
+    pass
+
 
 def clf() -> None:
     """
@@ -56,7 +59,7 @@ def plot_branch(tree: uproot.TBranch) -> None:
     values = ak.flatten(array) if array.ndim > 1 else array
     finite = values[np.isfinite(values)]
     if len(finite) < 1:
-        raise ValueError(f"Branch {tree.name} is empty.")
+        raise EmptyTreeError(f"Branch {tree.name} is empty.")
     histogram: hist.Hist = hist.numpy.histogram(finite, bins=100, histogram=hist.Hist)
     plt.bar(histogram.axes[0].centers, histogram.values().astype(float))
     plt.ylim(lower=0)
