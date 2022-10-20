@@ -17,6 +17,7 @@ Python on your system, skipping ones that are not installed. You can also run
 specific jobs:
 
 ```console
+$ nox -l # List all the defined sessions
 $ nox -s lint  # Lint only
 $ nox -s tests  # Run the tests
 $ nox -s build  # Make an SDist and wheel
@@ -24,7 +25,6 @@ $ nox -s build  # Make an SDist and wheel
 
 Nox handles everything for you, including setting up an temporary virtual
 environment for each run.
-
 
 # Setting up a development environment manually
 
@@ -45,7 +45,6 @@ py -m venv .venv
 py -m pip install -U pip
 py -m pip install -e '.[dev]'
 ```
-
 
 # Post setup
 
