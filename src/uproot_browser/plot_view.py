@@ -65,7 +65,7 @@ class Plot:
                 width=width,
                 height=height,
             )
-        except Exception as err:
+        except Exception:
             tb = rich.traceback.Traceback(
                 extra_lines=1,
                 max_frames=self.max_frames,  # Can't be less than 4 frames
