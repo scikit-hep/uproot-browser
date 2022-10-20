@@ -14,6 +14,7 @@ import numpy as np
 import plotext as plt
 import uproot
 
+
 class EmptyTreeError(ValueError):
     pass
 
