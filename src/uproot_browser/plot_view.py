@@ -14,6 +14,7 @@ import uproot
 
 import uproot_browser.dirs
 import uproot_browser.plot
+from uproot_browser.exceptions import EmptyTreeError
 
 EMPTY = object()
 
@@ -54,7 +55,7 @@ class Plot:
         try:
             canvas = make_plot(self.item, width, height)
             yield rich.text.Text.from_ansi(canvas)
-        except uproot_browser.plot.EmptyTreeError:
+        except EmptyTreeError:
             yield rich.panel.Panel(
                 rich.align.Align.center(
                     f"[green]{self.item.name} is EMPTY",
