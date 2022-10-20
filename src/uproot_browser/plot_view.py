@@ -54,7 +54,7 @@ class Plot:
         try:
             canvas = make_plot(self.item, width, height)
             yield rich.text.Text.from_ansi(canvas)
-        except ValueError as err:
+        except uproot_browser.plot.EmptyTreeError:
             yield rich.panel.Panel(
                 rich.align.Align.center(
                     rich.pretty.Pretty(f"{self.item.name} is EMPTY", no_wrap=True),
