@@ -73,7 +73,7 @@ uproot-browser = "uproot_browser.__main__:main"
 
 [tool.hatch]
 version.source = "vcs"
-build.hooks.vcs.version-file = "src/uproot_browser/version.py"
+build.hooks.vcs.version-file = "src/uproot_browser/_version.py"
 
 [tool.pytest.ini_options]
 minversion = "6.0"

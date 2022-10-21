@@ -139,5 +139,3 @@ cython_debug/
 
 # setuptools_scm
 src/*/_version.py
-
-*/uproot_browser/version.py
