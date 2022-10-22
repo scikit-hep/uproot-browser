@@ -29,7 +29,7 @@ pipx run uproot-browser
 
 ## Features
 
-uproot-browser currently provides the following features (get help with `-h` or `--help`):
+uproot-browser currently provides the following features (get help with `-h` or `--help`, view the current version with `--version`):
 
 - `browse` can be used to display a TUI (terminal user interface).
 - `plot` can be used to display a plot.
