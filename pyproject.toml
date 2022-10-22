@@ -1,10 +1,9 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "uproot_browser"
-version = "0.4.0"
 authors = [
   { name = "Henry Schreiner", email = "henryfs@princeton.edu" },
 ]
@@ -36,6 +35,7 @@ classifiers = [
   "Typing :: Typed",
 ]
 
+dynamic = ["version"]
 dependencies = [
   "awkward >=1",
   "click >=8",
@@ -71,6 +71,9 @@ repository = "https://github.com/scikit-hep/uproot-browser"
 [project.scripts]
 uproot-browser = "uproot_browser.__main__:main"
 
+[tool.hatch]
+version.source = "vcs"
+build.hooks.vcs.version-file = "src/uproot_browser/_version.py"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
