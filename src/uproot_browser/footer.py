@@ -20,9 +20,7 @@ class Footer(Widget):
 
     highlight_key: Reactive[str | None] = Reactive(None)
 
-    async def watch_highlight_key(
-        self, value: Any  # pylint: disable=unused-argument
-    ) -> None:
+    async def watch_highlight_key(self, value: Any) -> None:  # noqa: ARG002
         """If highlight key changes we need to regenerate the text."""
         self._key_text = None
 

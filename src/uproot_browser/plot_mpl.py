@@ -16,11 +16,12 @@ import uproot_browser.plot
 
 
 @functools.singledispatch
-def plot(tree: Any) -> None:
+def plot(tree: Any) -> None:  # noqa: ARG001
     """
     Implement this for each type of plottable.
     """
-    raise RuntimeError("This object is not plottable yet")
+    msg = "This object is not plottable yet"
+    raise RuntimeError(msg)
 
 
 @plot.register

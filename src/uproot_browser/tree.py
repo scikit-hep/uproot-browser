@@ -43,7 +43,7 @@ class UprootItem:
     def children(self) -> list[UprootItem]:
         if not self.is_dir:
             return []
-        items = {key.split(";")[0] for key in self.item.keys()}
+        items = {key.split(";")[0] for key in self.item.keys()}  # noqa: SIM118
         return [
             UprootItem(f"{self.path}/{key}", self.item[key]) for key in sorted(items)
         ]
@@ -54,10 +54,7 @@ def make_tree(node: UprootItem, *, tree: Tree | None = None) -> Tree:
     Given an object, build a rich.tree.Tree output.
     """
 
-    if tree is None:
-        tree = Tree(**node.meta())
-    else:
-        tree = tree.add(**node.meta())
+    tree = Tree(**node.meta()) if tree is None else tree.add(**node.meta())
 
     for child in node.children:
         make_tree(child, tree=tree)
@@ -100,11 +97,10 @@ def _process_item_tfile(
 
     label = Text.from_markup(f":file_folder: [link {link_text}]{path_name}")
 
-    result = {
+    return {
         "label": label,
         "guide_style": "bold bright_blue",
     }
-    return result
 
 
 @process_item.register
@@ -118,11 +114,10 @@ def _process_item_ttree(uproot_object: uproot.TTree) -> Dict[str, Any]:
         f"({uproot_object.num_entries:g})",
     )
 
-    result = {
+    return {
         "label": label,
         "guide_style": "bold bright_green",
     }
-    return result
 
 
 @process_item.register
@@ -141,8 +136,7 @@ def _process_item_tbranch(uproot_object: uproot.TBranch) -> Dict[str, Any]:
         (f"{uproot_object.name} ", "bold"),
         (f"{uproot_object.typename}", "italic"),
     )
-    result = {"label": label}
-    return result
+    return {"label": label}
 
 
 @process_item.register
@@ -159,8 +153,7 @@ def _process_item_th(uproot_object: uproot.behaviors.TH1.Histogram) -> Dict[str,
         (f"{uproot_object.classname} ", "italic"),
         f"({sizes})",
     )
-    result = {"label": label}
-    return result
+    return {"label": label}
 
 
 # pylint: disable-next=redefined-outer-name

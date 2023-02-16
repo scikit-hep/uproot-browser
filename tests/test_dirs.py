@@ -5,12 +5,12 @@ from uproot_browser.dirs import filename, selections
 
 def test_filename():
     r"Should handle C:\ too"
-    assert "/file.root" == filename("/file.root")
-    assert "/file.root" == filename("/file.root:dir")
-    assert "/file.root" == filename("/file.root:dir:tree")
+    assert filename("/file.root") == "/file.root"
+    assert filename("/file.root:dir") == "/file.root"
+    assert filename("/file.root:dir:tree") == "/file.root"
 
 
 def test_selection():
-    assert () == selections("/file.root")
-    assert ("dir",) == selections("/file.root:dir")
-    assert ("dir", "tree") == selections("/file.root:dir:tree")
+    assert selections("/file.root") == ()
+    assert selections("/file.root:dir") == ("dir",)
+    assert selections("/file.root:dir:tree") == ("dir", "tree")

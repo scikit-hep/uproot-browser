@@ -51,10 +51,7 @@ class Header(Widget):
         header_table.add_column(justify="left", ratio=0, width=8)
         header_table.add_column("title", justify="center", ratio=1)
         header_table.add_column("clock", justify="right", width=8)
-        if self.highlight_button == "quit":
-            str_icon = "❎ Exit"
-        else:
-            str_icon = "❌     "
+        str_icon = "❎ Exit" if self.highlight_button == "quit" else "❌     "
         icon = Text.assemble(str_icon, meta={"@click": "app.quit", "button": "quit"})
         header_table.add_row(
             icon, self.full_title, self.get_clock() if self.clock else ""
@@ -85,5 +82,5 @@ class Header(Widget):
         watch(self.app, "title", set_title)
         watch(self.app, "sub_title", set_sub_title)
 
-    async def on_click(self, event: events.Click) -> None:
+    async def on_click(self, event: events.Click) -> None:  # noqa: ARG002
         self.tall = not self.tall
