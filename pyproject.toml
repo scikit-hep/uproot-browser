@@ -93,9 +93,10 @@ profile = "black"
 
 [tool.mypy]
 files = "src"
-python_version = "3.7"
+python_version = "3.8"
 warn_unused_configs = true
 strict = true
+show_error_codes = true
 
 [[tool.mypy.overrides]]
 module = ["plotext.*", "awkward.*", "uproot.*", "matplotlib.*"]
