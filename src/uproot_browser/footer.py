@@ -56,7 +56,7 @@ class Footer(Widget):
             key_text = Text.assemble(
                 (f" {key_display} ", "reverse" if hovered else "default on default"),
                 f" {binding.description} ",
-                meta={"@click": f"app.press('{binding.key}')", "key": binding.key},
+                meta={"@click": f"app.press({binding.key!r})", "key": binding.key},
             )
             text.append_text(key_text)
         return text

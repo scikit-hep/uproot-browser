@@ -48,8 +48,7 @@ repos:
   hooks:
   - id: mypy
     files: src
-    args: [--show-error-codes]
-    additional_dependencies: [rich>=12, click>=8.1.1, hist, numpy==1.21.6, textual==0.1.17]
+    additional_dependencies: [rich>=12, click>=8.1.1, hist, numpy, textual==0.1.17]
 
 - repo: https://github.com/codespell-project/codespell
   rev: v2.2.2
