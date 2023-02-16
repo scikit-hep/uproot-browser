@@ -42,11 +42,12 @@ def make_hist_title(item: Any, histogram: hist.Hist) -> str:
 
 
 @functools.singledispatch
-def plot(tree: Any) -> None:
+def plot(tree: Any) -> None:  # noqa: ARG001
     """
     Implement this for each type of plottable.
     """
-    raise RuntimeError("This object is not plottable yet")
+    msg = "This object is not plottable yet"
+    raise RuntimeError(msg)
 
 
 @plot.register
@@ -58,7 +59,8 @@ def plot_branch(tree: uproot.TBranch) -> None:
     values = ak.flatten(array) if array.ndim > 1 else array
     finite = values[np.isfinite(values)]
     if len(finite) < 1:
-        raise EmptyTreeError(f"Branch {tree.name} is empty.")
+        msg = f"Branch {tree.name} is empty."
+        raise EmptyTreeError(msg)
     histogram: hist.Hist = hist.numpy.histogram(finite, bins=100, histogram=hist.Hist)
     plt.bar(histogram.axes[0].centers, histogram.values().astype(float))
     plt.ylim(lower=0)

@@ -58,7 +58,7 @@ class TreeView(textual.widgets.TreeControl[UprootItem]):
 
     async def on_mount(
         self,
-        event: textual.events.Mount,  # pylint: disable=unused-argument
+        event: textual.events.Mount,  # noqa: ARG002
     ) -> None:
         await self.load_directory(self.root)
 

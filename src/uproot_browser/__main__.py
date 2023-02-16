@@ -16,7 +16,7 @@ import uproot
 
 from ._version import version as __version__
 
-CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
+CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 
 VERSION = __version__
 
