@@ -51,6 +51,15 @@ jobs:
     - name: Test package
       run: python -m pytest -ra
 
+  pass:
+    if: always()
+    needs: [checks]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Decide whether the needed jobs succeeded or failed
+        uses: re-actors/alls-green@release/v1
+        with:
+          jobs: ${{ toJSON(needs) }}
 
   dist:
     name: Distribution build
