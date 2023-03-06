@@ -9,7 +9,7 @@ from skhep_testdata import data_path
 from uproot_browser.tree import print_tree
 
 OUT1 = """\
-📁 uproot-event.root
+📁 uproot-Event.root
 ┣━━ ❓ <unnamed> TProcessID
 ┣━━ 🌴 T (1000)
 ┃   ┗━━ 🍁 event Event
