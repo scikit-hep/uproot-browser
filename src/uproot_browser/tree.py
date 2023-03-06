@@ -31,7 +31,12 @@ class UprootItem:
 
     @property
     def is_dir(self) -> bool:
-        return isinstance(self.item, (uproot.reading.ReadOnlyDirectory, uproot.TTree))
+        # also uproot.TBranch Element with len(TBranch.branches) > 0
+        return (
+            isinstance(self.item, uproot.reading.ReadOnlyDirectory)
+            or isinstance(self.item, uproot.behaviors.TBranch.HasBranches)
+            and len(self.item.branches) > 0
+        )
 
     def meta(self) -> dict[str, Any]:
         return process_item(self.item)
@@ -50,7 +55,7 @@ class UprootItem:
                 if "/" not in key
             }
         else:
-            items = {key.split(";")[0] for key in self.item.keys()}  # noqa: SIM118
+            items = {obj.name.split(";")[0] for obj in self.item.branches}
         return [
             UprootItem(f"{self.path}/{key}", self.item[key]) for key in sorted(items)
         ]
