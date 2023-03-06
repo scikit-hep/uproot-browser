@@ -43,11 +43,14 @@ class UprootItem:
     def children(self) -> list[UprootItem]:
         if not self.is_dir:
             return []
-        items = {
-            key.split(";")[0]
-            for key in self.item.keys()  # noqa: SIM118
-            if "/" not in key
-        }
+        if isinstance(self.item, uproot.reading.ReadOnlyDirectory):
+            items = {
+                key.split(";")[0]
+                for key in self.item.keys()  # noqa: SIM118
+                if "/" not in key
+            }
+        else:
+            items = {key.split(";")[0] for key in self.item.keys()}  # noqa: SIM118
         return [
             UprootItem(f"{self.path}/{key}", self.item[key]) for key in sorted(items)
         ]
