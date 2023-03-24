@@ -104,13 +104,13 @@ def browse(filename: str, logging: bool) -> None:
     """
     Display a TUI.
     """
-    import uproot_browser.tui  # pylint: disable=import-outside-toplevel
+    import uproot_browser.old_textual.tui  # pylint: disable=import-outside-toplevel
 
     fname = uproot_browser.dirs.filename(filename)
 
     # Run the uproot-browser TUI
     async def amain() -> list[Any]:
-        app = uproot_browser.tui.Browser(
+        app = uproot_browser.old_textual.tui.Browser(
             title="uproot-browser",
             path=Path(fname),
             log="textual.log" if logging else None,
