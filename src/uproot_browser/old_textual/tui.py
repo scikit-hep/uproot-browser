@@ -9,8 +9,8 @@ import textual.geometry
 import textual.widgets
 from textual.app import App
 
-from .footer import Footer
-from .header import Header
+from textual.widgets import Footer
+from textual.widgets import Header
 from .plot_view import Plot, PlotWidget
 from .tree_view import TreeView, UprootClick
 
