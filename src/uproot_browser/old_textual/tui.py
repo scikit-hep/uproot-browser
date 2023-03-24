@@ -5,7 +5,7 @@ from typing import Any
 
 import rich.syntax
 import textual.geometry
-import textual.views
+#import textual.views
 import textual.widgets
 from textual.app import App
 

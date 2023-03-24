@@ -12,7 +12,7 @@ import textual.widgets
 import uproot
 from textual._types import MessageTarget
 
-from .tree import UprootItem
+from ..tree import UprootItem
 
 
 @rich.repr.auto
