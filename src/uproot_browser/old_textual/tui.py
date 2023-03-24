@@ -44,6 +44,7 @@ class Browser(App):
         await self.view.dock(Header(), edge="top")
         await self.view.dock(Footer(), edge="bottom")
 
+        #now called Vertical
         await self.view.dock(
             textual.widgets.ScrollView(self.tree), edge="left", size=48, name="tree"
         )
