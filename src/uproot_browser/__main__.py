@@ -114,10 +114,7 @@ def browse(filename: str, logging: bool) -> None:
         # log="textual.log" if logging else None,
     )
 
-    results = app.run()
-
-    for result in results:
-        rich.print(result)
+    app.run()
 
 
 if __name__ == "__main__":

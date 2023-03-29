@@ -48,3 +48,7 @@ class Browser(textual.app.App):
     def action_toggle_files(self) -> None:
         """Called in response to key binding."""
         self.show_tree = not self.show_tree
+
+    def action_dump(self):
+        """Called in response to key binding."""
+        self.exit(message="Quit with Dump")
