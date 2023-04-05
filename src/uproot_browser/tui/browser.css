@@ -16,6 +16,11 @@ Browser.-show-tree #tree-view {
     max-width: 50%;
 }
 
+#logo {
+    border: round $secondary;
+    content-align: center middle;
+    /* color: $primary-lighten-3; */
+}
 
 #plot-view {
     overflow: auto scroll;
