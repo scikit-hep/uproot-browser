@@ -6,6 +6,16 @@ import rich.panel
 import rich.text
 import textual.widget
 
+LOGO = """\
+Scikit-HEP
+┬ ┬┌─┐┬─┐┌─┐┌─┐┌┬┐5 ┌┐ ┬─┐┌─┐┬ ┬┌─┐┌─┐┬─┐
+│ │├─┘├┬┘│ ││ │ │───├┴┐├┬┘│ ││││└─┐├┤ ├┬┘
+└─┘┴  ┴└─└─┘└─┘ ┴   └─┘┴└─└─┘└┴┘└─┘└─┘┴└─
+                Powered by Textual & Hist"""
+
+LOGO_PANEL = rich.text.Text.from_ansi(LOGO, no_wrap=True)
+
+
 placeholder = np.random.rand(1000)
 
 
@@ -19,8 +29,8 @@ def make_plot(item, width, height) -> str:
 # print(make_plot(placeholder))
 
 
-# protocol class
-class Plot:
+# wrapper for plotext into a textual widget
+class Plotext:
     def __init__(self):
         pass
 
@@ -35,4 +45,13 @@ class Plot:
 
 class PlotWidget(textual.widget.Widget):
     def render(self) -> rich.console.RenderableType:
-        return Plot()
+        return Plotext()
+
+
+class LogoWidget(textual.widget.Widget):
+    def render(self):
+        return LOGO_PANEL
+
+
+class ErrorWidget(textual.widget.Widget):
+    pass

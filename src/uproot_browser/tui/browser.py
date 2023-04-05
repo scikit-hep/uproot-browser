@@ -8,7 +8,7 @@ import textual.containers
 from textual.reactive import var
 from textual.widgets import Footer, Header
 
-from .plot import PlotWidget
+from .plot import ErrorWidget, LogoWidget, PlotWidget
 
 
 class Browser(textual.app.App):
@@ -42,7 +42,13 @@ class Browser(textual.app.App):
             # left
             yield PlotWidget(id="tree-view")
             # right
-            yield PlotWidget(id="plot-view")
+            yield textual.widgets.ContentSwitcher(
+                LogoWidget(id="logo"),
+                PlotWidget(id="plot"),
+                ErrorWidget(id="error"),
+                id="main-view",
+                initial="logo",
+            )
         yield Footer()
 
     def action_toggle_files(self) -> None:
