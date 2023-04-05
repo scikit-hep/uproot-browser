@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any, Callable
 
 import click
-import rich
 import uproot
 
 from ._version import version as __version__
@@ -96,10 +95,7 @@ def plot(filename: str, iterm: bool) -> None:
 
 @main.command()
 @click.argument("filename")
-@click.option(
-    "--logging", is_flag=True, help="Write log information to the textual.log file."
-)
-def browse(filename: str, logging: bool) -> None:
+def browse(filename: str) -> None:
     """
     Display a TUI.
     """
@@ -109,9 +105,7 @@ def browse(filename: str, logging: bool) -> None:
     fname = uproot_browser.dirs.filename(filename)
 
     app = uproot_browser.tui.browser.Browser(
-        # title="uproot-browser",
         path=Path(fname),
-        # log="textual.log" if logging else None,
     )
 
     app.run()

@@ -12,7 +12,7 @@ placeholder = np.random.rand(1000)
 def make_plot(item, width, height) -> str:
     plt.clf()  # clears screen
     plt.plotsize(width, height)
-    plt.hist(placeholder)  # plots a histogram
+    plt.hist(item)  # plots a histogram
     return plt.build()  # returns a text plot
 
 
