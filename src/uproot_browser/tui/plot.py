@@ -31,9 +31,6 @@ def make_plot(item, width, height) -> str:
 
 # wrapper for plotext into a textual widget
 class Plotext:
-    def __init__(self):
-        pass
-
     # this function makes the plot a rich.console.RenderableType
     def __rich_console__(self, console, options):
         width = options.max_width or console.width  # console.width is the screen width
@@ -49,7 +46,7 @@ class PlotWidget(textual.widget.Widget):
 
 
 class LogoWidget(textual.widget.Widget):
-    def render(self):
+    def render(self) -> rich.console.RenderableType:
         return LOGO_PANEL
 
 

@@ -9,6 +9,7 @@ from textual.reactive import var
 from textual.widgets import Footer, Header
 
 from .plot import ErrorWidget, LogoWidget, PlotWidget
+from .tree import TreeWidget
 
 
 class Browser(textual.app.App):
@@ -40,7 +41,7 @@ class Browser(textual.app.App):
         yield Header()
         with textual.containers.Container():
             # left
-            yield PlotWidget(id="tree-view")
+            yield TreeWidget("./", id="tree-view")
             # right
             yield textual.widgets.ContentSwitcher(
                 LogoWidget(id="logo"),
