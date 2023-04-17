@@ -17,7 +17,7 @@ from rich.tree import Tree
 
 console = Console()
 
-__all__ = ("make_tree", "process_item", "print_tree", "UprootItem", "console")
+__all__ = ("make_tree", "process_item", "print_tree", "UprootEntry", "console")
 
 
 def __dir__() -> tuple[str, ...]:
@@ -25,7 +25,7 @@ def __dir__() -> tuple[str, ...]:
 
 
 @dataclasses.dataclass
-class UprootItem:
+class UprootEntry:
     path: str
     item: Any
 
@@ -40,7 +40,7 @@ class UprootItem:
         return process_item(self.item)["label"]  # type: ignore[no-any-return]
 
     @property
-    def children(self) -> list[UprootItem]:
+    def children(self) -> list[UprootEntry]:
         if not self.is_dir:
             return []
         if isinstance(self.item, uproot.reading.ReadOnlyDirectory):
@@ -52,11 +52,11 @@ class UprootItem:
         else:
             items = {key.split(";")[0] for key in self.item.keys()}  # noqa: SIM118
         return [
-            UprootItem(f"{self.path}/{key}", self.item[key]) for key in sorted(items)
+            UprootEntry(f"{self.path}/{key}", self.item[key]) for key in sorted(items)
         ]
 
 
-def make_tree(node: UprootItem, *, tree: Tree | None = None) -> Tree:
+def make_tree(node: UprootEntry, *, tree: Tree | None = None) -> Tree:
     """
     Given an object, build a rich.tree.Tree output.
     """
@@ -171,5 +171,5 @@ def print_tree(entry: str, *, console: Console = console) -> None:
     """
 
     upfile = uproot.open(entry)
-    tree = make_tree(UprootItem("/", upfile))
+    tree = make_tree(UprootEntry("/", upfile))
     console.print(tree)

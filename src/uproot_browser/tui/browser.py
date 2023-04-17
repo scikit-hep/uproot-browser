@@ -9,7 +9,7 @@ from textual.reactive import var
 from textual.widgets import Footer, Header
 
 from .plot import ErrorWidget, LogoWidget, PlotWidget
-from .tree import TreeWidget
+from .tree import UprootTree
 
 
 class Browser(textual.app.App):
@@ -32,16 +32,17 @@ class Browser(textual.app.App):
         self.path = path
         super().__init__(**kwargs)
 
-        # self.tree = TreeView(self.path)
-        # self.plot = PlotWidget(self.tree.upfile)
-        self.results: list[Any] = []
+        # self.uptree = UprootTree(self.path)
 
     def compose(self) -> textual.app.ComposeResult:
         """Compose our UI."""
         yield Header()
         with textual.containers.Container():
             # left
-            yield TreeWidget("./", id="tree-view")
+            yield UprootTree(self.path, id="tree-view")
+            # with textual.containers.VerticalScroll():
+            #     yield Static(id="code", expand=True)
+            # yield textual.widgets.ScrollView(self.tree)
             # right
             yield textual.widgets.ContentSwitcher(
                 LogoWidget(id="logo"),

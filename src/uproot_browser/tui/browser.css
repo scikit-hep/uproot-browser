@@ -54,3 +54,20 @@ Footer{
     /* footer--key: $secondary-darken-1 */
     /* buttons: $secondary-darken-1 */
 }
+
+
+UprootTree > .uproot-tree--folder {
+    text-style: bold;
+}
+
+UprootTree > .uproot-tree--file {
+
+}
+
+UprootTree > .uproot-tree--extension {
+    text-style: italic;
+}
+
+UprootTree > .uproot-tree--hidden {
+    color: $text 50%;
+}
