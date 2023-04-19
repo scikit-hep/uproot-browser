@@ -4,8 +4,14 @@ Screen {
 
 #tree-view {
     display: none;
-    scrollbar-gutter: stable;
+    /* overflow: hidden; */
+    
+    /* if we want the scrollbar */
     overflow: auto;
+    scrollbar-background: $surface-darken-1;
+    scrollbar-color-hover: $secondary-darken-1;
+    scrollbar-color: $secondary;
+    scrollbar-gutter: stable;
     width: 30;
     height: 100%;
     dock: left;

@@ -18,7 +18,8 @@ from ..tree import UprootEntry
 
 @rich.repr.auto
 class UprootSelected(textual.message.Message, bubble=True):
-    def __init__(self, path: str) -> None:
+    def __init__(self, upfile: UprootEntry, path: str) -> None:
+        self.upfile = upfile
         self.path = path
         super().__init__()
 
@@ -65,7 +66,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         event.stop()
         item = event.node.data
         if not item.is_dir:
-            self.post_message(UprootSelected(item.path))
+            self.post_message(UprootSelected(self.upfile, item.path))
 
     def on_tree_node_expanded(self, event: textual.widgets.Tree.NodeSelected) -> None:
         event.stop()
