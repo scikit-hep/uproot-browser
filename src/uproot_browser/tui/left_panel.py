@@ -12,6 +12,7 @@ import textual.widget
 import textual.widgets
 import textual.widgets.tree
 import uproot
+from rich.style import Style
 
 from ..tree import UprootEntry
 
@@ -39,15 +40,16 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         data = UprootEntry("/", self.upfile)
         super().__init__(name=path.name, data=data, label=path.stem, **args)
 
-    def render_node(
-        self, node: textual.widgets.tree.TreeNode[UprootEntry]
+    def render_label(
+        self,
+        node: textual.widgets.tree.TreeNode[UprootEntry],
+        base_style: Style,
+        style: Style,
     ) -> rich.console.RenderableType:
         return render_tree_label(
             node,
             node.data.is_dir,
-            node.expanded,
-            node.is_cursor,
-            node.id == self.hover_node,
+            node.is_expanded,
             self.has_focus,
         )
 
@@ -80,23 +82,13 @@ def render_tree_label(
     node: textual.widgets.tree.TreeNode[UprootEntry],
     is_dir: bool,
     expanded: bool,
-    is_cursor: bool,
-    is_hover: bool,
     has_focus: bool,
 ) -> rich.console.RenderableType:
     meta = {
         "@click": f"click_label({node.id})",
         "tree_node": node.id,
-        "cursor": node.is_cursor,
     }
     icon_label = node.data.meta()["label"]
     icon_label.apply_meta(meta)
-
-    if is_hover:
-        icon_label.stylize("underline")
-    if is_cursor and has_focus:
-        icon_label.stylize("reverse")
-    if is_dir:
-        icon_label.stylize("green4" if expanded else "spring_green3")
 
     return icon_label  # type: ignore[no-any-return]

@@ -1,18 +1,36 @@
 from __future__ import annotations
 
-from pathlib import Path
+if not __package__:
+    __package__ = "uproot_browser.tui"
+
+import contextlib
 import sys
+from pathlib import Path
 from typing import Any
 
+import plotext as plt
 import textual.app
 import textual.containers
 from textual.reactive import var
 from textual.widgets import Footer, Header
 
+with contextlib.suppress(AttributeError):
+    light_background = 0xDF, 0xDF, 0xDF  # $surface-darken-1
+    plt._dict.themes["default"][0] = light_background
+    plt._dict.themes["default"][1] = light_background
+
+
 from uproot_browser.exceptions import EmptyTreeError
 
-from .right_panel import EmptyWidget, ErrorWidget, LogoWidget, PlotWidget, Plotext, make_plot, Error
 from .left_panel import UprootSelected, UprootTree
+from .right_panel import (
+    EmptyWidget,
+    ErrorWidget,
+    LogoWidget,
+    Plotext,
+    PlotWidget,
+    make_plot,
+)
 
 
 class Browser(textual.app.App):
@@ -23,6 +41,7 @@ class Browser(textual.app.App):
         ("b", "toggle_files", "Toggle sidebar"),
         ("q", "quit", "Quit"),
         ("d", "dump", "Quit with dump"),
+        ("t", "toggle_theme", "Toggle light/dark theme"),
     ]
 
     show_tree = var(True)
@@ -41,12 +60,9 @@ class Browser(textual.app.App):
         """Compose our UI."""
         yield Header()
         with textual.containers.Container():
-            # left
+            # left_panel
             yield UprootTree(self.path, id="tree-view")
-            # with textual.containers.VerticalScroll():
-            #     yield Static(id="code", expand=True)
-            # yield textual.widgets.ScrollView(self.tree)
-            # right
+            # right_panel
             yield textual.widgets.ContentSwitcher(
                 LogoWidget(id="logo"),
                 PlotWidget(id="plot"),
@@ -65,6 +81,15 @@ class Browser(textual.app.App):
         """Called in response to key binding."""
         self.exit(message="Quit with Dump")
 
+    def action_toggle_theme(self) -> None:
+        """An action to toggle dark mode."""
+        self.dark = not self.dark
+        content_switcher = self.query_one("#main-view")
+        plot_widget = content_switcher.query_one("#plot")
+        if plot_widget.item:
+            plot_widget.item.theme = "dark" if self.dark else "default"
+            plot_widget.refresh()
+
     def on_uproot_selected(self, message: UprootSelected) -> None:
         """A message sent by the tree when a file is clicked."""
 
@@ -73,9 +98,9 @@ class Browser(textual.app.App):
         try:
             make_plot(message.upfile[message.path], 10, 10)
             plot_widget = content_switcher.query_one("#plot")
-            plot_widget.item = Plotext(message.upfile[message.path])
+            theme = "dark" if self.dark else "default"
+            plot_widget.item = Plotext(message.upfile[message.path], theme)
             content_switcher.current = "plot"
-            plot_widget.refresh()
 
         except EmptyTreeError:
             content_switcher.current = "empty"
@@ -84,10 +109,12 @@ class Browser(textual.app.App):
             error_widget = content_switcher.query_one("#error")
             error_widget.exc = sys.exc_info()
             content_switcher.current = "error"
-            # error_widget.refresh()
 
 
-        
+if __name__ == "<run_path>":
+    import uproot_browser.dirs
 
-
-
+    fname = uproot_browser.dirs.filename(
+        "../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.root"
+    )
+    app = Browser(path=Path(fname))
