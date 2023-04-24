@@ -5,14 +5,15 @@ Screen {
 #tree-view {
     display: none;
     /* overflow: hidden; */
-    
+
     /* if we want the scrollbar */
     overflow: auto;
     scrollbar-background: $surface-darken-1;
     scrollbar-color-hover: $secondary-darken-1;
     scrollbar-color: $secondary;
+    scrollbar-size: 1 1;
     scrollbar-gutter: stable;
-    width: 30;
+    width: 35;
     height: 100%;
     dock: left;
     background: $surface-darken-1;
@@ -30,12 +31,37 @@ Browser.-show-tree #tree-view {
     /* color: $primary-lighten-3; */
 }
 
-#plot-view {
-    overflow: auto scroll;
+#plot {
+    overflow: auto;
     min-width: 100%;
+    /* border: round $secondary; */
 }
-#code {
-    width: auto;
+
+#error{
+    overflow: auto;
+    min-width: 100%;
+    background: $surface-darken-1;
+
+    scrollbar-background: $surface-darken-1;
+    scrollbar-color-hover: white;
+    scrollbar-color: $secondary-lighten-2;
+    scrollbar-size: 1 1;
+    scrollbar-gutter: stable;
+}
+
+#empty {
+    border: round $secondary;
+    text-align: center;
+
+    display: none;
+    overflow: auto;
+    scrollbar-background: $surface-darken-1;
+    scrollbar-color-hover: $secondary-darken-1;
+    scrollbar-color: $secondary;
+    scrollbar-size: 1 1;
+    scrollbar-gutter: stable;
+    background: $secondary-darken-1;
+    border: round $secondary;
 }
 
 
