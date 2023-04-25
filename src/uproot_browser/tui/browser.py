@@ -86,16 +86,15 @@ class Browser(textual.app.App):
 
         # breakpoint()
 
-        msg = f'import uproot\nuproot_file = uproot.open("{self.path}")'
+        msg = f'\nimport uproot\nuproot_file = uproot.open("{self.path}")'
 
         if plot_widget.item:
             msg += f'\nitem = uproot_file["{plot_widget.item.selection.lstrip("/")}"]'
 
+        theme = "rrt" if self.dark else "default"
         results = rich.console.Group(
             plot_widget.item or "No plot",
-            "",
-            rich.syntax.Syntax(msg, "python", theme="default"),
-            "",
+            rich.syntax.Syntax(f"\n{msg}\n", "python", theme=theme),
         )
 
         self.exit(message=results)
