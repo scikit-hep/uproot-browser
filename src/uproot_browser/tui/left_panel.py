@@ -26,7 +26,6 @@ class UprootSelected(textual.message.Message, bubble=True):
 
 
 class UprootTree(textual.widgets.Tree[UprootEntry]):
-    """currently just extending DirectoryTree, showing current path"""
 
     COMPONENT_CLASSES: ClassVar[set[str]] = {
         "uproot-tree--folder",
