@@ -37,22 +37,27 @@ def make_plot(item: Any, theme: str, *size: int) -> Any:
 # wrapper for plotext into a textual widget
 @dataclasses.dataclass
 class Plotext:
-    item: Any
+    upfile: Any
+    selection: str
     theme: str
 
     def __rich_console__(self, console, options):
-        if self.item is None:
+        *_, item = uproot_browser.dirs.apply_selection(
+            self.upfile, self.selection.split(":")
+        )
+
+        if item is None:
             yield rich.text.Text()
             return
         width = options.max_width or console.width
         height = options.height or console.height
 
-        canvas = make_plot(self.item, self.theme, width, height)
+        canvas = make_plot(item, self.theme, width, height)
         yield rich.text.Text.from_ansi(canvas)
 
 
 class PlotWidget(textual.widget.Widget):
-    _item: Plotext
+    _item: Plotext | None
 
     @property
     def item(self) -> Plotext:
@@ -63,7 +68,7 @@ class PlotWidget(textual.widget.Widget):
         self._item = value
         self.refresh()
 
-    def __init__(self, uproot_item=None, **kargs):
+    def __init__(self, **kargs):
         super().__init__(**kargs)
         self._item = None
 

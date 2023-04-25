@@ -21,10 +21,10 @@ def selections(select: str) -> tuple[str, ...]:
     return tuple(select.split(":")[1:])
 
 
-def apply_selection(tree: Any, select: Iterable[str]) -> Iterable[Any]:
+def apply_selection(tree: Any, selection: Iterable[str]) -> Iterable[Any]:
     """
     Apply a colon-separated selection to an uproot tree. Slashes are handled by uproot.
     """
-    for sel in select:
+    for sel in selection:
         tree = tree[sel]
         yield tree
