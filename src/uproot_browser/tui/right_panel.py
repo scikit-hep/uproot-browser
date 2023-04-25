@@ -101,7 +101,7 @@ class Error:
 
 
 class ErrorWidget(textual.widgets.TextLog):
-    _exc: Error
+    _exc: Error | None
 
     @property
     def exc(self) -> Error:
