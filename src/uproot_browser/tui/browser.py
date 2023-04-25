@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import plotext as plt
+import rich.syntax
 import textual.app
 import textual.containers
 from textual.reactive import var
@@ -40,7 +41,7 @@ class Browser(textual.app.App):
     BINDINGS = [
         ("b", "toggle_files", "Toggle sidebar"),
         ("q", "quit", "Quit"),
-        ("d", "dump", "Quit with dump"),
+        ("d", "quit_with_dump", "Quit with dump"),
         ("t", "toggle_theme", "Toggle light/dark theme"),
     ]
 
@@ -77,9 +78,27 @@ class Browser(textual.app.App):
         """Called in response to key binding."""
         self.show_tree = not self.show_tree
 
-    def action_dump(self):
-        """Called in response to key binding."""
-        self.exit(message="Quit with Dump")
+    def action_quit_with_dump(self):
+        """Dump the current state of the application."""
+
+        content_switcher = self.query_one("#main-view")
+        plot_widget = content_switcher.query_one("#plot")
+
+        # breakpoint()
+
+        msg = f'import uproot\nuproot_file = uproot.open("{self.path}")'
+
+        if plot_widget.item:
+            msg += f'\nitem = uproot_file["{plot_widget.item.selection.lstrip("/")}"]'
+
+        results = rich.console.Group(
+            plot_widget.item or "No plot",
+            "",
+            rich.syntax.Syntax(msg, "python", theme="default"),
+            "",
+        )
+
+        self.exit(message=results)
 
     def action_toggle_theme(self) -> None:
         """An action to toggle dark mode."""
@@ -94,12 +113,13 @@ class Browser(textual.app.App):
         """A message sent by the tree when a file is clicked."""
 
         content_switcher = self.query_one("#main-view")
+        print(message)
 
         try:
             make_plot(message.upfile[message.path], 10, 10)
             plot_widget = content_switcher.query_one("#plot")
             theme = "dark" if self.dark else "default"
-            plot_widget.item = Plotext(message.upfile[message.path], theme)
+            plot_widget.item = Plotext(message.upfile, message.path, theme)
             content_switcher.current = "plot"
 
         except EmptyTreeError:
