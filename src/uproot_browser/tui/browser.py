@@ -83,17 +83,22 @@ class Browser(textual.app.App):
 
         content_switcher = self.query_one("#main-view")
         plot_widget = content_switcher.query_one("#plot")
-
-        # breakpoint()
+        err_widget = content_switcher.query_one("#error")
 
         msg = f'\nimport uproot\nuproot_file = uproot.open("{self.path}")'
 
-        if plot_widget.item:
+        items = []
+        if content_switcher.current == "plot":
             msg += f'\nitem = uproot_file["{plot_widget.item.selection.lstrip("/")}"]'
+            items = [plot_widget.item]
+        elif content_switcher.current == "error":
+            items = [err_widget.exc]
 
         theme = "rrt" if self.dark else "default"
+
+
         results = rich.console.Group(
-            plot_widget.item or "No plot",
+            *items,
             rich.syntax.Syntax(f"\n{msg}\n", "python", theme=theme),
         )
 
