@@ -12,8 +12,8 @@ import plotext as plt
 import rich.syntax
 import textual.app
 import textual.containers
+import textual.widgets
 from textual.reactive import var
-from textual.widgets import Footer, Header
 
 with contextlib.suppress(AttributeError):
     light_background = 0xDF, 0xDF, 0xDF  # $surface-darken-1
@@ -26,6 +26,7 @@ from uproot_browser.exceptions import EmptyTreeError
 from .left_panel import UprootSelected, UprootTree
 from .right_panel import (
     EmptyWidget,
+    Error,
     ErrorWidget,
     LogoWidget,
     Plotext,
@@ -34,7 +35,7 @@ from .right_panel import (
 )
 
 
-class Browser(textual.app.App):
+class Browser(textual.app.App[None]):
     """A basic implementation of the uproot-browser TUI"""
 
     CSS_PATH = "browser.css"
@@ -59,7 +60,7 @@ class Browser(textual.app.App):
 
     def compose(self) -> textual.app.ComposeResult:
         """Compose our UI."""
-        yield Header()
+        yield textual.widgets.Header()
         with textual.containers.Container():
             # left_panel
             yield UprootTree(self.path, id="tree-view")
@@ -72,26 +73,28 @@ class Browser(textual.app.App):
                 id="main-view",
                 initial="logo",
             )
-        yield Footer()
+        yield textual.widgets.Footer()
 
     def action_toggle_files(self) -> None:
         """Called in response to key binding."""
         self.show_tree = not self.show_tree
 
-    def action_quit_with_dump(self):
+    def action_quit_with_dump(self) -> None:
         """Dump the current state of the application."""
 
-        content_switcher = self.query_one("#main-view")
-        plot_widget = content_switcher.query_one("#plot")
-        err_widget = content_switcher.query_one("#error")
+        content_switcher = self.query_one("#main-view", textual.widgets.ContentSwitcher)
+        plot_widget = content_switcher.query_one("#plot", PlotWidget)
+        err_widget = content_switcher.query_one("#error", ErrorWidget)
 
         msg = f'\nimport uproot\nuproot_file = uproot.open("{self.path}")'
 
-        items = []
+        items: list[Plotext | Error] = []
         if content_switcher.current == "plot":
+            assert plot_widget.item
             msg += f'\nitem = uproot_file["{plot_widget.item.selection.lstrip("/")}"]'
             items = [plot_widget.item]
         elif content_switcher.current == "error":
+            assert err_widget.exc
             items = [err_widget.exc]
 
         theme = "rrt" if self.dark else "default"
@@ -106,8 +109,8 @@ class Browser(textual.app.App):
     def action_toggle_theme(self) -> None:
         """An action to toggle dark mode."""
         self.dark = not self.dark
-        content_switcher = self.query_one("#main-view")
-        plot_widget = content_switcher.query_one("#plot")
+        content_switcher = self.query_one("#main-view", textual.widgets.ContentSwitcher)
+        plot_widget = content_switcher.query_one("#plot", PlotWidget)
         if plot_widget.item:
             plot_widget.item.theme = "dark" if self.dark else "default"
             plot_widget.refresh()
@@ -115,12 +118,12 @@ class Browser(textual.app.App):
     def on_uproot_selected(self, message: UprootSelected) -> None:
         """A message sent by the tree when a file is clicked."""
 
-        content_switcher = self.query_one("#main-view")
+        content_switcher = self.query_one("#main-view", textual.widgets.ContentSwitcher)
 
         try:
-            make_plot(message.upfile[message.path], 10, 10)
-            plot_widget = content_switcher.query_one("#plot")
             theme = "dark" if self.dark else "default"
+            make_plot(message.upfile[message.path], theme, 20)
+            plot_widget = content_switcher.query_one("#plot", PlotWidget)
             plot_widget.item = Plotext(message.upfile, message.path, theme)
             content_switcher.current = "plot"
 
@@ -128,8 +131,9 @@ class Browser(textual.app.App):
             content_switcher.current = "empty"
 
         except Exception:
-            error_widget = content_switcher.query_one("#error")
-            error_widget.exc = sys.exc_info()
+            error_widget = content_switcher.query_one("#error", ErrorWidget)
+            # MyPy doesn't like assignment with different signatures - TODO: apply Error here
+            error_widget.exc = sys.exc_info()  # type: ignore[assignment]
             content_switcher.current = "error"
 
 

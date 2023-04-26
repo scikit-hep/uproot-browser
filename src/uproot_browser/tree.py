@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 import uproot
+import uproot.reading
 from rich.console import Console
 from rich.markup import escape
 from rich.text import Text

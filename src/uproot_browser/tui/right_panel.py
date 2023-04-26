@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+from types import TracebackType
 from typing import Any
 
 import numpy as np
@@ -62,7 +63,7 @@ class PlotWidget(textual.widget.Widget):
     _item: Plotext | None
 
     @property
-    def item(self) -> Plotext:
+    def item(self) -> Plotext | None:
         return self._item
 
     @item.setter
@@ -70,12 +71,12 @@ class PlotWidget(textual.widget.Widget):
         self._item = value
         self.refresh()
 
-    def __init__(self, **kargs):
+    def __init__(self, **kargs: Any):
         super().__init__(**kargs)
         self._item = None
 
     def render(self) -> rich.console.RenderableType:
-        return self.item
+        return self.item or ""
 
 
 class EmptyWidget(textual.widget.Widget):
@@ -92,7 +93,7 @@ class LogoWidget(textual.widget.Widget):
 
 @dataclasses.dataclass
 class Error:
-    exc: tuple
+    exc: tuple[type[BaseException], BaseException, TracebackType]
 
     def __rich_console__(
         self, console: rich.console.Console, options: rich.console.ConsoleOptions
@@ -106,17 +107,19 @@ class ErrorWidget(textual.widgets.TextLog):
     _exc: Error | None
 
     @property
-    def exc(self) -> Error:
+    def exc(self) -> Error | None:
         return self._exc
 
     @exc.setter
-    def exc(self, value: tuple) -> None:
+    def exc(
+        self, value: tuple[type[BaseException], BaseException, TracebackType]
+    ) -> None:
         self._exc = Error(value)
         self.clear()
         self.write(self._exc)
         # self.refresh()
 
-    def __init__(self, **kargs):
+    def __init__(self, **kargs: Any):
         super().__init__(**kargs)
         self.write("No Exception set!")
         self._exc = None
