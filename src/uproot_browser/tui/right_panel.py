@@ -111,10 +111,8 @@ class ErrorWidget(textual.widgets.TextLog):
         return self._exc
 
     @exc.setter
-    def exc(
-        self, value: tuple[type[BaseException], BaseException, TracebackType]
-    ) -> None:
-        self._exc = Error(value)
+    def exc(self, value: Error) -> None:
+        self._exc = value
         self.clear()
         self.write(self._exc)
         # self.refresh()

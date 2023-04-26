@@ -132,8 +132,9 @@ class Browser(textual.app.App[None]):
 
         except Exception:
             error_widget = content_switcher.query_one("#error", ErrorWidget)
-            # MyPy doesn't like assignment with different signatures - TODO: apply Error here
-            error_widget.exc = sys.exc_info()  # type: ignore[assignment]
+            exc = sys.exc_info()
+            assert exc[1]
+            error_widget.exc = Error(exc)
             content_switcher.current = "error"
 
 
