@@ -57,9 +57,10 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         self.load_directory(self.root)
 
     def load_directory(self, node: textual.widgets.tree.TreeNode[UprootEntry]) -> None:
-        children = node.data.children
-        for child in children:
-            node.add(child.path, child)
+        if not hasattr(node, "loaded"):
+            children = node.data.children
+            for child in children:
+                node.add(child.path, child)
         node.loaded = True
         node.expand()
         self.refresh(layout=True)

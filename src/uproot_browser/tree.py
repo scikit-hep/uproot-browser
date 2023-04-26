@@ -31,12 +31,11 @@ class UprootEntry:
 
     @property
     def is_dir(self) -> bool:
-        # also uproot.TBranch Element with len(TBranch.branches) > 0
-        return (
-            isinstance(self.item, uproot.reading.ReadOnlyDirectory)
-            or isinstance(self.item, uproot.behaviors.TBranch.HasBranches)
-            and len(self.item.branches) > 0
-        )
+        if isinstance(self.item, (uproot.reading.ReadOnlyDirectory, uproot.TTree)):
+            return True
+        if isinstance(self.item, uproot.TBranch):
+            return len(self.item.branches) > 0
+        return False
 
     def meta(self) -> dict[str, Any]:
         return process_item(self.item)
@@ -54,6 +53,8 @@ class UprootEntry:
                 for key in self.item.keys()  # noqa: SIM118
                 if "/" not in key
             }
+        elif isinstance(self.item, (uproot.TBranch, uproot.TTree)):
+            items = {item.name for item in self.item.branches}
         else:
             items = {obj.name.split(";")[0] for obj in self.item.branches}
         return [
@@ -142,6 +143,9 @@ def _process_item_tbranch(uproot_object: uproot.TBranch) -> Dict[str, Any]:
         uproot_object.interpretation, uproot.interpretation.jagged.AsJagged
     )
     icon = "🍃 " if jagged else "🍁 "
+
+    if len(uproot_object.branches):
+        icon = "🌿 "
 
     label = Text.assemble(
         icon,
