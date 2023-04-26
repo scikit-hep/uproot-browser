@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 if not __package__:
-    __package__ = "uproot_browser.tui"
+    __package__ = "uproot_browser.tui"  # pylint: disable=redefined-builtin
 
 import contextlib
 import sys
@@ -17,8 +17,8 @@ from textual.reactive import var
 
 with contextlib.suppress(AttributeError):
     light_background = 0xDF, 0xDF, 0xDF  # $surface-darken-1
-    plt._dict.themes["default"][0] = light_background
-    plt._dict.themes["default"][1] = light_background
+    plt._dict.themes["default"][0] = light_background  # pylint: disable=protected-access
+    plt._dict.themes["default"][1] = light_background  # pylint: disable=protected-access
 
 
 from uproot_browser.exceptions import EmptyTreeError

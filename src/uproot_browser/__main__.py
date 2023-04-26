@@ -99,7 +99,7 @@ def browse(filename: str) -> None:
     """
     Display a TUI.
     """
-    import uproot_browser.dirs
+    import uproot_browser.dirs  # pylint: disable=import-outside-toplevel
     import uproot_browser.tui.browser  # pylint: disable=import-outside-toplevel
 
     fname = uproot_browser.dirs.filename(filename)

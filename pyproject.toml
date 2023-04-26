@@ -116,7 +116,8 @@ messages_control.disable = [
   "missing-function-docstring",
   "missing-module-docstring",
   "duplicate-code",
-  "unused-argument",  # Handed by Ruff
+  "unused-argument",  # Handled by Ruff
+  "wrong-import-position",  # Handled by Ruff
 ]
 
 [tool.ruff]
