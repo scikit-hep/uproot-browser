@@ -12,13 +12,13 @@ OUT1 = """\
 📁 uproot-Event.root
 ┣━━ ❓ <unnamed> TProcessID
 ┣━━ 🌴 T (1000)
-┃   ┗━━ 🍁 event Event
-┃       ┣━━ 🍁 TObject (group of fUniqueID:uint32_t, fBits:uint32_t)
+┃   ┗━━ 🌿 event Event
+┃       ┣━━ 🌿 TObject (group of fUniqueID:uint32_t, fBits:uint32_t)
 ┃       ┃   ┣━━ 🍁 fBits uint32_t
 ┃       ┃   ┗━━ 🍁 fUniqueID uint32_t
 ┃       ┣━━ 🍁 fClosestDistance unknown[]
 ┃       ┣━━ 🍁 fEventName char*
-┃       ┣━━ 🍁 fEvtHdr EventHeader
+┃       ┣━━ 🌿 fEvtHdr EventHeader
 ┃       ┃   ┣━━ 🍁 fEvtHdr.fDate int32_t
 ┃       ┃   ┣━━ 🍁 fEvtHdr.fEvtNum int32_t
 ┃       ┃   ┗━━ 🍁 fEvtHdr.fRun int32_t
@@ -34,7 +34,7 @@ OUT1 = """\
 ┃       ┣━━ 🍁 fNtrack int32_t
 ┃       ┣━━ 🍁 fNvertex uint32_t
 ┃       ┣━━ 🍁 fTemperature float
-┃       ┣━━ 🍁 fTracks TClonesArray*
+┃       ┣━━ 🌿 fTracks TClonesArray*
 ┃       ┃   ┣━━ 🍃 fTracks.fBits uint32_t[]
 ┃       ┃   ┣━━ 🍃 fTracks.fBx Float16_t[]
 ┃       ┃   ┣━━ 🍃 fTracks.fBy Float16_t[]
@@ -63,8 +63,8 @@ OUT1 = """\
 ┃       ┃   ┣━━ 🍃 fTracks.fYlast Float16_t[]
 ┃       ┃   ┣━━ 🍃 fTracks.fZfirst Float16_t[]
 ┃       ┃   ┗━━ 🍃 fTracks.fZlast Float16_t[]
-┃       ┣━━ 🍁 fTriggerBits TBits
-┃       ┃   ┣━━ 🍁 fTriggerBits.TObject (group of fTriggerBits.fUniqueID:uint32_t, fTriggerBits.fBits:uint32_t)
+┃       ┣━━ 🌿 fTriggerBits TBits
+┃       ┃   ┣━━ 🌿 fTriggerBits.TObject (group of fTriggerBits.fUniqueID:uint32_t, fTriggerBits.fBits:uint32_t)
 ┃       ┃   ┃   ┣━━ 🍁 fTriggerBits.fBits uint32_t
 ┃       ┃   ┃   ┗━━ 🍁 fTriggerBits.fUniqueID uint32_t
 ┃       ┃   ┣━━ 🍃 fTriggerBits.fAllBits uint8_t[]

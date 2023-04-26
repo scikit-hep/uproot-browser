@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 import uproot
+import uproot.reading
 from rich.console import Console
 from rich.markup import escape
 from rich.text import Text
@@ -17,7 +18,7 @@ from rich.tree import Tree
 
 console = Console()
 
-__all__ = ("make_tree", "process_item", "print_tree", "UprootItem", "console")
+__all__ = ("make_tree", "process_item", "print_tree", "UprootEntry", "console")
 
 
 def __dir__() -> tuple[str, ...]:
@@ -25,18 +26,17 @@ def __dir__() -> tuple[str, ...]:
 
 
 @dataclasses.dataclass
-class UprootItem:
+class UprootEntry:
     path: str
     item: Any
 
     @property
     def is_dir(self) -> bool:
-        # also uproot.TBranch Element with len(TBranch.branches) > 0
-        return (
-            isinstance(self.item, uproot.reading.ReadOnlyDirectory)
-            or isinstance(self.item, uproot.behaviors.TBranch.HasBranches)
-            and len(self.item.branches) > 0
-        )
+        if isinstance(self.item, uproot.reading.ReadOnlyDirectory):
+            return True
+        if isinstance(self.item, uproot.behaviors.TBranch.HasBranches):
+            return len(self.item.branches) > 0
+        return False
 
     def meta(self) -> dict[str, Any]:
         return process_item(self.item)
@@ -45,7 +45,7 @@ class UprootItem:
         return process_item(self.item)["label"]  # type: ignore[no-any-return]
 
     @property
-    def children(self) -> list[UprootItem]:
+    def children(self) -> list[UprootEntry]:
         if not self.is_dir:
             return []
         if isinstance(self.item, uproot.reading.ReadOnlyDirectory):
@@ -54,14 +54,16 @@ class UprootItem:
                 for key in self.item.keys()  # noqa: SIM118
                 if "/" not in key
             }
+        elif isinstance(self.item, uproot.behaviors.TBranch.HasBranches):
+            items = {item.name for item in self.item.branches}
         else:
             items = {obj.name.split(";")[0] for obj in self.item.branches}
         return [
-            UprootItem(f"{self.path}/{key}", self.item[key]) for key in sorted(items)
+            UprootEntry(f"{self.path}/{key}", self.item[key]) for key in sorted(items)
         ]
 
 
-def make_tree(node: UprootItem, *, tree: Tree | None = None) -> Tree:
+def make_tree(node: UprootEntry, *, tree: Tree | None = None) -> Tree:
     """
     Given an object, build a rich.tree.Tree output.
     """
@@ -143,6 +145,9 @@ def _process_item_tbranch(uproot_object: uproot.TBranch) -> Dict[str, Any]:
     )
     icon = "🍃 " if jagged else "🍁 "
 
+    if len(uproot_object.branches):
+        icon = "🌿 "
+
     label = Text.assemble(
         icon,
         (f"{uproot_object.name} ", "bold"),
@@ -176,5 +181,5 @@ def print_tree(entry: str, *, console: Console = console) -> None:
     """
 
     upfile = uproot.open(entry)
-    tree = make_tree(UprootItem("/", upfile))
+    tree = make_tree(UprootEntry("/", upfile))
     console.print(tree)

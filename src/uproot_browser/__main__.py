@@ -4,14 +4,12 @@ This is the click-powered CLI.
 
 from __future__ import annotations
 
-import asyncio
 import functools
 import os
 from pathlib import Path
 from typing import Any, Callable
 
 import click
-import rich
 import uproot
 
 from ._version import version as __version__
@@ -97,31 +95,20 @@ def plot(filename: str, iterm: bool) -> None:
 
 @main.command()
 @click.argument("filename")
-@click.option(
-    "--logging", is_flag=True, help="Write log information to the textual.log file."
-)
-def browse(filename: str, logging: bool) -> None:
+def browse(filename: str) -> None:
     """
     Display a TUI.
     """
-    import uproot_browser.tui  # pylint: disable=import-outside-toplevel
+    import uproot_browser.dirs  # pylint: disable=import-outside-toplevel
+    import uproot_browser.tui.browser  # pylint: disable=import-outside-toplevel
 
     fname = uproot_browser.dirs.filename(filename)
 
-    # Run the uproot-browser TUI
-    async def amain() -> list[Any]:
-        app = uproot_browser.tui.Browser(
-            title="uproot-browser",
-            path=Path(fname),
-            log="textual.log" if logging else None,
-        )
-        await app.process_messages()
-        return app.results
+    app = uproot_browser.tui.browser.Browser(
+        path=Path(fname),
+    )
 
-    results = asyncio.run(amain())
-
-    for result in results:
-        rich.print(result)
+    app.run()
 
 
 if __name__ == "__main__":
