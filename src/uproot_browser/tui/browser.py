@@ -17,8 +17,10 @@ from textual.reactive import var
 
 with contextlib.suppress(AttributeError):
     light_background = 0xDF, 0xDF, 0xDF  # $surface-darken-1
-    plt._dict.themes["default"][0] = light_background  # pylint: disable=protected-access
-    plt._dict.themes["default"][1] = light_background  # pylint: disable=protected-access
+    # pylint: disable-next=protected-access
+    plt._dict.themes["default"][0] = light_background
+    # pylint: disable-next=protected-access
+    plt._dict.themes["default"][1] = light_background
 
 
 from uproot_browser.exceptions import EmptyTreeError
