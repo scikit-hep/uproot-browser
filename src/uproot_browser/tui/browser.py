@@ -96,7 +96,6 @@ class Browser(textual.app.App):
 
         theme = "rrt" if self.dark else "default"
 
-
         results = rich.console.Group(
             *items,
             rich.syntax.Syntax(f"\n{msg}\n", "python", theme=theme),
@@ -117,7 +116,6 @@ class Browser(textual.app.App):
         """A message sent by the tree when a file is clicked."""
 
         content_switcher = self.query_one("#main-view")
-        print(message)
 
         try:
             make_plot(message.upfile[message.path], 10, 10)

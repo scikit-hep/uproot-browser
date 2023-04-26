@@ -5,12 +5,12 @@ from typing import Any
 
 import rich.syntax
 import textual.geometry
-#import textual.views
+
+# import textual.views
 import textual.widgets
 from textual.app import App
+from textual.widgets import Footer, Header
 
-from textual.widgets import Footer
-from textual.widgets import Header
 from .plot_view import Plot, PlotWidget
 from .tree_view import TreeView, UprootClick
 
@@ -44,7 +44,7 @@ class Browser(App):
         await self.view.dock(Header(), edge="top")
         await self.view.dock(Footer(), edge="bottom")
 
-        #now called Vertical
+        # now called Vertical
         await self.view.dock(
             textual.widgets.ScrollView(self.tree), edge="left", size=48, name="tree"
         )

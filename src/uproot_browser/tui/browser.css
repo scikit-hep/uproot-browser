@@ -2,23 +2,26 @@ Screen {
     background: $surface-darken-1;
 }
 
+Browser Widget {
+    scrollbar-color: $secondary-darken-1;
+    scrollbar-color-hover: $secondary-darken-3;
+    scrollbar-color-active: $secondary-darken-3;
+    scrollbar-background: $surface-darken-1;
+    scrollbar-background-hover: $surface-darken-1;
+    scrollbar-background-active: $surface-darken-1;
+    scrollbar-size: 1 1;
+}
+
 #tree-view {
     display: none;
-    /* overflow: hidden; */
-
-    /* if we want the scrollbar */
     overflow: auto;
-    scrollbar-background: $surface-darken-1;
-    scrollbar-color-hover: $secondary-darken-1;
-    scrollbar-color: $secondary;
-    scrollbar-size: 1 1;
-    scrollbar-gutter: stable;
     width: 35;
     height: 100%;
     dock: left;
     background: $surface-darken-1;
     border: round $secondary;
 }
+
 
 Browser.-show-tree #tree-view {
     display: block;
@@ -28,40 +31,22 @@ Browser.-show-tree #tree-view {
 #logo {
     border: round $secondary;
     content-align: center middle;
-    /* color: $primary-lighten-3; */
 }
 
 #plot {
     overflow: auto;
     min-width: 100%;
-    /* border: round $secondary; */
 }
 
 #error{
     overflow: auto;
     min-width: 100%;
     background: $surface-darken-1;
-
-    scrollbar-background: $surface-darken-1;
-    scrollbar-color-hover: white;
-    scrollbar-color: $secondary-lighten-2;
-    scrollbar-size: 1 1;
-    scrollbar-gutter: stable;
 }
 
 #empty {
     border: round $secondary;
     text-align: center;
-
-    display: none;
-    overflow: auto;
-    scrollbar-background: $surface-darken-1;
-    scrollbar-color-hover: $secondary-darken-1;
-    scrollbar-color: $secondary;
-    scrollbar-size: 1 1;
-    scrollbar-gutter: stable;
-    background: $secondary-darken-1;
-    border: round $secondary;
 }
 
 
@@ -81,10 +66,6 @@ Footer > .footer--highlight-key {
 
 Footer{
     background: $secondary;
-    /* tint: $secondary; */
-
-    /* footer--key: $secondary-darken-1 */
-    /* buttons: $secondary-darken-1 */
 }
 
 

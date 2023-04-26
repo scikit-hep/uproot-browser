@@ -41,7 +41,9 @@ class Plotext:
     selection: str
     theme: str
 
-    def __rich_console__(self, console, options):
+    def __rich_console__(
+        self, console: rich.console.Console, options: rich.console.ConsoleOptions
+    ) -> rich.console.RenderResult:
         *_, item = uproot_browser.dirs.apply_selection(
             self.upfile, self.selection.split(":")
         )
