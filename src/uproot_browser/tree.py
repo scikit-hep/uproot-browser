@@ -32,9 +32,9 @@ class UprootEntry:
 
     @property
     def is_dir(self) -> bool:
-        if isinstance(self.item, (uproot.reading.ReadOnlyDirectory, uproot.TTree)):
+        if isinstance(self.item, uproot.reading.ReadOnlyDirectory):
             return True
-        if isinstance(self.item, uproot.TBranch):
+        if isinstance(self.item, uproot.behaviors.TBranch.HasBranches):
             return len(self.item.branches) > 0
         return False
 
@@ -54,7 +54,7 @@ class UprootEntry:
                 for key in self.item.keys()  # noqa: SIM118
                 if "/" not in key
             }
-        elif isinstance(self.item, (uproot.TBranch, uproot.TTree)):
+        elif isinstance(self.item, uproot.behaviors.TBranch.HasBranches):
             items = {item.name for item in self.item.branches}
         else:
             items = {obj.name.split(";")[0] for obj in self.item.branches}
