@@ -12,6 +12,7 @@ import plotext as plt
 import rich.syntax
 import textual.app
 import textual.containers
+import textual.events
 import textual.widgets
 from textual.reactive import var
 
@@ -76,6 +77,9 @@ class Browser(textual.app.App[None]):
                 initial="logo",
             )
         yield textual.widgets.Footer()
+
+    def on_mount(self, _event: textual.events.Mount) -> None:
+        self.query_one("#tree-view", UprootTree).focus()
 
     def action_toggle_files(self) -> None:
         """Called in response to key binding."""

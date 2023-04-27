@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -44,9 +43,19 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         self,
         node: textual.widgets.tree.TreeNode[UprootEntry],
         base_style: Style,  # noqa: ARG002
-        style: Style,  # noqa: ARG002,
+        style: Style,  # ,
     ) -> rich.text.Text:
-        return render_tree_label(node)
+        meta = {
+            "@click": f"click_label({node.id})",
+            "tree_node": node.id,
+        }
+        assert node.data
+        icon_label = node.data.label()
+        icon_label.apply_meta(meta)
+
+        # label = icon_label.copy()
+        icon_label.stylize(style)
+        return icon_label
 
     def on_mount(self) -> None:
         self.load_directory(self.root)
@@ -77,18 +86,3 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         assert item
         if item.is_dir:
             self.load_directory(event.node)
-
-
-@lru_cache(maxsize=1024 * 32)
-def render_tree_label(
-    node: textual.widgets.tree.TreeNode[UprootEntry],
-) -> rich.text.Text:
-    meta = {
-        "@click": f"click_label({node.id})",
-        "tree_node": node.id,
-    }
-    assert node.data
-    icon_label = node.data.meta()["label"]
-    icon_label.apply_meta(meta)
-
-    return icon_label  # type: ignore[no-any-return]
