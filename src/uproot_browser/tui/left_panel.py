@@ -27,13 +27,6 @@ class UprootSelected(textual.message.Message, bubble=True):
 class UprootTree(textual.widgets.Tree[UprootEntry]):
     """currently just extending DirectoryTree, showing current path"""
 
-    COMPONENT_CLASSES: ClassVar[set[str]] = {
-        "uproot-tree--folder",
-        "uproot-tree--file",
-        "uproot-tree--extension",
-        "uproot-tree--hidden",
-    }
-
     def __init__(self, path: Path, **args: Any) -> None:
         self.upfile = uproot.open(path)
         data = UprootEntry("/", self.upfile)
