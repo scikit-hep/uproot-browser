@@ -23,7 +23,7 @@ Browser Widget {
 }
 
 Tree > .tree--cursor {
-    background: $secondary-darken;
+    background: $secondary-darken-1;
     color: $text;
     text-style: bold;
 }
