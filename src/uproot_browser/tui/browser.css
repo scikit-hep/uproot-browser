@@ -1,7 +1,3 @@
-Screen {
-    background: $surface-darken-1;
-}
-
 Browser Widget {
     scrollbar-color: $secondary-darken-1;
     scrollbar-color-hover: $secondary-darken-3;
@@ -15,16 +11,13 @@ Browser Widget {
 #tree-view {
     display: none;
     overflow: auto;
-    width: 35;
+    width: 25%;
     height: 100%;
     dock: left;
-    background: $surface-darken-1;
-    border: round $secondary;
+    padding-top: 1;
 }
 
 Tree > .tree--cursor {
-    background: $secondary-darken-1;
-    color: $text;
     text-style: bold;
 }
 
@@ -34,23 +27,22 @@ Browser.-show-tree #tree-view {
 }
 
 #logo {
-    border: round $secondary;
     content-align: center middle;
 }
 
 #plot {
     overflow: auto;
     min-width: 100%;
+    padding-left: 1;
+    padding-right: 1;
 }
 
 #error{
     overflow: auto;
     min-width: 100%;
-    background: $surface-darken-1;
 }
 
 #empty {
-    border: round $secondary;
     text-align: center;
 }
 
@@ -71,21 +63,4 @@ Footer > .footer--highlight-key {
 
 Footer{
     background: $secondary;
-}
-
-
-UprootTree > .uproot-tree--folder {
-    text-style: bold;
-}
-
-UprootTree > .uproot-tree--file {
-
-}
-
-UprootTree > .uproot-tree--extension {
-    text-style: italic;
-}
-
-UprootTree > .uproot-tree--hidden {
-    color: $text 50%;
 }
