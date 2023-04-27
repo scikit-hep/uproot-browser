@@ -42,3 +42,13 @@ def build(session: nox.Session) -> None:
 
     session.install("build")
     session.run("python", "-m", "build")
+
+
+@nox.session
+def make_logo(session: nox.Session) -> None:
+    """
+    Rerender the logo
+    """
+
+    session.install("pillow")
+    session.run("python", "docs/make_logo.py")

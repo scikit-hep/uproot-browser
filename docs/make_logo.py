@@ -6,7 +6,7 @@ import PIL.ImageFilter
 import PIL.ImageFont
 
 LOGO = """\
-┬ ┬┌─┐┬─┐┌─┐┌─┐┌┬┐4 ┌┐ ┬─┐┌─┐┬ ┬┌─┐┌─┐┬─┐
+┬ ┬┌─┐┬─┐┌─┐┌─┐┌┬┐5 ┌┐ ┬─┐┌─┐┬ ┬┌─┐┌─┐┬─┐
 │ │├─┘├┬┘│ ││ │ │───├┴┐├┬┘│ ││││└─┐├┤ ├┬┘
 └─┘┴  ┴└─└─┘└─┘ ┴   └─┘┴└─└─┘└┴┘└─┘└─┘┴└─
 """
@@ -19,4 +19,4 @@ font = PIL.ImageFont.truetype("Sauce Code Pro Medium Nerd Font Complete.ttf", 32
 
 draw.text((10, 0), LOGO, font=font, fill=(128, 128, 128, 255))
 
-image.save("uproot-browser-logo.png")
+image.save("docs/_images/uproot-browser-logo.png")
