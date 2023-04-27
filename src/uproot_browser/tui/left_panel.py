@@ -50,7 +50,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
             "tree_node": node.id,
         }
         assert node.data
-        icon_label = node.data.meta()["label"]
+        icon_label = node.data.label()
         icon_label.apply_meta(meta)
 
         # label = icon_label.copy()
