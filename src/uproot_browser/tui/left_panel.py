@@ -42,20 +42,17 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
     def render_label(
         self,
         node: textual.widgets.tree.TreeNode[UprootEntry],
-        base_style: Style,  # noqa: ARG002
+        base_style: Style,
         style: Style,  # ,
     ) -> rich.text.Text:
-        meta = {
-            "@click": f"click_label({node.id})",
-            "tree_node": node.id,
-        }
         assert node.data
-        icon_label = node.data.label()
-        icon_label.apply_meta(meta)
+        meta = node.data.meta()
+        label_icon = rich.text.Text(meta["label_icon"])
+        label_icon.stylize(base_style)
 
-        # label = icon_label.copy()
-        icon_label.stylize(style)
-        return icon_label
+        label = rich.text.Text.assemble(label_icon, meta["label_text"])
+        label.stylize(style)
+        return label
 
     def on_mount(self) -> None:
         self.load_directory(self.root)

@@ -17,7 +17,7 @@ import textual.widgets
 from textual.reactive import var
 
 with contextlib.suppress(AttributeError):
-    light_background = 0xDF, 0xDF, 0xDF  # $surface-darken-1
+    light_background = 0xEF, 0xEF, 0xEF  # $surface-darken-1
     # pylint: disable-next=protected-access
     plt._dict.themes["default"][0] = light_background
     # pylint: disable-next=protected-access
@@ -144,10 +144,11 @@ class Browser(textual.app.App[None]):
             content_switcher.current = "error"
 
 
-if __name__ == "<run_path>":
+if __name__ in {"<run_path>", "__main__"}:
     import uproot_browser.dirs
 
     fname = uproot_browser.dirs.filename(
         "../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.root"
     )
     app = Browser(path=Path(fname))
+    app.run()
