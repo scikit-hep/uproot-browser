@@ -22,6 +22,11 @@ Browser Widget {
     border: round $secondary;
 }
 
+Tree > .tree--cursor {
+    background: $secondary-darken;
+    color: $text;
+    text-style: bold;
+}
 
 Browser.-show-tree #tree-view {
     display: block;
