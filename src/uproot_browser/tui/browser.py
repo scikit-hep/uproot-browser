@@ -12,8 +12,8 @@ import plotext as plt
 import rich.syntax
 import textual.app
 import textual.containers
-import textual.widgets
 import textual.events
+import textual.widgets
 from textual.reactive import var
 
 with contextlib.suppress(AttributeError):

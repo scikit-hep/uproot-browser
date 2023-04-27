@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -44,7 +43,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         self,
         node: textual.widgets.tree.TreeNode[UprootEntry],
         base_style: Style,  # noqa: ARG002
-        style: Style,  # noqa: ARG002,
+        style: Style,  # ,
     ) -> rich.text.Text:
         meta = {
             "@click": f"click_label({node.id})",
@@ -87,5 +86,3 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         assert item
         if item.is_dir:
             self.load_directory(event.node)
-
-
