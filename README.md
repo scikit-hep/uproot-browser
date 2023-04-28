@@ -46,7 +46,7 @@ This example uses data from the [scikit-hep-testdata](https://github.com/scikit-
 uproot-browser browse ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.root
 ```
 
-![GIF of the TUI functionality](https://github.com/scikit-hep/uproot-browser/releases/download/v0.3.0/tui.gif)
+![GIF of the TUI functionality](https://github.com/scikit-hep/uproot-browser/releases/download/v0.5.0/tui.gif)
 
 **`plot` command:**
 
