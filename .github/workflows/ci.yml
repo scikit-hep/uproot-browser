@@ -54,6 +54,9 @@ jobs:
   pass:
     if: always()
     needs: [checks]
+    environment: pypi
+    permissions:
+      id-token: write
     runs-on: ubuntu-latest
     steps:
       - name: Decide whether the needed jobs succeeded or failed
@@ -81,5 +84,3 @@ jobs:
 
     - uses: pypa/gh-action-pypi-publish@v1.8.5
       if: github.event_name == 'release' && github.event.action == 'published'
-      with:
-        password: ${{ secrets.pypi_password }}
