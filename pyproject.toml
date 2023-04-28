@@ -45,7 +45,7 @@ dependencies = [
   "uproot >=4.2.1",
   "plotext >=5.2.2",
   "hist >=2.4",
-  "textual >=0.13.0",
+  "textual >=0.18.0",
   'typing_extensions; python_version<"3.8"'
 ]
 

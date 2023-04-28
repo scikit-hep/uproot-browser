@@ -17,7 +17,7 @@ import textual.widgets
 from textual.reactive import var
 
 with contextlib.suppress(AttributeError):
-    light_background = 0xEF, 0xEF, 0xEF  # $surface-darken-1
+    light_background = 0xF5, 0xF5, 0xF5
     # pylint: disable-next=protected-access
     plt._dict.themes["default"][0] = light_background
     # pylint: disable-next=protected-access
