@@ -78,7 +78,7 @@ jobs:
 
     - name: Check products
       run: pipx run twine check dist/*
-      
+
   publish:
     name: Publish
     environment: pypi
@@ -87,7 +87,7 @@ jobs:
     needs: [dist]
     if: github.event_name == 'release' && github.event.action == 'published'
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/download-artifact@v3
       with:
@@ -95,4 +95,4 @@ jobs:
         name: archive
 
     - uses: pypa/gh-action-pypi-publish@v1.8.5
-      
+
