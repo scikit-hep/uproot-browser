@@ -23,7 +23,7 @@ with contextlib.suppress(AttributeError):
     # pylint: disable-next=protected-access
     plt._dict.themes["default"][1] = light_background
 
-    dark_background = 0x1E, 0x1E, 0x1E  # $surface-darken-1
+    dark_background = 0x1E, 0x1E, 0x1E
     dark_text = 0xFF, 0xA6, 0x2B
     # pylint: disable-next=protected-access
     plt._dict.themes["dark"][0] = dark_background
