@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import rich.panel
 import rich.repr
 import rich.text
+import textual.binding
 import textual.message
 import textual.widget
 import textual.widgets
@@ -26,6 +27,38 @@ class UprootSelected(textual.message.Message, bubble=True):
 
 class UprootTree(textual.widgets.Tree[UprootEntry]):
     """currently just extending DirectoryTree, showing current path"""
+
+    BINDINGS: ClassVar[list[textual.binding.BindingType]] = [
+        textual.binding.Binding("h", "out", "Cursor out", show=False),
+        textual.binding.Binding("j", "cursor_down", "Cursor Down", show=False),
+        textual.binding.Binding("k", "cursor_up", "Cursor Up", show=False),
+        textual.binding.Binding("l", "in", "Cursor in", show=False),
+    ]
+
+    def action_in(self) -> None:
+        node = self.cursor_node
+        if node is None:
+            return
+        if node.allow_expand and not node.is_expanded:
+            node.expand()
+            self.post_message(self.NodeExpanded(node))
+
+    def action_out(self) -> None:
+        node = self.cursor_node
+        if node is None:
+            return
+        if node.allow_expand and node.is_expanded:
+            node.collapse()
+            self.post_message(self.NodeCollapsed(node))
+        elif (
+            node.parent is not None
+            and node.parent.allow_expand
+            and node.parent.is_expanded
+        ):
+            node.parent.collapse()
+            self.post_message(self.NodeCollapsed(node.parent))
+            self.cursor_line = node.parent.line
+            self.scroll_to_line(self.cursor_line)
 
     def __init__(self, path: Path, **args: Any) -> None:
         self.upfile = uproot.open(path)
