@@ -1,6 +1,6 @@
-# Uproot Browser
+# Help
 
-Welcome to uproot-browser!
+Welcome to uproot-browser's help!
 
 ## Navigation
 
@@ -27,7 +27,8 @@ current plot and how to get the object being plotted in Python uproot code.
 ## Exiting the help.
 
 You can press `esc` or `q` to exit this help screen. You can also use `tab` to
-switch between the panes in the help screen.
+switch between the panes in the help screen. You can use `F1` (or `?`) to access
+the help again.
 
 # Credits
 

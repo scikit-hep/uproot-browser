@@ -72,7 +72,7 @@ HelpScreen {
 .dialog {
     padding: 0 1;
     width: 80%;
-    height: 80%;
+    height: 90%;
     border: thick $background 80%;
     background: $surface;
 }
