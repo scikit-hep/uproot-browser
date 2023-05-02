@@ -29,36 +29,12 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
     """currently just extending DirectoryTree, showing current path"""
 
     BINDINGS: ClassVar[list[textual.binding.BindingType]] = [
-        textual.binding.Binding("h", "out", "Cursor out", show=False),
+        textual.binding.Binding("h", "cursor_out", "Cursor out", show=False),
         textual.binding.Binding("j", "cursor_down", "Cursor Down", show=False),
         textual.binding.Binding("k", "cursor_up", "Cursor Up", show=False),
-        textual.binding.Binding("l", "in", "Cursor in", show=False),
+        textual.binding.Binding("l", "cursor_in", "Cursor in", show=False),
     ]
 
-    def action_in(self) -> None:
-        node = self.cursor_node
-        if node is None:
-            return
-        if node.allow_expand and not node.is_expanded:
-            node.expand()
-            self.post_message(self.NodeExpanded(node))
-
-    def action_out(self) -> None:
-        node = self.cursor_node
-        if node is None:
-            return
-        if node.allow_expand and node.is_expanded:
-            node.collapse()
-            self.post_message(self.NodeCollapsed(node))
-        elif (
-            node.parent is not None
-            and node.parent.allow_expand
-            and node.parent.is_expanded
-        ):
-            node.parent.collapse()
-            self.post_message(self.NodeCollapsed(node.parent))
-            self.cursor_line = node.parent.line
-            self.scroll_to_line(self.cursor_line)
 
     def __init__(self, path: Path, **args: Any) -> None:
         self.upfile = uproot.open(path)
@@ -109,3 +85,28 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         assert item
         if item.is_dir:
             self.load_directory(event.node)
+
+    def action_cursor_in(self) -> None:
+        node = self.cursor_node
+        if node is None:
+            return
+        if node.allow_expand and not node.is_expanded:
+            node.expand()
+            self.post_message(self.NodeExpanded(node))
+
+    def action_cursor_out(self) -> None:
+        node = self.cursor_node
+        if node is None:
+            return
+        if node.allow_expand and node.is_expanded:
+            node.collapse()
+            self.post_message(self.NodeCollapsed(node))
+        elif (
+            node.parent is not None
+            and node.parent.allow_expand
+            and node.parent.is_expanded
+        ):
+            node.parent.collapse()
+            self.post_message(self.NodeCollapsed(node.parent))
+            self.cursor_line = node.parent.line
+            self.scroll_to_line(self.cursor_line)
