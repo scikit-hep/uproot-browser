@@ -35,6 +35,7 @@ with contextlib.suppress(AttributeError):
 from uproot_browser.exceptions import EmptyTreeError
 
 from .header import Header
+from .help import HelpScreen
 from .left_panel import UprootSelected, UprootTree
 from .right_panel import (
     EmptyWidget,
@@ -56,9 +57,13 @@ class Browser(textual.app.App[None]):
         ("q", "quit", "Quit"),
         ("d", "quit_with_dump", "Quit with dump"),
         ("t", "toggle_theme", "Toggle light/dark theme"),
+        ("?", "help", "Show help"),
     ]
 
     show_tree = var(True)
+
+    def action_help(self) -> None:
+        self.push_screen(HelpScreen())
 
     def watch_show_tree(self, show_tree: bool) -> None:
         """Called when show_tree is modified."""
