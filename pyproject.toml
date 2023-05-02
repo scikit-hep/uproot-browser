@@ -37,16 +37,17 @@ classifiers = [
 
 dynamic = ["version"]
 dependencies = [
-  "awkward >=1",
-  "click >=8",
-  "lz4",
-  "numpy >=1.13.3",
-  "rich >=12.0.0",
-  "uproot >=4.2.1",
-  "plotext >=5.2.2",
-  "hist >=2.4",
-  "textual >=0.18.0",
-  'typing_extensions; python_version<"3.8"'
+  'awkward >=1',
+  'click >=8',
+  'hist >=2.4',
+  'importlib_resources; python_version<"3.9"',
+  'lz4',
+  'numpy >=1.13.3',
+  'plotext >=5.2.2',
+  'rich >=12.0.0',
+  'textual >=0.18.0',
+  'typing_extensions; python_version<"3.8"',
+  'uproot >=4.2.1',
 ]
 
 [project.optional-dependencies]
@@ -151,6 +152,7 @@ ignore = [
 ]
 target-version = "py37"
 src = ["src"]
+typing-modules = ["uproot_browser._compat.typing"]
 unfixable = [
   "T20",    # Removes print statements
   "F841",   # Removes unused variables

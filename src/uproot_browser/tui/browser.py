@@ -11,6 +11,7 @@ from typing import Any
 import plotext as plt
 import rich.syntax
 import textual.app
+import textual.binding
 import textual.containers
 import textual.events
 import textual.widgets
@@ -53,11 +54,12 @@ class Browser(textual.app.App[None]):
 
     CSS_PATH = "browser.css"
     BINDINGS = [
-        ("b", "toggle_files", "Navbar"),
-        ("q", "quit", "Quit"),
-        ("d", "quit_with_dump", "Dump & Quit"),
-        ("t", "toggle_theme", "Theme"),
-        ("f1", "help", "Help"),
+        textual.binding.Binding("b", "toggle_files", "Navbar"),
+        textual.binding.Binding("q", "quit", "Quit"),
+        textual.binding.Binding("d", "quit_with_dump", "Dump & Quit"),
+        textual.binding.Binding("t", "toggle_theme", "Theme"),
+        textual.binding.Binding("f1", "help", "Help"),
+        textual.binding.Binding("?", "help", "Help", show=False),
     ]
 
     show_tree = var(True)
