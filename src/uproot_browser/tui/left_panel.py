@@ -35,7 +35,6 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         textual.binding.Binding("l", "cursor_in", "Cursor in", show=False),
     ]
 
-
     def __init__(self, path: Path, **args: Any) -> None:
         self.upfile = uproot.open(path)
         data = UprootEntry("/", self.upfile)
