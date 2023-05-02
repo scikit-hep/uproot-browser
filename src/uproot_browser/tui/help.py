@@ -59,11 +59,12 @@ Text-based plotting is provided by plotext.
 
 class HelpScreen(textual.screen.ModalScreen[None]):
     BINDINGS: ClassVar[list[textual.binding.BindingType]] = [
-        textual.binding.Binding("q", "done", "Done", show=False),
-        textual.binding.Binding("esc", "done", "Done", show=False),
-        textual.binding.Binding(
-            "t", "toggle_theme", "Toggle light/dark theme", show=False
-        ),
+        textual.binding.Binding("d", "", "Nothing", show=False),
+        textual.binding.Binding("b", "", "Nothing", show=False),
+        textual.binding.Binding("f1", "", "Nothing", show=False),
+        textual.binding.Binding("q", "done", "Done", show=True),
+        textual.binding.Binding("esc", "done", "Done", show=True),
+        textual.binding.Binding("t", "toggle_theme", "Theme", show=True),
     ]
 
     app: Browser

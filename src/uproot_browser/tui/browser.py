@@ -62,13 +62,6 @@ class Browser(textual.app.App[None]):
 
     show_tree = var(True)
 
-    def action_help(self) -> None:
-        self.push_screen(HelpScreen())
-
-    def watch_show_tree(self, show_tree: bool) -> None:
-        """Called when show_tree is modified."""
-        self.set_class(show_tree, "-show-tree")
-
     def __init__(self, path: Path, **kwargs: Any) -> None:
         self.path = path
         super().__init__(**kwargs)
@@ -95,6 +88,13 @@ class Browser(textual.app.App[None]):
 
     def on_mount(self, _event: textual.events.Mount) -> None:
         self.query_one("#tree-view", UprootTree).focus()
+
+    def watch_show_tree(self, show_tree: bool) -> None:
+        """Called when show_tree is modified."""
+        self.set_class(show_tree, "-show-tree")
+
+    def action_help(self) -> None:
+        self.push_screen(HelpScreen())
 
     def action_toggle_files(self) -> None:
         """Called in response to key binding."""

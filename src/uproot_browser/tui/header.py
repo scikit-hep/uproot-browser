@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import typing
 from typing import Any
 
 import rich.text
 import textual.app
 import textual.reactive
 import textual.widget
+
+if typing.TYPE_CHECKING:
+    from .browser import Browser
 
 
 class HeaderCloseIcon(textual.widget.Widget):
@@ -21,13 +25,33 @@ class HeaderCloseIcon(textual.widget.Widget):
     }
     """
 
-    icon = textual.reactive.Reactive("❌")
-
     def render(self) -> textual.app.RenderResult:
-        return self.icon
+        return "❌"
 
     def on_click(self) -> None:
         self.app.exit()
+
+
+class HeaderHelpIcon(textual.widget.Widget):
+    DEFAULT_CSS = """
+    HeaderHelpIcon {
+        dock: right;
+        padding: 0 1;
+        width: 4;
+        content-align: right middle;
+    }
+    HeaderHelpIcon:hover {
+        background: $panel-lighten-2;
+    }
+    """
+
+    app: Browser
+
+    def render(self) -> textual.app.RenderResult:
+        return "❓"
+
+    def on_click(self) -> None:
+        self.app.action_help()
 
 
 class HeaderTitle(textual.widget.Widget):
@@ -47,19 +71,6 @@ class HeaderTitle(textual.widget.Widget):
             text.append(" — ")
             text.append(self.sub_text, "dim")
         return text
-
-
-class HeaderSpace(textual.widget.Widget):
-    DEFAULT_CSS = """
-    HeaderSpace {
-        dock: right;
-        width: 4;
-        content-align: left middle;
-    }
-    """
-
-    def render(self) -> textual.app.RenderResult:
-        return ""
 
 
 class Header(textual.widget.Widget):
@@ -82,7 +93,7 @@ class Header(textual.widget.Widget):
     def compose(self) -> textual.app.ComposeResult:
         yield HeaderCloseIcon()
         yield HeaderTitle()
-        yield HeaderSpace()
+        yield HeaderHelpIcon()
 
     def on_mount(self) -> None:
         self.query_one(HeaderTitle).text = self.title
