@@ -34,6 +34,7 @@ with contextlib.suppress(AttributeError):
 
 from uproot_browser.exceptions import EmptyTreeError
 
+from .header import Header
 from .left_panel import UprootSelected, UprootTree
 from .right_panel import (
     EmptyWidget,
@@ -71,7 +72,7 @@ class Browser(textual.app.App[None]):
 
     def compose(self) -> textual.app.ComposeResult:
         """Compose our UI."""
-        yield textual.widgets.Header()
+        yield Header("uproot-browser")
         with textual.containers.Container():
             # left_panel
             yield UprootTree(self.path, id="tree-view")
