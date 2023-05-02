@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import typing
 from typing import ClassVar
 
 import textual.app
@@ -7,6 +8,9 @@ import textual.binding
 import textual.containers
 import textual.screen
 import textual.widgets
+
+if typing.TYPE_CHECKING:
+    from .browser import Browser
 
 MD = """
 
@@ -57,7 +61,12 @@ class HelpScreen(textual.screen.ModalScreen[None]):
     BINDINGS: ClassVar[list[textual.binding.BindingType]] = [
         textual.binding.Binding("q", "done", "Done", show=False),
         textual.binding.Binding("esc", "done", "Done", show=False),
+        textual.binding.Binding(
+            "t", "toggle_theme", "Toggle light/dark theme", show=False
+        ),
     ]
+
+    app: Browser
 
     def compose(self) -> textual.app.ComposeResult:
         with textual.containers.Container(id="help-dialog", classes="dialog"):
@@ -73,3 +82,6 @@ class HelpScreen(textual.screen.ModalScreen[None]):
 
     def action_done(self) -> None:
         self.app.pop_screen()
+
+    def action_toggle_theme(self) -> None:
+        self.app.action_toggle_theme()

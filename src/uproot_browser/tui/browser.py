@@ -73,7 +73,8 @@ class Browser(textual.app.App[None]):
         self.path = path
         super().__init__(**kwargs)
 
-        # self.uptree = UprootTree(self.path)
+        self.plot_widget = PlotWidget(id="plot")
+        self.error_widget = ErrorWidget(id="error")
 
     def compose(self) -> textual.app.ComposeResult:
         """Compose our UI."""
@@ -84,8 +85,8 @@ class Browser(textual.app.App[None]):
             # right_panel
             yield textual.widgets.ContentSwitcher(
                 LogoWidget(id="logo"),
-                PlotWidget(id="plot"),
-                ErrorWidget(id="error"),
+                self.plot_widget,
+                self.error_widget,
                 EmptyWidget(id="empty"),
                 id="main-view",
                 initial="logo",
@@ -103,16 +104,17 @@ class Browser(textual.app.App[None]):
         """Dump the current state of the application."""
 
         content_switcher = self.query_one("#main-view", textual.widgets.ContentSwitcher)
-        plot_widget = content_switcher.query_one("#plot", PlotWidget)
         err_widget = content_switcher.query_one("#error", ErrorWidget)
 
         msg = f'\nimport uproot\nuproot_file = uproot.open("{self.path}")'
 
         items: list[Plotext | Error] = []
         if content_switcher.current == "plot":
-            assert plot_widget.item
-            msg += f'\nitem = uproot_file["{plot_widget.item.selection.lstrip("/")}"]'
-            items = [plot_widget.item]
+            assert self.plot_widget.item
+            msg += (
+                f'\nitem = uproot_file["{self.plot_widget.item.selection.lstrip("/")}"]'
+            )
+            items = [self.plot_widget.item]
         elif content_switcher.current == "error":
             assert err_widget.exc
             items = [err_widget.exc]
@@ -129,11 +131,9 @@ class Browser(textual.app.App[None]):
     def action_toggle_theme(self) -> None:
         """An action to toggle dark mode."""
         self.dark = not self.dark
-        content_switcher = self.query_one("#main-view", textual.widgets.ContentSwitcher)
-        plot_widget = content_switcher.query_one("#plot", PlotWidget)
-        if plot_widget.item:
-            plot_widget.item.theme = "dark" if self.dark else "default"
-            plot_widget.refresh()
+        if self.plot_widget.item:
+            self.plot_widget.item.theme = "dark" if self.dark else "default"
+            self.plot_widget.refresh()
 
     def on_uproot_selected(self, message: UprootSelected) -> None:
         """A message sent by the tree when a file is clicked."""
@@ -143,18 +143,16 @@ class Browser(textual.app.App[None]):
         try:
             theme = "dark" if self.dark else "default"
             make_plot(message.upfile[message.path], theme, 20)
-            plot_widget = content_switcher.query_one("#plot", PlotWidget)
-            plot_widget.item = Plotext(message.upfile, message.path, theme)
+            self.plot_widget.item = Plotext(message.upfile, message.path, theme)
             content_switcher.current = "plot"
 
         except EmptyTreeError:
             content_switcher.current = "empty"
 
         except Exception:
-            error_widget = content_switcher.query_one("#error", ErrorWidget)
             exc = sys.exc_info()
             assert exc[1]
-            error_widget.exc = Error(exc)
+            self.error_widget.exc = Error(exc)
             content_switcher.current = "error"
 
 
