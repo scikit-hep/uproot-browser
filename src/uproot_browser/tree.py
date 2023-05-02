@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import dataclasses
 import functools
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -17,10 +16,7 @@ from rich.markup import escape
 from rich.text import Text
 from rich.tree import Tree
 
-if sys.version_info < (3, 8):
-    from typing_extensions import TypedDict
-else:
-    from typing import TypedDict
+from ._compat.typing import TypedDict
 
 console = Console()
 

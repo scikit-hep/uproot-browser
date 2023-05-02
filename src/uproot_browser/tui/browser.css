@@ -64,3 +64,21 @@ Footer > .footer--highlight-key {
 Footer{
     background: $secondary;
 }
+
+HelpScreen {
+    align: center middle;
+}
+
+.dialog {
+    padding: 0 1;
+    width: 80%;
+    height: 90%;
+    border: thick $background 80%;
+    background: $surface;
+}
+
+#help-buttons {
+    align: right middle;
+    height: 3;
+    background: $surface-lighten-1;
+}
