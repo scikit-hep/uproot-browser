@@ -53,11 +53,11 @@ class Browser(textual.app.App[None]):
 
     CSS_PATH = "browser.css"
     BINDINGS = [
-        ("b", "toggle_files", "Toggle sidebar"),
+        ("b", "toggle_files", "Navbar"),
         ("q", "quit", "Quit"),
-        ("d", "quit_with_dump", "Quit with dump"),
-        ("t", "toggle_theme", "Toggle light/dark theme"),
-        ("?", "help", "Show help"),
+        ("d", "quit_with_dump", "Dump & Quit"),
+        ("t", "toggle_theme", "Theme"),
+        ("f1", "help", "Help"),
     ]
 
     show_tree = var(True)
