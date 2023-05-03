@@ -11,10 +11,15 @@ import textual.widgets
 if typing.TYPE_CHECKING:
     from .browser import Browser
 
+    # 0.18's ModalScreen is not subscriptable. Later versions are.
+    ModalScreen = textual.screen.ModalScreen[None]
+else:
+    ModalScreen = textual.screen.ModalScreen
+
 from .._compat.importlib.resources import files
 
 
-class HelpScreen(textual.screen.ModalScreen[None]):
+class HelpScreen(ModalScreen):
     BINDINGS = [
         textual.binding.Binding("d", "", "Nothing", show=False),
         textual.binding.Binding("b", "", "Nothing", show=False),
