@@ -64,6 +64,7 @@ def plot_branch(tree: uproot.TBranch) -> None:
     histogram: hist.Hist = hist.numpy.histogram(finite, bins=100, histogram=hist.Hist)
     plt.bar(histogram.axes[0].centers, histogram.values().astype(float))
     plt.ylim(lower=0)
+    plt.xticks(np.linspace(histogram.axes[0][0][0], histogram.axes[0][-1][-1], 5))
     plt.xlabel(histogram.axes[0].name)
     plt.title(make_hist_title(tree, histogram))
 
@@ -76,5 +77,6 @@ def plot_hist(tree: uproot.behaviors.TH1.Histogram) -> None:
     histogram = hist.Hist(tree.to_hist())
     plt.bar(histogram.axes[0].centers, histogram.values().astype(float))
     plt.ylim(lower=0)
+    plt.xticks(np.linspace(histogram.axes[0][0][0], histogram.axes[0][-1][-1], 5))
     plt.xlabel(histogram.axes[0].name)
     plt.title(make_hist_title(tree, histogram))
