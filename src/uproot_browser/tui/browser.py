@@ -132,10 +132,10 @@ class Browser(textual.app.App[None]):
 
     def action_toggle_theme(self) -> None:
         """An action to toggle dark mode."""
-        self.dark = not self.dark
+        dark = not self.dark
         if self.plot_widget.item:
-            self.plot_widget.item.theme = "dark" if self.dark else "default"
-            self.plot_widget.refresh()
+            self.plot_widget.item.theme = "dark" if dark else "default"
+        self.dark = dark
 
     def on_uproot_selected(self, message: UprootSelected) -> None:
         """A message sent by the tree when a file is clicked."""
