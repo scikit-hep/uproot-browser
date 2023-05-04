@@ -43,7 +43,7 @@ Browser.-show-tree #tree-view {
 }
 
 #empty {
-    text-align: center;
+    content-align: center middle;
 }
 
 
