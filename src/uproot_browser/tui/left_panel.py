@@ -91,6 +91,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
             return
         if node.allow_expand and not node.is_expanded:
             node.expand()
+            # pylint: disable-next=no-value-for-parameter
             self.post_message(self.NodeExpanded(node))
 
     def action_cursor_out(self) -> None:
@@ -99,6 +100,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
             return
         if node.allow_expand and node.is_expanded:
             node.collapse()
+            # pylint: disable-next=no-value-for-parameter
             self.post_message(self.NodeCollapsed(node))
         elif (
             node.parent is not None
@@ -106,6 +108,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
             and node.parent.is_expanded
         ):
             node.parent.collapse()
+            # pylint: disable-next=no-value-for-parameter
             self.post_message(self.NodeCollapsed(node.parent))
             self.cursor_line = node.parent.line
             self.scroll_to_line(self.cursor_line)
