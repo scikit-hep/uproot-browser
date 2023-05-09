@@ -39,7 +39,7 @@ class HelpScreen(ModalScreen):
                 yield textual.widgets.Button("Done", variant="primary", id="help-done")
 
     def on_mount(self) -> None:
-        self.query_one(textual.widgets.Markdown).focus()
+        self.query_one("#help-text", textual.widgets.MarkdownViewer).focus()
 
     def on_button_pressed(self, _event: textual.widgets.Button.Pressed) -> None:
         self.app.pop_screen()
