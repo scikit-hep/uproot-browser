@@ -91,6 +91,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         try:
             return self.NodeExpanded(self, node)
         except TypeError:  # textual < 0.24
+            # pylint: disable-next=(no-value-for-parameter)
             return self.NodeExpanded(node)  # type:ignore[call-arg,arg-type]
 
     def _node_collapsed(
@@ -99,6 +100,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         try:
             return self.NodeCollapsed(self, node)
         except TypeError:  # textual < 0.24
+            # pylint: disable-next=(no-value-for-parameter)
             return self.NodeCollapsed(node)  # type:ignore[call-arg,arg-type]
 
     def action_cursor_in(self) -> None:
