@@ -1,0 +1,8 @@
+awkward<2
+click ==8.0.0
+hist ==2.4.0; python_version<"3.11"
+hist ==2.6.0; python_version=="3.11"
+plotext ==5.2.7
+rich ==13.3.3
+textual ==0.18.0
+uproot ==4.2.1
