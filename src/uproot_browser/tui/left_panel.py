@@ -85,14 +85,29 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         if item.is_dir:
             self.load_directory(event.node)
 
+    def _node_expanded(
+        self, node: textual.widgets.tree.TreeNode[UprootEntry]
+    ) -> textual.widgets.Tree.NodeExpanded[UprootEntry]:
+        try:
+            return self.NodeExpanded(self, node)
+        except TypeError:  # textual < 0.24
+            return self.NodeExpanded(node)  # type:ignore[call-arg,arg-type]
+
+    def _node_collapsed(
+        self, node: textual.widgets.tree.TreeNode[UprootEntry]
+    ) -> textual.widgets.Tree.NodeCollapsed[UprootEntry]:
+        try:
+            return self.NodeCollapsed(self, node)
+        except TypeError:  # textual < 0.24
+            return self.NodeCollapsed(node)  # type:ignore[call-arg,arg-type]
+
     def action_cursor_in(self) -> None:
         node = self.cursor_node
         if node is None:
             return
         if node.allow_expand and not node.is_expanded:
             node.expand()
-            # pylint: disable-next=no-value-for-parameter
-            self.post_message(self.NodeExpanded(node))
+            self.post_message(self._node_expanded(node))
 
     def action_cursor_out(self) -> None:
         node = self.cursor_node
@@ -100,15 +115,13 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
             return
         if node.allow_expand and node.is_expanded:
             node.collapse()
-            # pylint: disable-next=no-value-for-parameter
-            self.post_message(self.NodeCollapsed(node))
+            self.post_message(self._node_collapsed(node))
         elif (
             node.parent is not None
             and node.parent.allow_expand
             and node.parent.is_expanded
         ):
             node.parent.collapse()
-            # pylint: disable-next=no-value-for-parameter
-            self.post_message(self.NodeCollapsed(node.parent))
+            self.post_message(self._node_collapsed(node))
             self.cursor_line = node.parent.line
             self.scroll_to_line(self.cursor_line)
