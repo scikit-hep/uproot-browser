@@ -12,6 +12,7 @@ import rich.traceback
 import textual.widget
 import textual.widgets
 
+import uproot_browser.dirs
 import uproot_browser.plot
 
 LOGO = """\

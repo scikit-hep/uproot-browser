@@ -46,6 +46,14 @@ Browser.-show-tree #tree-view {
     content-align: center middle;
 }
 
+#plot-input-container {
+    height: 3;
+}
+
+#plot-button {
+    dock: right;
+}
+
 
 Footer > .footer--highlight {
     background: $secondary-darken-2;

@@ -86,6 +86,10 @@ class Browser(textual.app.App[object]):
                 id="main-view",
                 initial="logo",
             )
+            with textual.containers.Container(id="plot-input-container"):
+                yield textual.widgets.Input(id="plot-input")
+                yield textual.widgets.Button("Plot", id="plot-button")
+
         yield textual.widgets.Footer()
 
     def on_mount(self, _event: textual.events.Mount) -> None:
@@ -147,6 +151,9 @@ class Browser(textual.app.App[object]):
             make_plot(message.upfile[message.path], theme, 20)
             self.plot_widget.item = Plotext(message.upfile, message.path, theme)
             content_switcher.current = "plot"
+            self.query_one(
+                "#plot-input", textual.widgets.Input
+            ).value = f"f[{message.path!r}]"
 
         except EmptyTreeError:
             content_switcher.current = "empty"

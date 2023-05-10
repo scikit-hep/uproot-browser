@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any
 
 import uproot
+import uproot.behaviors
+import uproot.interpretation
 import uproot.reading
 from rich.console import Console
 from rich.markup import escape
@@ -65,8 +67,9 @@ class UprootEntry:
 
     def tree_args(self) -> dict[str, Any]:
         d: dict[str, Text | str] = {"label": self.label()}
-        if "guide_style" in self.meta():
-            d["guide_style"] = self.meta()["guide_style"]
+        meta = self.meta()
+        if "guide_style" in meta:
+            d["guide_style"] = meta["guide_style"]
         return d
 
     @property
@@ -84,7 +87,10 @@ class UprootEntry:
         else:
             items = {obj.name.split(";")[0] for obj in self.item.branches}
         return [
-            UprootEntry(f"{self.path}/{key}", self.item[key]) for key in sorted(items)
+            UprootEntry(
+                key if self.path == "/" else f"{self.path}/{key}", self.item[key]
+            )
+            for key in sorted(items)
         ]
 
 
@@ -108,6 +114,7 @@ def process_item(uproot_object: Any) -> MetaDict:
     """
     name = getattr(uproot_object, "name", "<unnamed>")
     classname = getattr(uproot_object, "classname", uproot_object.__class__.__name__)
+    assert isinstance(classname, str)
     label_text = Text.assemble(
         (f"{name} ", "bold"),
         (classname, "italic"),
