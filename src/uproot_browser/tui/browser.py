@@ -35,10 +35,7 @@ with contextlib.suppress(AttributeError):
 
 from uproot_browser.exceptions import EmptyTreeError
 
-from .header import Header
-from .help import HelpScreen
-from .left_panel import UprootSelected, UprootTree
-from .right_panel import (
+from .center_panel import (
     EmptyWidget,
     Error,
     ErrorWidget,
@@ -47,6 +44,10 @@ from .right_panel import (
     PlotWidget,
     make_plot,
 )
+from .header import Header
+from .help import HelpScreen
+from .left_panel import UprootSelected, UprootTree
+from .right_panel import SideBarWidget
 
 
 class Browser(textual.app.App[None]):
@@ -60,9 +61,12 @@ class Browser(textual.app.App[None]):
         textual.binding.Binding("t", "toggle_theme", "Theme"),
         textual.binding.Binding("f1", "help", "Help"),
         textual.binding.Binding("?", "help", "Help", show=False),
+        textual.binding.Binding("n", "toggle_sidebar", "Sidebar"),
+
     ]
 
     show_tree = var(True)
+    show_sidebar = var(True)
 
     def __init__(self, path: Path, **kwargs: Any) -> None:
         self.path = path
@@ -70,6 +74,7 @@ class Browser(textual.app.App[None]):
 
         self.plot_widget = PlotWidget(id="plot")
         self.error_widget = ErrorWidget(id="error")
+        self.sidebar_widget = SideBarWidget(id="sidebar")
 
     def compose(self) -> textual.app.ComposeResult:
         """Compose our UI."""
@@ -77,7 +82,7 @@ class Browser(textual.app.App[None]):
         with textual.containers.Container():
             # left_panel
             yield UprootTree(self.path, id="tree-view")
-            # right_panel
+            # center_panel
             yield textual.widgets.ContentSwitcher(
                 LogoWidget(id="logo"),
                 self.plot_widget,
@@ -86,6 +91,9 @@ class Browser(textual.app.App[None]):
                 id="main-view",
                 initial="logo",
             )
+            #right_panel
+            yield self.sidebar_widget
+
         yield textual.widgets.Footer()
 
     def on_mount(self, _event: textual.events.Mount) -> None:
@@ -94,6 +102,10 @@ class Browser(textual.app.App[None]):
     def watch_show_tree(self, show_tree: bool) -> None:
         """Called when show_tree is modified."""
         self.set_class(show_tree, "-show-tree")
+    
+    def watch_show_sidebar(self, show_sidebar: bool) -> None:
+        """Called when show_sidebar is modified."""
+        self.set_class(show_sidebar, "-show-sidebar")
 
     def action_help(self) -> None:
         self.push_screen(HelpScreen())
@@ -101,6 +113,10 @@ class Browser(textual.app.App[None]):
     def action_toggle_files(self) -> None:
         """Called in response to key binding."""
         self.show_tree = not self.show_tree
+
+    def action_toggle_sidebar(self) -> None:
+        """Called in response to key binding."""
+        self.show_sidebar = not self.show_sidebar
 
     def action_quit_with_dump(self) -> None:
         """Dump the current state of the application."""

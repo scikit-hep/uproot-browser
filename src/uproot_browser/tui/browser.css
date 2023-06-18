@@ -17,6 +17,16 @@ Browser Widget {
     padding-top: 1;
 }
 
+#sidebar {
+    display: none;
+    width: 25%;
+    height: 100%;
+    dock: right;
+    content-align: center middle;
+    background: $panel;
+    color: $text;
+}
+
 Tree > .tree--cursor {
     text-style: bold;
 }
@@ -24,6 +34,10 @@ Tree > .tree--cursor {
 Browser.-show-tree #tree-view {
     display: block;
     max-width: 50%;
+}
+
+Browser.-show-sidebar #sidebar {
+    display: block;
 }
 
 #logo {
