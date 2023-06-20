@@ -22,9 +22,26 @@ Browser Widget {
     width: 25%;
     height: 100%;
     dock: right;
-    content-align: center middle;
+    content-align: center top;
     background: $panel;
     color: $text;
+    overflow: hidden;
+    padding-left: 1;
+
+}
+
+#stats{
+    height: 7;
+    padding-left: 1;
+    border: round $secondary;
+    width: 99%;
+}
+
+#controls{
+    height: 73%; /* how do i make this just cover the rest of the container*/
+    padding-left: 1;
+    border: round $secondary;
+    width: 99%;
 }
 
 Tree > .tree--cursor {

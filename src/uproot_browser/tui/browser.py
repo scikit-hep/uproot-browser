@@ -61,12 +61,11 @@ class Browser(textual.app.App[None]):
         textual.binding.Binding("t", "toggle_theme", "Theme"),
         textual.binding.Binding("f1", "help", "Help"),
         textual.binding.Binding("?", "help", "Help", show=False),
-        textual.binding.Binding("n", "toggle_sidebar", "Sidebar"),
-
+        textual.binding.Binding("n", "toggle_sidebar", "Stats/Controls"),
     ]
 
     show_tree = var(True)
-    show_sidebar = var(True)
+    show_sidebar = var(False)
 
     def __init__(self, path: Path, **kwargs: Any) -> None:
         self.path = path
@@ -91,7 +90,7 @@ class Browser(textual.app.App[None]):
                 id="main-view",
                 initial="logo",
             )
-            #right_panel
+            # right_panel
             yield self.sidebar_widget
 
         yield textual.widgets.Footer()
@@ -102,7 +101,7 @@ class Browser(textual.app.App[None]):
     def watch_show_tree(self, show_tree: bool) -> None:
         """Called when show_tree is modified."""
         self.set_class(show_tree, "-show-tree")
-    
+
     def watch_show_sidebar(self, show_sidebar: bool) -> None:
         """Called when show_sidebar is modified."""
         self.set_class(show_sidebar, "-show-sidebar")
