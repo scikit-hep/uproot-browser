@@ -57,6 +57,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
 
     def on_mount(self) -> None:
         self.load_directory(self.root)
+        self.root.expand()
 
     def load_directory(self, node: textual.widgets.tree.TreeNode[UprootEntry]) -> None:
         assert node.data
@@ -64,8 +65,6 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
             children = node.data.children
             for child in children:
                 node.add(child.path, child)
-        node.expand()
-        self.refresh(layout=True)
 
     def on_tree_node_selected(
         self, event: textual.widgets.Tree.NodeSelected[UprootEntry]
