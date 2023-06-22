@@ -49,7 +49,7 @@ from .right_panel import (
 )
 
 
-class Browser(textual.app.App[None]):
+class Browser(textual.app.App[object]):
     """A basic implementation of the uproot-browser TUI"""
 
     CSS_PATH = "browser.css"

@@ -88,19 +88,19 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         self, node: textual.widgets.tree.TreeNode[UprootEntry]
     ) -> textual.widgets.Tree.NodeExpanded[UprootEntry]:
         try:
-            return self.NodeExpanded(self, node)
-        except TypeError:  # textual < 0.24
-            # pylint: disable-next=(no-value-for-parameter)
-            return self.NodeExpanded(node)  # type:ignore[call-arg,arg-type]
+            return self.NodeExpanded(node)
+        except TypeError:  # textual 0.24-0.26
+            # pylint: disable-next=too-many-function-args
+            return self.NodeExpanded(self, node)  # type:ignore[call-arg,arg-type]
 
     def _node_collapsed(
         self, node: textual.widgets.tree.TreeNode[UprootEntry]
     ) -> textual.widgets.Tree.NodeCollapsed[UprootEntry]:
         try:
-            return self.NodeCollapsed(self, node)
-        except TypeError:  # textual < 0.24
-            # pylint: disable-next=(no-value-for-parameter)
-            return self.NodeCollapsed(node)  # type:ignore[call-arg,arg-type]
+            return self.NodeCollapsed(node)
+        except TypeError:  # textual 0.24-0.26
+            # pylint: disable-next=too-many-function-args
+            return self.NodeCollapsed(self, node)  # type:ignore[call-arg,arg-type]
 
     def action_cursor_in(self) -> None:
         node = self.cursor_node
