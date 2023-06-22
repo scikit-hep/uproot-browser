@@ -19,7 +19,7 @@ repos:
   - id: trailing-whitespace
 
 - repo: https://github.com/charliermarsh/ruff-pre-commit
-  rev: "v0.0.267"
+  rev: "v0.0.272"
   hooks:
     - id: ruff
       args: ["--fix", "--show-fixes"]
@@ -29,10 +29,15 @@ repos:
   hooks:
   - id: mypy
     files: src
-    additional_dependencies: [rich>=12, click>=8.1.1, hist, numpy, textual>=0.24]
+    additional_dependencies:
+    - rich>=12
+    - click>=8.1.1
+    - hist
+    - numpy
+    - textual>=0.27
 
 - repo: https://github.com/codespell-project/codespell
-  rev: v2.2.4
+  rev: v2.2.5
   hooks:
   - id: codespell
     args: [-L, "hist,iterm"]

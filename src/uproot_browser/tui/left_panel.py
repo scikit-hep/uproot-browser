@@ -57,6 +57,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
 
     def on_mount(self) -> None:
         self.load_directory(self.root)
+        self.root.expand()
 
     def load_directory(self, node: textual.widgets.tree.TreeNode[UprootEntry]) -> None:
         assert node.data
@@ -64,8 +65,6 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
             children = node.data.children
             for child in children:
                 node.add(child.path, child)
-        node.expand()
-        self.refresh(layout=True)
 
     def on_tree_node_selected(
         self, event: textual.widgets.Tree.NodeSelected[UprootEntry]
@@ -89,19 +88,19 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         self, node: textual.widgets.tree.TreeNode[UprootEntry]
     ) -> textual.widgets.Tree.NodeExpanded[UprootEntry]:
         try:
-            return self.NodeExpanded(self, node)
-        except TypeError:  # textual < 0.24
-            # pylint: disable-next=(no-value-for-parameter)
-            return self.NodeExpanded(node)  # type:ignore[call-arg,arg-type]
+            return self.NodeExpanded(node)
+        except TypeError:  # textual 0.24-0.26
+            # pylint: disable-next=too-many-function-args
+            return self.NodeExpanded(self, node)  # type:ignore[call-arg,arg-type]
 
     def _node_collapsed(
         self, node: textual.widgets.tree.TreeNode[UprootEntry]
     ) -> textual.widgets.Tree.NodeCollapsed[UprootEntry]:
         try:
-            return self.NodeCollapsed(self, node)
-        except TypeError:  # textual < 0.24
-            # pylint: disable-next=(no-value-for-parameter)
-            return self.NodeCollapsed(node)  # type:ignore[call-arg,arg-type]
+            return self.NodeCollapsed(node)
+        except TypeError:  # textual 0.24-0.26
+            # pylint: disable-next=too-many-function-args
+            return self.NodeCollapsed(self, node)  # type:ignore[call-arg,arg-type]
 
     def action_cursor_in(self) -> None:
         node = self.cursor_node
