@@ -64,6 +64,7 @@ iterm = [
 dev = [
   "ipython >=6",
   "pytest >=6",
+  "pytest-asyncio",
   "scikit-hep-testdata",
 ]
 
@@ -129,7 +130,7 @@ messages_control.disable = [
 [tool.ruff]
 select = [
   "E", "F", "W", # flake8
-  "B", "B904",   # flake8-bugbear
+  "B",           # flake8-bugbear
   "I",           # isort
   "ARG",         # flake8-unused-arguments
   "C4",          # flake8-comprehensions
