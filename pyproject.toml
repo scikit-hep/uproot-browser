@@ -155,7 +155,6 @@ ignore = [
     "RUF001",  # Unicode chars
     "PLR",
 ]
-target-version = "py37"
 src = ["src"]
 typing-modules = ["uproot_browser._compat.typing"]
 unfixable = [
