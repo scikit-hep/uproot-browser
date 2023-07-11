@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import rich.panel
 import rich.repr
@@ -28,7 +28,9 @@ class UprootSelected(textual.message.Message, bubble=True):
 class UprootTree(textual.widgets.Tree[UprootEntry]):
     """currently just extending DirectoryTree, showing current path"""
 
-    BINDINGS = [
+    BINDINGS: ClassVar[
+        list[textual.binding.Binding | tuple[str, str] | tuple[str, str, str]]
+    ] = [
         textual.binding.Binding("h", "cursor_out", "Cursor out", show=False),
         textual.binding.Binding("j", "cursor_down", "Cursor Down", show=False),
         textual.binding.Binding("k", "cursor_up", "Cursor Up", show=False),

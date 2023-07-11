@@ -31,7 +31,7 @@ repos:
     files: src
     additional_dependencies:
     - rich>=12
-    - click>=8.1.1
+    - click==8.1.3
     - hist
     - numpy
     - textual>=0.27

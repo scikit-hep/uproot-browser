@@ -6,7 +6,7 @@ if not __package__:
 import contextlib
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import plotext as plt
 import rich.syntax
@@ -53,7 +53,9 @@ class Browser(textual.app.App[object]):
     """A basic implementation of the uproot-browser TUI"""
 
     CSS_PATH = "browser.css"
-    BINDINGS = [
+    BINDINGS: ClassVar[
+        list[textual.binding.Binding | tuple[str, str] | tuple[str, str, str]]
+    ] = [
         textual.binding.Binding("b", "toggle_files", "Navbar"),
         textual.binding.Binding("q", "quit", "Quit"),
         textual.binding.Binding("d", "quit_with_dump", "Dump & Quit"),

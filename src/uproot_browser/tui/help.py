@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import typing
+from typing import ClassVar
 
 import textual.app
 import textual.binding
@@ -20,7 +21,9 @@ from .._compat.importlib.resources import files
 
 
 class HelpScreen(ModalScreen):
-    BINDINGS = [
+    BINDINGS: ClassVar[
+        list[textual.binding.Binding | tuple[str, str] | tuple[str, str, str]]
+    ] = [
         textual.binding.Binding("d", "", "Nothing", show=False),
         textual.binding.Binding("b", "", "Nothing", show=False),
         textual.binding.Binding("f1", "", "Nothing", show=False),
