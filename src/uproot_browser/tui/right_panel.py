@@ -12,6 +12,13 @@ import rich.traceback
 import textual.widget
 import textual.widgets
 
+try:
+    from textual.widgets import RichLog
+except ImportError:
+    from textual.widgets import (  # type: ignore[attr-defined,no-redef]
+        TextLog as RichLog,
+    )
+
 import uproot_browser.plot
 
 LOGO = """\
@@ -103,7 +110,7 @@ class Error:
         yield rich.traceback.Traceback.from_exception(*self.exc, width=width)
 
 
-class ErrorWidget(textual.widgets.TextLog):
+class ErrorWidget(RichLog):
     _exc: Error | None
 
     @property
