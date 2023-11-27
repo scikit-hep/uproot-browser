@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Any, Callable
 
 import click
-from click_default_group import DefaultGroup
 import uproot
+from click_default_group import DefaultGroup
 
 from ._version import version as __version__
 
@@ -20,7 +20,7 @@ CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 VERSION = __version__
 
 
-@click.group(context_settings=CONTEXT_SETTINGS, cls=DefaultGroup, default='browse')
+@click.group(context_settings=CONTEXT_SETTINGS, cls=DefaultGroup, default="browse")
 @click.version_option(version=VERSION)
 def main() -> None:
     """
