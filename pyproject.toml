@@ -39,6 +39,7 @@ dynamic = ["version"]
 dependencies = [
   'awkward >=1',
   'click >=8',
+  'click-default-group >=1.2',
   'hist >=2.4',
   'importlib_resources; python_version<"3.9"',
   'lz4',

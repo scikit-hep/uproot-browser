@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 import click
+from click_default_group import DefaultGroup
 import uproot
 
 from ._version import version as __version__
@@ -19,7 +20,7 @@ CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 VERSION = __version__
 
 
-@click.group(context_settings=CONTEXT_SETTINGS)
+@click.group(context_settings=CONTEXT_SETTINGS, cls=DefaultGroup, default='browse')
 @click.version_option(version=VERSION)
 def main() -> None:
     """
@@ -28,7 +29,7 @@ def main() -> None:
 
 
 @main.command()
-@click.argument("filename")
+@click.argument("filename", type=click.Path(exists=True))
 def tree(filename: str) -> None:
     """
     Display a tree.
@@ -53,7 +54,7 @@ def intercept(func: Callable[..., Any], *names: str) -> Callable[..., Any]:
 
 
 @main.command()
-@click.argument("filename")
+@click.argument("filename", type=click.Path(exists=True))
 @click.option(
     "--iterm", is_flag=True, help="Display an iTerm plot (requires [iterm] extra)."
 )
@@ -94,7 +95,7 @@ def plot(filename: str, iterm: bool) -> None:
 
 
 @main.command()
-@click.argument("filename")
+@click.argument("filename", type=click.Path(exists=True))
 def browse(filename: str) -> None:
     """
     Display a TUI.

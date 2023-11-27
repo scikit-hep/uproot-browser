@@ -31,7 +31,7 @@ pipx run uproot-browser
 
 uproot-browser currently provides the following features (get help with `-h` or `--help`, view the current version with `--version`):
 
-- `browse` can be used to display a TUI (text user interface).
+- `browse` can be used to display a TUI (text user interface), acts as default if no subcommand specified
 - `plot` can be used to display a plot.
 - `tree` can be used to display a tree.
 
