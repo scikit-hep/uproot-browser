@@ -6,18 +6,23 @@ from __future__ import annotations
 
 import functools
 import os
+import typing
 from pathlib import Path
 from typing import Any, Callable
 
 import click
 import uproot
-from click_default_group import DefaultGroup
 
 from ._version import version as __version__
 
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 
 VERSION = __version__
+
+if typing.TYPE_CHECKING:
+    DefaultGroup = click.Group
+else:
+    from click_default_group import DefaultGroup
 
 
 @click.group(context_settings=CONTEXT_SETTINGS, cls=DefaultGroup, default="browse")
