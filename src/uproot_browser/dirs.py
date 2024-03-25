@@ -2,6 +2,7 @@
 This holds common functions for accessing a file, ROOT directories, and trees
 split by colons.
 """
+
 from __future__ import annotations
 
 from typing import Any, Iterable
