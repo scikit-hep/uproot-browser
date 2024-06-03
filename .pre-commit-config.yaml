@@ -1,11 +1,11 @@
 repos:
 - repo: https://github.com/psf/black-pre-commit-mirror
-  rev: 23.11.0
+  rev: 24.4.2
   hooks:
   - id: black
 
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v4.5.0
+  rev: v4.6.0
   hooks:
   - id: check-added-large-files
   - id: check-case-conflict
@@ -19,13 +19,13 @@ repos:
   - id: trailing-whitespace
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: "v0.1.6"
+  rev: "v0.4.7"
   hooks:
     - id: ruff
       args: ["--fix", "--show-fixes"]
 
 - repo: https://github.com/pre-commit/mirrors-mypy
-  rev: v1.7.1
+  rev: v1.10.0
   hooks:
   - id: mypy
     files: src
@@ -37,7 +37,7 @@ repos:
     - textual>=0.32
 
 - repo: https://github.com/codespell-project/codespell
-  rev: v2.2.6
+  rev: v2.3.0
   hooks:
   - id: codespell
     args: [-L, "hist,iterm"]
