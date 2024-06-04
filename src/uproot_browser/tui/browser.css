@@ -26,6 +26,10 @@ Browser.-show-tree #tree-view {
     max-width: 50%;
 }
 
+ContentSwitcher#main-view {
+    height: 100%;
+}
+
 #logo {
     content-align: center middle;
 }
@@ -46,7 +50,6 @@ Browser.-show-tree #tree-view {
     content-align: center middle;
 }
 
-
 Footer > .footer--highlight {
     background: $secondary-darken-2;
 }
@@ -61,7 +64,7 @@ Footer > .footer--highlight-key {
     text-style: bold;
 }
 
-Footer{
+Footer {
     background: $secondary;
 }
 
