@@ -29,7 +29,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.7", "3.11"]
+        python-version: ["3.7", "3.12"]
         runs-on: [ubuntu-latest, macos-13, windows-latest]
 
         include:
@@ -73,22 +73,16 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - uses: hynek/build-and-inspect-python-package@v2
 
-    - name: Build sdist and wheel
-      run: pipx run build
-
-    - uses: actions/upload-artifact@v4
-      with:
-        path: dist
-
-    - name: Check products
-      run: pipx run twine check dist/*
 
   publish:
     name: Publish
     environment: pypi
     permissions:
       id-token: write
+      attestations: write
+      contents: read
     needs: [dist]
     if: github.event_name == 'release' && github.event.action == 'published'
     runs-on: ubuntu-latest
@@ -97,6 +91,11 @@ jobs:
     - uses: actions/download-artifact@v4
       with:
         path: dist
-        name: artifact
+        name: Packages
+
+    - name: Generate artifact attestation for sdist and wheel
+      uses: actions/attest-build-provenance@173725a1209d09b31f9d30a3890cf2757ebbff0d # v1.1.2
+      with:
+        subject-path: "dist/uproot_browser-*"
 
     - uses: pypa/gh-action-pypi-publish@release/v1
