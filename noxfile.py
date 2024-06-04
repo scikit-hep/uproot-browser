@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import nox
 
+nox.needs_version = ">=2024.3.2"
+nox.options.default_venv_backend = "uv|virtualenv"
 nox.options.sessions = ["lint", "pylint", "tests"]
 
 
@@ -19,7 +21,7 @@ def tests(session: nox.Session) -> None:
     """
     Run the unit and regular tests.
     """
-    session.install(".[test]")
+    session.install("-e.[test]")
     session.run("pytest", *session.posargs)
 
 
@@ -28,8 +30,17 @@ def minimums(session: nox.Session) -> None:
     """
     Run the unit and regular tests.
     """
-    session.install(".[test]", "-ctests/constraints.txt")
+    session.install("-e.[test]", "-ctests/constraints.txt")
     session.run("pytest", *session.posargs)
+
+
+@nox.session()
+def run(session: nox.Session) -> None:
+    """
+    Install and run.
+    """
+    session.install("-e.", "--compile")
+    session.run("uproot-browser", *session.posargs)
 
 
 @nox.session
@@ -38,8 +49,7 @@ def pylint(session: nox.Session) -> None:
     Run pylint.
     """
 
-    session.install("pylint", "matplotlib")
-    session.install("-e", ".")
+    session.install("-e.", "pylint", "matplotlib")
     session.run("pylint", "src", *session.posargs)
 
 
@@ -56,7 +66,7 @@ def build(session: nox.Session) -> None:
 @nox.session
 def make_logo(session: nox.Session) -> None:
     """
-    Rerender the logo
+    Rerender the logo.
     """
 
     session.install("pillow")
