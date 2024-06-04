@@ -10,6 +10,10 @@ on:
     types:
       - published
 
+concurrency:
+  group: ${ github.workflow }-${ github.ref }
+  cancel-in-progress: true
+
 jobs:
   pre-commit:
     name: Format
@@ -33,7 +37,7 @@ jobs:
         runs-on: [ubuntu-latest, macos-13, windows-latest]
 
         include:
-        - python-version: pypy-3.8
+        - python-version: pypy-3.9
           runs-on: ubuntu-latest
 
 
