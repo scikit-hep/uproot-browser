@@ -170,14 +170,11 @@ uproot-browser tree ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.
 ## Development
 
 [![pre-commit.ci status][pre-commit-badge]][pre-commit-link]
-[![Code style: black][black-badge]][black-link]
 
 See [CONTRIBUTING.md](https://github.com/scikit-hep/uproot-browser/blob/main/.github/CONTRIBUTING.md) for details on how to set up a development environment.
 
 [actions-badge]:            https://github.com/scikit-hep/uproot-browser/workflows/CI/badge.svg
 [actions-link]:             https://github.com/scikit-hep/uproot-browser/actions
-[black-badge]:              https://img.shields.io/badge/code%20style-black-000000.svg
-[black-link]:               https://github.com/psf/black
 [conda-badge]:              https://img.shields.io/conda/vn/conda-forge/uproot-browser
 [conda-link]:               https://github.com/conda-forge/uproot-browser-feedstock
 [github-discussions-badge]: https://img.shields.io/static/v1?label=Discussions&message=Ask&color=blue&logo=github

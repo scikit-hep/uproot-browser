@@ -130,8 +130,10 @@ messages_control.disable = [
 ]
 
 [tool.ruff]
-select = [
-  "E", "F", "W", # flake8
+src = ["src"]
+
+[tool.ruff.lint]
+extend-select = [
   "B",           # flake8-bugbear
   "I",           # isort
   "ARG",         # flake8-unused-arguments
@@ -157,16 +159,12 @@ ignore = [
     "RUF001",  # Unicode chars
     "PLR",
 ]
-src = ["src"]
 typing-modules = ["uproot_browser._compat.typing"]
 unfixable = [
-  "T20",    # Removes print statements
-  "F841",   # Removes unused variables
   "SIM118", # Dict .keys() removal (uproot)
 ]
-exclude = []
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "noxfile.py" = ["T20"]
 "tests/*" = ["T20"]
 "src/uproot_browser/tree.py" = ["UP006"]
