@@ -158,6 +158,7 @@ ignore = [
     "E722",
     "RUF001",  # Unicode chars
     "PLR",
+    "ISC001",  # Conflicts with formatter
 ]
 typing-modules = ["uproot_browser._compat.typing"]
 unfixable = [

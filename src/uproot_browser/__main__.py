@@ -25,6 +25,15 @@ else:
     from click_default_group import DefaultGroup
 
 
+def _existing_path_before_colon(_ctx: object, _value: object, path: str) -> str:
+    prefix, _, _ = path.partition(":")
+    if not Path(prefix).is_file():
+        msg = "{prefix!r} must be an exiting path"
+        raise click.BadParameter(msg)
+
+    return path
+
+
 @click.group(context_settings=CONTEXT_SETTINGS, cls=DefaultGroup, default="browse")
 @click.version_option(version=VERSION)
 def main() -> None:
@@ -34,7 +43,7 @@ def main() -> None:
 
 
 @main.command()
-@click.argument("filename", type=click.Path(exists=True))
+@click.argument("filename", callback=_existing_path_before_colon)
 def tree(filename: str) -> None:
     """
     Display a tree.
@@ -59,7 +68,7 @@ def intercept(func: Callable[..., Any], *names: str) -> Callable[..., Any]:
 
 
 @main.command()
-@click.argument("filename", type=click.Path(exists=True))
+@click.argument("filename", callback=_existing_path_before_colon)
 @click.option(
     "--iterm", is_flag=True, help="Display an iTerm plot (requires [iterm] extra)."
 )
@@ -100,7 +109,7 @@ def plot(filename: str, iterm: bool) -> None:
 
 
 @main.command()
-@click.argument("filename", type=click.Path(exists=True))
+@click.argument("filename", callback=_existing_path_before_colon)
 def browse(filename: str) -> None:
     """
     Display a TUI.
