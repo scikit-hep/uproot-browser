@@ -98,7 +98,7 @@ jobs:
         name: Packages
 
     - name: Generate artifact attestation for sdist and wheel
-      uses: actions/attest-build-provenance@6149ea5740be74af77f260b9db67e633f6b0a9a1 # v1.4.2
+      uses: actions/attest-build-provenance@v1
       with:
         subject-path: "dist/uproot_browser-*"
 
