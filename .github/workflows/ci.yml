@@ -33,11 +33,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.7", "3.11"]
+        python-version: ["3.8", "3.11"]
         runs-on: [ubuntu-latest, macos-13, windows-latest]
 
         include:
-        - python-version: pypy-3.8
+        - python-version: pypy-3.10
           runs-on: ubuntu-latest
 
 
@@ -48,17 +48,17 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install package
-      run: python -m pip install ".[test]"
+    - uses: astral-sh/setup-uv@v3
+
+    - name: Install nox
+      run: uv tool install nox
 
     - name: Test package
-      run: python -m pytest
-
-    - name: Install minimum versions
-      run: python -m pip install ".[test]" -c tests/constraints.txt
+      run: nox -s tests
 
     - name: Test minimum versions
-      run: python -m pytest
+      if: matrix.python-version != 'pypy-3.10'
+      run: nox -s minimums
 
   pass:
     if: always()
@@ -86,7 +86,6 @@ jobs:
     permissions:
       id-token: write
       attestations: write
-      contents: read
     needs: [dist]
     if: github.event_name == 'release' && github.event.action == 'published'
     runs-on: ubuntu-latest

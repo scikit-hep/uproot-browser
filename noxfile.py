@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import nox
 
-nox.needs_version = ">=2024.3.2"
+nox.needs_version = ">=2024.4.15"
 nox.options.default_venv_backend = "uv|virtualenv"
-nox.options.sessions = ["lint", "pylint", "tests"]
 
 
 @nox.session(reuse_venv=True)
@@ -17,33 +16,6 @@ def lint(session: nox.Session) -> None:
 
 
 @nox.session
-def tests(session: nox.Session) -> None:
-    """
-    Run the unit and regular tests.
-    """
-    session.install("-e.[test]")
-    session.run("pytest", *session.posargs)
-
-
-@nox.session(reuse_venv=True)
-def minimums(session: nox.Session) -> None:
-    """
-    Run the unit and regular tests.
-    """
-    session.install("-e.[test]", "-ctests/constraints.txt")
-    session.run("pytest", *session.posargs)
-
-
-@nox.session()
-def run(session: nox.Session) -> None:
-    """
-    Install and run.
-    """
-    session.install("-e.", "--compile")
-    session.run("uproot-browser", *session.posargs)
-
-
-@nox.session
 def pylint(session: nox.Session) -> None:
     """
     Run pylint.
@@ -53,7 +25,34 @@ def pylint(session: nox.Session) -> None:
     session.run("pylint", "src", *session.posargs)
 
 
-@nox.session(reuse_venv=True)
+@nox.session
+def tests(session: nox.Session) -> None:
+    """
+    Run the unit and regular tests.
+    """
+    session.install("-e.[test]")
+    session.run("pytest", *session.posargs)
+
+
+@nox.session(venv_backend="uv")
+def minimums(session: nox.Session) -> None:
+    """
+    Run the unit and regular tests.
+    """
+    session.install("-e.[test]", "--resolution=lowest-direct", "--only-binary=:all:")
+    session.run("pytest", *session.posargs)
+
+
+@nox.session(default=False)
+def run(session: nox.Session) -> None:
+    """
+    Install and run.
+    """
+    session.install("-e.", "--compile")
+    session.run("uproot-browser", *session.posargs)
+
+
+@nox.session(reuse_venv=True, default=False)
 def build(session: nox.Session) -> None:
     """
     Build an SDist and wheel.
@@ -63,7 +62,7 @@ def build(session: nox.Session) -> None:
     session.run("python", "-m", "build")
 
 
-@nox.session
+@nox.session(default=False)
 def make_logo(session: nox.Session) -> None:
     """
     Rerender the logo.
