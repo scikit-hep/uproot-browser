@@ -31,6 +31,7 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Development Status :: 4 - Beta",
   "Typing :: Typed",
 ]
@@ -53,8 +54,8 @@ dependencies = [
 [project.optional-dependencies]
 test = [
   "pytest >=8",
-  "pytest-asyncio >=0.22",
-  "scikit-hep-testdata>=0.4.10",
+  "pytest-asyncio >=0.24",
+  "scikit-hep-testdata >=0.4.10",
 ]
 iterm = [
   "matplotlib",
@@ -79,6 +80,14 @@ uproot-browser = "uproot_browser.__main__:main"
 version.source = "vcs"
 build.hooks.vcs.version-file = "src/uproot_browser/_version.py"
 
+[tool.uv]
+environments = [
+  "python_version >= '3.10'",
+]
+dev-dependencies = [
+  "uproot-browser[test]",
+]
+
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
@@ -92,6 +101,7 @@ filterwarnings = [
 log_cli_level = "info"
 testpaths = ["tests"]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 
 [tool.mypy]
@@ -99,7 +109,6 @@ files = "src"
 python_version = "3.8"
 warn_unused_configs = true
 strict = true
-show_error_codes = true
 
 [[tool.mypy.overrides]]
 module = ["plotext.*", "awkward.*", "uproot.*", "matplotlib.*"]
@@ -127,8 +136,6 @@ messages_control.disable = [
   "wrong-import-position",  # Handled by Ruff
 ]
 
-[tool.ruff]
-src = ["src"]
 
 [tool.ruff.lint]
 extend-select = [
