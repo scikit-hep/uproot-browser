@@ -15,7 +15,7 @@ license = { file = "LICENSE" }
 description = "Tools to inspect ROOT files with uproot"
 readme = "README.md"
 
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 
 classifiers = [
   "License :: OSI Approved :: BSD License",
@@ -26,7 +26,6 @@ classifiers = [
   "License :: OSI Approved :: BSD License",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.7",
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
@@ -48,7 +47,6 @@ dependencies = [
   'plotext >=5.2.8',
   'rich >=13.3.3',
   'textual >=0.18.0',
-  'typing_extensions; python_version<"3.8"',
   'uproot >=5',
 ]
 
@@ -109,7 +107,7 @@ ignore_missing_imports = true
 
 
 [tool.pylint]
-master.py-version = "3.7"
+master.py-version = "3.8"
 master.jobs = "0"
 reports.output-format = "colorized"
 similarities.ignore-imports = "yes"
@@ -160,7 +158,6 @@ ignore = [
     "PLR",
     "ISC001",  # Conflicts with formatter
 ]
-typing-modules = ["uproot_browser._compat.typing"]
 unfixable = [
   "SIM118", # Dict .keys() removal (uproot)
 ]

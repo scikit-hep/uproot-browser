@@ -7,7 +7,7 @@ from __future__ import annotations
 import dataclasses
 import functools
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 import uproot
 import uproot.reading
@@ -15,8 +15,6 @@ from rich.console import Console
 from rich.markup import escape
 from rich.text import Text
 from rich.tree import Tree
-
-from ._compat.typing import TypedDict
 
 console = Console()
 
