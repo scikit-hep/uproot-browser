@@ -43,20 +43,20 @@ dependencies = [
   'click-default-group >=1.2',
   'hist >=2.4',
   'importlib_resources; python_version<"3.9"',
-  'lz4',
+  'lz4>=2',
   'numpy >=1.13.3',
-  'plotext >=5.2.7',
+  'plotext >=5.2.8',
   'rich >=13.3.3',
   'textual >=0.18.0',
   'typing_extensions; python_version<"3.8"',
-  'uproot >=4.2.1',
+  'uproot >=5',
 ]
 
 [project.optional-dependencies]
 test = [
-  "pytest >=6",
-  "pytest-asyncio",
-  "scikit-hep-testdata",
+  "pytest >=8",
+  "pytest-asyncio >=0.22",
+  "scikit-hep-testdata>=0.4.10",
 ]
 iterm = [
   "matplotlib",
