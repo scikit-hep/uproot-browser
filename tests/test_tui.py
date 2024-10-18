@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import skhep_testdata
 
 from uproot_browser.tui.browser import Browser
