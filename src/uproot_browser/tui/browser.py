@@ -5,7 +5,6 @@ if not __package__:
 
 import contextlib
 import sys
-from pathlib import Path
 from typing import Any, ClassVar
 
 import plotext as plt
@@ -66,7 +65,7 @@ class Browser(textual.app.App[object]):
 
     show_tree = var(True)
 
-    def __init__(self, path: Path, **kwargs: Any) -> None:
+    def __init__(self, path: str, **kwargs: Any) -> None:
         self.path = path
         super().__init__(**kwargs)
 
@@ -161,10 +160,6 @@ class Browser(textual.app.App[object]):
 
 
 if __name__ in {"<run_path>", "__main__"}:
-    import uproot_browser.dirs
-
-    fname = uproot_browser.dirs.filename(
-        "../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.root"
-    )
-    app = Browser(path=Path(fname))
+    fname = "../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.root"
+    app = Browser(path=fname)
     app.run()
