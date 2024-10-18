@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Iterable
 from types import TracebackType
 from typing import Any
 
@@ -34,6 +35,15 @@ LOGO_PANEL = rich.text.Text.from_ansi(LOGO, no_wrap=True)
 placeholder = np.random.rand(1000)
 
 
+def apply_selection(tree: Any, selection: Iterable[str]) -> Iterable[Any]:
+    """
+    Apply a colon-separated selection to an uproot tree. Slashes are handled by uproot.
+    """
+    for sel in selection:
+        tree = tree[sel]
+        yield tree
+
+
 def make_plot(item: Any, theme: str, *size: int) -> Any:
     plt.clf()
     plt.plotsize(*size)
@@ -52,9 +62,7 @@ class Plotext:
     def __rich_console__(
         self, console: rich.console.Console, options: rich.console.ConsoleOptions
     ) -> rich.console.RenderResult:
-        *_, item = uproot_browser.dirs.apply_selection(
-            self.upfile, self.selection.split(":")
-        )
+        *_, item = apply_selection(self.upfile, self.selection.split(":"))
 
         if item is None:
             yield rich.text.Text()

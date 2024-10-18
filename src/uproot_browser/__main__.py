@@ -7,7 +7,6 @@ from __future__ import annotations
 import functools
 import os
 import typing
-from pathlib import Path
 from typing import Any, Callable
 
 import click
@@ -25,15 +24,6 @@ else:
     from click_default_group import DefaultGroup
 
 
-def _existing_path_before_colon(_ctx: object, _value: object, path: str) -> str:
-    prefix, _, _ = path.partition(":")
-    if not Path(prefix).is_file():
-        msg = "{prefix!r} must be an exiting path"
-        raise click.BadParameter(msg)
-
-    return path
-
-
 @click.group(context_settings=CONTEXT_SETTINGS, cls=DefaultGroup, default="browse")
 @click.version_option(version=VERSION)
 def main() -> None:
@@ -43,7 +33,7 @@ def main() -> None:
 
 
 @main.command()
-@click.argument("filename", callback=_existing_path_before_colon)
+@click.argument("filename")
 def tree(filename: str) -> None:
     """
     Display a tree.
@@ -68,7 +58,7 @@ def intercept(func: Callable[..., Any], *names: str) -> Callable[..., Any]:
 
 
 @main.command()
-@click.argument("filename", callback=_existing_path_before_colon)
+@click.argument("filename")
 @click.option(
     "--iterm", is_flag=True, help="Display an iTerm plot (requires [iterm] extra)."
 )
@@ -85,12 +75,7 @@ def plot(filename: str, iterm: bool) -> None:
     else:
         import uproot_browser.plot  # pylint: disable=import-outside-toplevel
 
-    import uproot_browser.dirs  # pylint: disable=import-outside-toplevel
-
-    fname = uproot_browser.dirs.filename(filename)
-    selections = uproot_browser.dirs.selections(filename)
-    my_tree = uproot.open(fname)
-    *_, item = uproot_browser.dirs.apply_selection(my_tree, selections)
+    item = uproot.open(filename)
 
     if iterm:
         uproot_browser.plot_mpl.plot(item)
@@ -109,18 +94,15 @@ def plot(filename: str, iterm: bool) -> None:
 
 
 @main.command()
-@click.argument("filename", callback=_existing_path_before_colon)
+@click.argument("filename")
 def browse(filename: str) -> None:
     """
     Display a TUI.
     """
-    import uproot_browser.dirs  # pylint: disable=import-outside-toplevel
     import uproot_browser.tui.browser  # pylint: disable=import-outside-toplevel
 
-    fname = uproot_browser.dirs.filename(filename)
-
     app = uproot_browser.tui.browser.Browser(
-        path=Path(fname),
+        path=filename,
     )
 
     app.run()
