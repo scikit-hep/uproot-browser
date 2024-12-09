@@ -19,12 +19,12 @@ from rich.tree import Tree
 console = Console()
 
 __all__ = (
-    "make_tree",
-    "process_item",
-    "print_tree",
+    "MetaDict",
     "UprootEntry",
     "console",
-    "MetaDict",
+    "make_tree",
+    "print_tree",
+    "process_item",
 )
 
 
