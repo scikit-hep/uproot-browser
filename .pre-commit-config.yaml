@@ -30,7 +30,7 @@ repos:
     - click
     - hist
     - numpy
-    - textual>=0.32
+    - textual>=0.86
 
 - repo: https://github.com/codespell-project/codespell
   rev: v2.3.0

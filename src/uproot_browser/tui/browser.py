@@ -122,7 +122,9 @@ class Browser(textual.app.App[object]):
             assert err_widget.exc
             items = [err_widget.exc]
 
-        theme = "rrt" if self.dark else "default"
+        dark = self.dark if hasattr(self, "dark") else self.theme != "textual-light"  # type: ignore[has-type]
+
+        theme = "ansi_dark" if dark else "ansi_light"
 
         results = rich.console.Group(
             *items,
@@ -133,10 +135,20 @@ class Browser(textual.app.App[object]):
 
     def action_toggle_theme(self) -> None:
         """An action to toggle dark mode."""
-        dark = not self.dark
-        if self.plot_widget.item:
-            self.plot_widget.item.theme = "dark" if dark else "default"
-        self.dark = dark
+        if hasattr(self, "dark"):
+            # pylint: disable-next=access-member-before-definition
+            dark = not self.dark  # type: ignore[has-type]
+            if self.plot_widget.item:
+                self.plot_widget.item.theme = "dark" if dark else "default"
+            # pylint: disable-next=attribute-defined-outside-init
+            self.dark = dark
+        else:
+            dark = self.theme != "textual-light"
+            theme = "textual-light" if dark else "textual-dark"
+
+            if self.plot_widget.item:
+                self.plot_widget.item.theme = "dark" if dark else "default"
+            self.theme = theme
 
     def on_uproot_selected(self, message: UprootSelected) -> None:
         """A message sent by the tree when a file is clicked."""
@@ -144,7 +156,8 @@ class Browser(textual.app.App[object]):
         content_switcher = self.query_one("#main-view", textual.widgets.ContentSwitcher)
 
         try:
-            theme = "dark" if self.dark else "default"
+            dark = self.dark if hasattr(self, "dark") else self.theme != "textual-light"
+            theme = "dark" if dark else "default"
             make_plot(message.upfile[message.path], theme, 20)
             self.plot_widget.item = Plotext(message.upfile, message.path, theme)
             content_switcher.current = "plot"
