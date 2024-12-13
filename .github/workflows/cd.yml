@@ -37,10 +37,8 @@ jobs:
         name: Packages
 
     - name: Generate artifact attestation for sdist and wheel
-      uses: actions/attest-build-provenance@v1
+      uses: actions/attest-build-provenance@v2
       with:
         subject-path: "dist/uproot_browser-*"
 
     - uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        attestations: true
