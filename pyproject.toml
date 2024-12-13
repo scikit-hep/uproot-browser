@@ -52,21 +52,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = [
-  "pytest >=8",
-  "pytest-asyncio >=0.24",
-  "scikit-hep-testdata >=0.4.10",
-]
 iterm = [
   "matplotlib",
   "itermplot==0.5",
   "mplhep",
-]
-dev = [
-  "ipython >=6",
-  "pytest >=6",
-  "pytest-asyncio",
-  "scikit-hep-testdata",
 ]
 
 [project.urls]
@@ -76,16 +65,25 @@ repository = "https://github.com/scikit-hep/uproot-browser"
 [project.scripts]
 uproot-browser = "uproot_browser.__main__:main"
 
+[dependency-groups]
+test = [
+  "pytest >=8",
+  "pytest-asyncio >=0.24",
+  "scikit-hep-testdata >=0.4.10",
+]
+dev = [
+  "ipython >=6",
+  "textual-dev",
+  {include-group = "test"},
+]
+
 [tool.hatch]
 version.source = "vcs"
 build.hooks.vcs.version-file = "src/uproot_browser/_version.py"
 
 [tool.uv]
 environments = [
-  "python_version >= '3.10'",
-]
-dev-dependencies = [
-  "uproot-browser[test]",
+  "python_version >= '3.11'",
 ]
 
 [tool.pytest.ini_options]

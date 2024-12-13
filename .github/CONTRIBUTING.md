@@ -33,18 +33,17 @@ You can set up a development environment by running:
 ```bash
 python3 -m venv .venv
 source ./.env/bin/activate
-pip install -U pip
-pip install -e '.[dev]'
+pip install -U pip dependency-groups
+pip install -e. $(dependency-groups dev)
 ```
 
-If you have the [Python Launcher for Unix](https://github.com/brettcannon/python-launcher),
-you can instead do:
+If you use `uv`, you can do:
 
 ```bash
-py -m venv .venv
-py -m pip install -U pip
-py -m pip install -e '.[dev]'
+uv sync
 ```
+
+instead.
 
 # Post setup
 
