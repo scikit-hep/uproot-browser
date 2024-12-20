@@ -10,12 +10,11 @@ authors = [
 maintainers = [
   { name = "The Scikit-HEP admins", email = "scikit-hep-admins@googlegroups.com" },
 ]
-license = { file = "LICENSE" }
 
 description = "Tools to inspect ROOT files with uproot"
 readme = "README.md"
 
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 
 classifiers = [
   "License :: OSI Approved :: BSD License",
@@ -26,7 +25,6 @@ classifiers = [
   "License :: OSI Approved :: BSD License",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -38,16 +36,15 @@ classifiers = [
 
 dynamic = ["version"]
 dependencies = [
-  'awkward >=1',
+  'awkward >=2',
   'click >=8',
   'click-default-group >=1.2',
   'hist >=2.4',
-  'importlib_resources; python_version<"3.9"',
   'lz4>=2',
-  'numpy >=1.13.3',
+  'numpy >=1.18',
   'plotext >=5.2.8',
   'rich >=13.3.3',
-  'textual >=0.18.0',
+  'textual >=0.86.0',
   'uproot >=5',
 ]
 
@@ -81,20 +78,13 @@ dev = [
 version.source = "vcs"
 build.hooks.vcs.version-file = "src/uproot_browser/_version.py"
 
-[tool.uv]
-environments = [
-  "python_version >= '3.11'",
-]
-
 [tool.pytest.ini_options]
-minversion = "6.0"
+minversion = "8.0"
 addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
 xfail_strict = true
 filterwarnings = [
   "error",
   "ignore:can't resolve package from __spec__ or __package__, falling back on __name__ and __path__:ImportWarning",  # PyPy NumPy
-  "ignore:module 'sre_.*' is deprecated:DeprecationWarning:awkward",  # Awkward 1
-  "ignore: pkg_resources is deprecated as an API:DeprecationWarning:uproot",  # Uproot 4
 ]
 log_cli_level = "info"
 testpaths = ["tests"]
@@ -104,7 +94,7 @@ asyncio_default_fixture_loop_scope = "function"
 
 [tool.mypy]
 files = "src"
-python_version = "3.8"
+python_version = "3.9"
 warn_unused_configs = true
 strict = true
 
@@ -114,7 +104,7 @@ ignore_missing_imports = true
 
 
 [tool.pylint]
-master.py-version = "3.8"
+master.py-version = "3.9"
 master.jobs = "0"
 reports.output-format = "colorized"
 similarities.ignore-imports = "yes"

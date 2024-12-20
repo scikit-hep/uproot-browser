@@ -11,6 +11,7 @@ import awkward as ak
 import hist
 import matplotlib.pyplot as plt
 import uproot
+import uproot.behaviors.TH1
 
 import uproot_browser.plot
 

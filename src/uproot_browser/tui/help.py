@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import typing
+from importlib.resources import files
 from typing import ClassVar
 
 import textual.app
@@ -12,15 +13,8 @@ import textual.widgets
 if typing.TYPE_CHECKING:
     from .browser import Browser
 
-    # 0.18's ModalScreen is not subscriptable. Later versions are.
-    ModalScreen = textual.screen.ModalScreen[None]
-else:
-    ModalScreen = textual.screen.ModalScreen
 
-from .._compat.importlib.resources import files
-
-
-class HelpScreen(ModalScreen):
+class HelpScreen(textual.screen.ModalScreen[None]):
     BINDINGS: ClassVar[
         list[textual.binding.Binding | tuple[str, str] | tuple[str, str, str]]
     ] = [
