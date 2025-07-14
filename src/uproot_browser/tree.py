@@ -6,8 +6,9 @@ from __future__ import annotations
 
 import dataclasses
 import functools
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, TypedDict, Literal
 
 import uproot
 import uproot.reading
@@ -41,6 +42,32 @@ class MetaDict(MetaDictRequired, total=False):
     guide_style: str
 
 
+@functools.singledispatch
+def is_dir(item: Any) -> bool:
+    return False
+
+@is_dir.register
+def _(item: uproot.reading.ReadOnlyDirectory) -> Literal[True]:
+    return True
+
+@is_dir.register
+def _(item: uproot.behaviors.TBranch.HasBranches) -> bool:
+    return len(item.branches) > 0
+
+
+@functools.singledispatch
+def get_children(item: Any) -> set[str]:
+    raise RuntimeError("Should not be called, protect with is_dir!")
+
+@get_children.register
+def _(item: Mapping) -> set[str]:
+    return {
+        key.split(";")[0]
+        for key in item.keys()  # noqa: SIM118
+        if "/" not in key
+    }
+
+
 @dataclasses.dataclass
 class UprootEntry:
     path: str
@@ -48,11 +75,7 @@ class UprootEntry:
 
     @property
     def is_dir(self) -> bool:
-        if isinstance(self.item, uproot.reading.ReadOnlyDirectory):
-            return True
-        if isinstance(self.item, uproot.behaviors.TBranch.HasBranches):
-            return len(self.item.branches) > 0
-        return False
+        return is_dir(self.item)
 
     def meta(self) -> MetaDict:
         return process_item(self.item)
@@ -71,18 +94,10 @@ class UprootEntry:
     def children(self) -> list[UprootEntry]:
         if not self.is_dir:
             return []
-        if isinstance(self.item, uproot.reading.ReadOnlyDirectory):
-            items = {
-                key.split(";")[0]
-                for key in self.item.keys()  # noqa: SIM118
-                if "/" not in key
-            }
-        elif isinstance(self.item, uproot.behaviors.TBranch.HasBranches):
-            items = {item.name for item in self.item.branches}
-        else:
-            items = {obj.name.split(";")[0] for obj in self.item.branches}
+
         return [
-            UprootEntry(f"{self.path}/{key}", self.item[key]) for key in sorted(items)
+            UprootEntry(f"{self.path}/{key}", self.item[key])
+            for key in sorted(get_children(self.item))
         ]
 
 
