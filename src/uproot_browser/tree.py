@@ -51,10 +51,13 @@ def is_dir(item: Any) -> bool:  # noqa: ARG001
 def _(item: uproot.reading.ReadOnlyDirectory) -> Literal[True]:  # noqa: ARG001
     return True
 
-
 @is_dir.register
 def _(item: uproot.behaviors.TBranch.HasBranches) -> bool:
     return len(item.branches) > 0
+
+@is_dir.register
+def _(item: uproot.behaviors.RNTuple.HasFields) -> bool:
+    return len(item.keys()) > 0
 
 
 def get_children(item: Mapping[str, Any]) -> set[str]:
@@ -153,7 +156,7 @@ def _process_item_tfile(
 
 
 @process_item.register
-def _process_item_ttree(uproot_object: uproot.TTree) -> MetaDict:
+def _process_item_ttree(uproot_object: uproot.TTree | uproot.behaviors.RNTuple.RNTuple) -> MetaDict:
     """
     Given an tree, return a rich.tree.Tree output.
     """

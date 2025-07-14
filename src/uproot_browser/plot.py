@@ -51,7 +51,7 @@ def plot(tree: Any) -> None:
 
 
 @plot.register
-def plot_branch(tree: uproot.TBranch) -> None:
+def plot_branch(tree: uproot.TBranch | uproot.models.RNTuple.RField) -> None:
     """
     Plot a single tree branch.
     """
