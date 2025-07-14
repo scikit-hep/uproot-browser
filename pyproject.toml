@@ -122,6 +122,7 @@ messages_control.disable = [
   "duplicate-code",
   "unused-argument",  # Handled by Ruff
   "wrong-import-position",  # Handled by Ruff
+  "import-outside-toplevel",  # Handled by Ruff
 ]
 
 

@@ -38,7 +38,7 @@ def tree(filename: str) -> None:
     """
     Display a tree.
     """
-    import uproot_browser.tree  # pylint: disable=import-outside-toplevel
+    import uproot_browser.tree  # noqa: PLC0415
 
     uproot_browser.tree.print_tree(filename)
 
@@ -69,11 +69,11 @@ def plot(filename: str, iterm: bool) -> None:
     if iterm:
         os.environ.setdefault("MPLBACKEND", r"module://itermplot")
 
-        import matplotlib.pyplot as plt  # pylint: disable=import-outside-toplevel
+        import matplotlib.pyplot as plt  # noqa: PLC0415
 
-        import uproot_browser.plot_mpl  # pylint: disable=import-outside-toplevel
+        import uproot_browser.plot_mpl  # noqa: PLC0415
     else:
-        import uproot_browser.plot  # pylint: disable=import-outside-toplevel
+        import uproot_browser.plot  # noqa: PLC0415
 
     item = uproot.open(filename)
 
@@ -99,7 +99,7 @@ def browse(filename: str) -> None:
     """
     Display a TUI.
     """
-    import uproot_browser.tui.browser  # pylint: disable=import-outside-toplevel
+    import uproot_browser.tui.browser  # noqa: PLC0415
 
     app = uproot_browser.tui.browser.Browser(
         path=filename,
