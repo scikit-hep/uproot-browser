@@ -8,7 +8,7 @@ import dataclasses
 import functools
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, TypedDict, Literal
+from typing import Any, Literal, TypedDict
 
 import uproot
 import uproot.reading
@@ -46,9 +46,11 @@ class MetaDict(MetaDictRequired, total=False):
 def is_dir(item: Any) -> bool:
     return False
 
+
 @is_dir.register
 def _(item: uproot.reading.ReadOnlyDirectory) -> Literal[True]:
     return True
+
 
 @is_dir.register
 def _(item: uproot.behaviors.TBranch.HasBranches) -> bool:
@@ -58,6 +60,7 @@ def _(item: uproot.behaviors.TBranch.HasBranches) -> bool:
 @functools.singledispatch
 def get_children(item: Any) -> set[str]:
     raise RuntimeError("Should not be called, protect with is_dir!")
+
 
 @get_children.register
 def _(item: Mapping) -> set[str]:
