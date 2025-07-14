@@ -43,12 +43,12 @@ class MetaDict(MetaDictRequired, total=False):
 
 
 @functools.singledispatch
-def is_dir(item: Any) -> bool:
+def is_dir(item: Any) -> bool:  # noqa: ARG001
     return False
 
 
 @is_dir.register
-def _(item: uproot.reading.ReadOnlyDirectory) -> Literal[True]:
+def _(item: uproot.reading.ReadOnlyDirectory) -> Literal[True]:  # noqa: ARG001
     return True
 
 
@@ -58,12 +58,13 @@ def _(item: uproot.behaviors.TBranch.HasBranches) -> bool:
 
 
 @functools.singledispatch
-def get_children(item: Any) -> set[str]:
-    raise RuntimeError("Should not be called, protect with is_dir!")
+def get_children(item: Any) -> set[str]:  # noqa: ARG001
+    msg = "Should not be called, protect with is_dir!"
+    raise AssertionError(msg)
 
 
 @get_children.register
-def _(item: Mapping) -> set[str]:
+def _(item: Mapping[str, Any]) -> set[str]:
     return {
         key.split(";")[0]
         for key in item.keys()  # noqa: SIM118
