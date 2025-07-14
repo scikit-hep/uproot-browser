@@ -42,11 +42,11 @@ def make_hist_title(item: Any, histogram: hist.Hist) -> str:
 
 
 @functools.singledispatch
-def plot(tree: Any) -> None:  # noqa: ARG001
+def plot(tree: Any) -> None:
     """
     Implement this for each type of plottable.
     """
-    msg = "This object is not plottable yet"
+    msg = f"This object ({type(tree)}) is not plottable yet"
     raise RuntimeError(msg)
 
 
