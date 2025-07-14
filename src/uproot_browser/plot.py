@@ -46,7 +46,7 @@ def plot(tree: Any) -> None:  # noqa: ARG001
     """
     Implement this for each type of plottable.
     """
-    msg = "This object is not plottable yet"
+    msg = f"This object ({type(tree)}) is not plottable yet"
     raise RuntimeError(msg)
 
 
