@@ -51,9 +51,11 @@ def is_dir(item: Any) -> bool:  # noqa: ARG001
 def _(item: uproot.reading.ReadOnlyDirectory) -> Literal[True]:  # noqa: ARG001
     return True
 
+
 @is_dir.register
 def _(item: uproot.behaviors.TBranch.HasBranches) -> bool:
     return len(item.branches) > 0
+
 
 @is_dir.register
 def _(item: uproot.behaviors.RNTuple.HasFields) -> bool:
@@ -155,8 +157,12 @@ def _process_item_tfile(
     )
 
 
-@process_item.register
-def _process_item_ttree(uproot_object: uproot.TTree | uproot.behaviors.RNTuple.RNTuple) -> MetaDict:
+# Python 3.11 can just use `|` directly for register
+@process_item.register(uproot.TTree)
+@process_item.register(uproot.behaviors.RNTuple.RNTuple)
+def _process_item_ttree(
+    uproot_object: uproot.TTree | uproot.behaviors.RNTuple.RNTuple,
+) -> MetaDict:
     """
     Given an tree, return a rich.tree.Tree output.
     """

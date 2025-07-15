@@ -50,7 +50,9 @@ def plot(tree: Any) -> None:
     raise RuntimeError(msg)
 
 
-@plot.register
+# Simpler in Python 3.11+
+@plot.register(uproot.TBranch)
+@plot.register(uproot.models.RNTuple.RField)
 def plot_branch(tree: uproot.TBranch | uproot.models.RNTuple.RField) -> None:
     """
     Plot a single tree branch.
