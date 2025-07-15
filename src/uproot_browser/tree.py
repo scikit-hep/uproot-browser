@@ -57,14 +57,7 @@ def _(item: uproot.behaviors.TBranch.HasBranches) -> bool:
     return len(item.branches) > 0
 
 
-@functools.singledispatch
-def get_children(item: Any) -> set[str]:  # noqa: ARG001
-    msg = "Should not be called, protect with is_dir!"
-    raise AssertionError(msg)
-
-
-@get_children.register
-def _(item: Mapping[str, Any]) -> set[str]:
+def get_children(item: Mapping[str, Any]) -> set[str]:
     return {
         key.split(";")[0]
         for key in item.keys()  # noqa: SIM118
