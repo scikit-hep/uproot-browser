@@ -50,8 +50,9 @@ def plot(tree: Any) -> None:
     raise RuntimeError(msg)
 
 
-@plot.register
-def plot_branch(tree: uproot.TBranch) -> None:
+# Simpler in Python 3.11+
+@plot.register(uproot.TBranch)
+def plot_branch(tree: uproot.TBranch | uproot.models.RNTuple.RField) -> None:
     """
     Plot a single tree branch.
     """
@@ -67,6 +68,10 @@ def plot_branch(tree: uproot.TBranch) -> None:
     plt.xticks(np.linspace(histogram.axes[0][0][0], histogram.axes[0][-1][-1], 5))
     plt.xlabel(histogram.axes[0].name)
     plt.title(make_hist_title(tree, histogram))
+
+
+if hasattr(uproot.models, "RNTuple") and hasattr(uproot.models.RNTuple, "RField"):
+    plot.register(uproot.models.RNTuple.RField)(plot_branch)  # type: ignore[no-untyped-call]
 
 
 @plot.register

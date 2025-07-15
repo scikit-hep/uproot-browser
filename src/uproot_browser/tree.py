@@ -57,6 +57,15 @@ def _(item: uproot.behaviors.TBranch.HasBranches) -> bool:
     return len(item.branches) > 0
 
 
+if hasattr(uproot.behaviors, "RNTuple") and hasattr(
+    uproot.behaviors.RNTuple, "HasFields"
+):
+
+    @is_dir.register
+    def _(item: uproot.behaviors.RNTuple.HasFields) -> bool:
+        return len(item.keys()) > 0
+
+
 def get_children(item: Mapping[str, Any]) -> set[str]:
     return {
         key.split(";")[0]
@@ -152,8 +161,11 @@ def _process_item_tfile(
     )
 
 
-@process_item.register
-def _process_item_ttree(uproot_object: uproot.TTree) -> MetaDict:
+# Python 3.11 can just use `|` directly for register
+@process_item.register(uproot.TTree)
+def _process_item_ttree(
+    uproot_object: uproot.TTree | uproot.behaviors.RNTuple.RNTuple,
+) -> MetaDict:
     """
     Given an tree, return a rich.tree.Tree output.
     """
@@ -167,6 +179,12 @@ def _process_item_ttree(uproot_object: uproot.TTree) -> MetaDict:
         label_text=label_text,
         guide_style="bold bright_green",
     )
+
+
+if hasattr(uproot.behaviors, "RNTuple") and hasattr(
+    uproot.behaviors.RNTuple, "HasFields"
+):
+    process_item.register(uproot.behaviors.RNTuple.RNTuple)(_process_item_ttree)  # type: ignore[no-untyped-call]
 
 
 @process_item.register
