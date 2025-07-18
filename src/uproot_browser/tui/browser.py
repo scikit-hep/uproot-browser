@@ -61,6 +61,7 @@ class Browser(textual.app.App[object]):
         textual.binding.Binding("t", "toggle_theme", "Theme"),
         textual.binding.Binding("f1", "help", "Help"),
         textual.binding.Binding("?", "help", "Help", show=False),
+        textual.binding.Binding("escape", "quit", "Quit", show=False),
     ]
 
     show_tree = var(True)
