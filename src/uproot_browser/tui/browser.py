@@ -79,14 +79,11 @@ class Browser(textual.app.App[object]):
             # left_panel
             yield UprootTree(self.path, id="tree-view")
             # right_panel
-            yield textual.widgets.ContentSwitcher(
-                LogoWidget(id="logo"),
-                self.plot_widget,
-                self.error_widget,
-                EmptyWidget(id="empty"),
-                id="main-view",
-                initial="logo",
-            )
+            with textual.widgets.ContentSwitcher(id="main-view", initial="logo"):
+                yield LogoWidget(id="logo")
+                yield self.plot_widget
+                yield self.error_widget
+                yield EmptyWidget(id="empty")
         yield textual.widgets.Footer()
 
     def on_mount(self, _event: textual.events.Mount) -> None:
