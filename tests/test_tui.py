@@ -18,20 +18,6 @@ async def test_browse_plot() -> None:
         assert pilot.app.query_one("#main-view").current == "plot"
 
 
-async def test_theme_switch() -> None:
-    async with Browser(
-        skhep_testdata.data_path("uproot-Event.root")
-    ).run_test() as pilot:
-        await pilot.press("down", "down", "down", "enter")
-        browser_theme = pilot.app.theme
-        plot_theme = pilot.app.theme
-        await pilot.press("t")
-        new_browser_theme = pilot.app.theme
-        new_plot_theme = pilot.app.theme
-        assert browser_theme != new_browser_theme
-        assert plot_theme != new_plot_theme
-
-
 async def test_browse_empty() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-empty.root")

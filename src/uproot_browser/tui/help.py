@@ -22,8 +22,7 @@ class HelpScreen(textual.screen.ModalScreen[None]):
         textual.binding.Binding("b", "", "Nothing", show=False),
         textual.binding.Binding("f1", "", "Nothing", show=False),
         textual.binding.Binding("q", "done", "Done", show=True),
-        textual.binding.Binding("esc", "done", "Done", show=True),
-        textual.binding.Binding("t", "toggle_theme", "Theme", show=True),
+        textual.binding.Binding("escape", "done", "Done", show=True),
     ]
 
     app: Browser
@@ -43,6 +42,3 @@ class HelpScreen(textual.screen.ModalScreen[None]):
 
     def action_done(self) -> None:
         self.app.pop_screen()
-
-    def action_toggle_theme(self) -> None:
-        self.app.action_toggle_theme()
