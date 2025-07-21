@@ -139,7 +139,7 @@ class Browser(textual.app.App[object]):
         theme = "textual-light" if dark else "textual-dark"
 
         if self.plot_widget.item:
-            self.plot_widget.item.theme = "dark" if dark else "default"
+            self.plot_widget.item.theme = "default" if dark else "dark"
         self.theme = theme
 
     def on_uproot_selected(self, message: UprootSelected) -> None:
