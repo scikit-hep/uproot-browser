@@ -46,6 +46,7 @@ from .right_panel import (
     PlotWidget,
     make_plot,
 )
+from .tools import Info, Tools
 
 
 class Browser(textual.app.App[object]):
@@ -58,12 +59,13 @@ class Browser(textual.app.App[object]):
         textual.binding.Binding("b", "toggle_files", "Navbar"),
         textual.binding.Binding("q", "quit", "Quit"),
         textual.binding.Binding("d", "quit_with_dump", "Dump & Quit"),
-        textual.binding.Binding("t", "toggle_theme", "Theme"),
         textual.binding.Binding("f1", "help", "Help"),
         textual.binding.Binding("?", "help", "Help", show=False),
+        textual.binding.Binding("escape", "quit", "Quit", show=False),
     ]
 
     show_tree = var(True)
+    show_tools = var(False)
 
     def __init__(self, path: str, **kwargs: Any) -> None:
         self.path = path
@@ -77,24 +79,27 @@ class Browser(textual.app.App[object]):
         yield Header("uproot-browser")
         with textual.containers.Container():
             # left_panel
-            yield UprootTree(self.path, id="tree-view")
-            # right_panel
-            yield textual.widgets.ContentSwitcher(
-                LogoWidget(id="logo"),
-                self.plot_widget,
-                self.error_widget,
-                EmptyWidget(id="empty"),
-                id="main-view",
-                initial="logo",
-            )
+            with textual.widgets.TabbedContent(id="left-view"):
+                with textual.widgets.TabPane("Tree"):
+                    yield UprootTree(self.path, id="tree-view")
+                with textual.widgets.TabPane("Tools"):
+                    yield Tools()
+                with textual.widgets.TabPane("Info"):
+                    yield Info()
+            # main_panel
+            with textual.widgets.ContentSwitcher(id="main-view", initial="logo"):
+                yield LogoWidget(id="logo")
+                yield self.plot_widget
+                yield self.error_widget
+                yield EmptyWidget(id="empty")
         yield textual.widgets.Footer()
 
     def on_mount(self, _event: textual.events.Mount) -> None:
-        self.query_one("#tree-view", UprootTree).focus()
+        self.query_one("#tree-view").focus()
 
     def watch_show_tree(self, show_tree: bool) -> None:
         """Called when show_tree is modified."""
-        self.set_class(show_tree, "-show-tree")
+        self.set_class(show_tree, "-show-panel")
 
     def action_help(self) -> None:
         self.push_screen(HelpScreen())
@@ -133,14 +138,10 @@ class Browser(textual.app.App[object]):
 
         self.exit(message=results)
 
-    def action_toggle_theme(self) -> None:
-        """An action to toggle dark mode."""
-        dark = self.theme != "textual-light"
-        theme = "textual-light" if dark else "textual-dark"
-
+    def watch_theme(self, _old: str, new: str) -> None:
+        dark = not new.endswith("-light")
         if self.plot_widget.item:
-            self.plot_widget.item.theme = "default" if dark else "dark"
-        self.theme = theme
+            self.plot_widget.item.theme = "dark" if dark else "default"
 
     def on_uproot_selected(self, message: UprootSelected) -> None:
         """A message sent by the tree when a file is clicked."""

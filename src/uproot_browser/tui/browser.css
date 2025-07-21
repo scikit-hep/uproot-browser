@@ -8,7 +8,7 @@ Browser Widget {
     scrollbar-size: 1 1;
 }
 
-#tree-view {
+#left-view {
     display: none;
     overflow: auto;
     width: 25%;
@@ -21,7 +21,7 @@ Tree > .tree--cursor {
     text-style: bold;
 }
 
-Browser.-show-tree #tree-view {
+Browser.-show-panel #left-view {
     display: block;
     max-width: 50%;
 }
@@ -48,6 +48,14 @@ ContentSwitcher#main-view {
 
 #empty {
     content-align: center middle;
+}
+
+Info {
+    overflow: scroll;
+}
+
+Tools {
+    overflow: scroll;
 }
 
 Footer > .footer--highlight {
