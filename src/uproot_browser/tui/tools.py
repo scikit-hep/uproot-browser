@@ -15,6 +15,7 @@ class Tools(textual.containers.Container):
 
     @textual.on(textual.widgets.Select.Changed)
     def select_changed(self, event: textual.widgets.Select.Changed) -> None:
+        # pylint: disable-next=attribute-defined-outside-init
         self.app.theme = str(event.value)
 
 

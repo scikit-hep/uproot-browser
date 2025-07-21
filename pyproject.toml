@@ -104,8 +104,8 @@ ignore_missing_imports = true
 
 
 [tool.pylint]
-master.py-version = "3.9"
-master.jobs = "0"
+py-version = "3.9"
+jobs = "1"
 reports.output-format = "colorized"
 similarities.ignore-imports = "yes"
 messages_control.enable = [
