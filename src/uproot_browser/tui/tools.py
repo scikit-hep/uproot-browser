@@ -8,7 +8,6 @@ from .. import __version__
 
 class Tools(textual.containers.Container):
     def compose(self) -> textual.app.ComposeResult:
-        yield textual.widgets.Label("Tools")
         with textual.widgets.Collapsible(title="Theme", collapsed=False):
             themes = self.app.available_themes
             yield textual.widgets.Select([(t, t) for t in themes], allow_blank=False)
@@ -21,7 +20,6 @@ class Tools(textual.containers.Container):
 
 class Info(textual.containers.Container):
     def compose(self) -> textual.app.ComposeResult:
-        yield textual.widgets.Label("Info")
         with textual.widgets.Collapsible(title="uproot-browser", collapsed=False):
             yield textual.widgets.Label(f"Version: [green]{__version__}[/green]")
         with textual.widgets.Collapsible(title="Packages", collapsed=False):
