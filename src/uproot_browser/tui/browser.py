@@ -108,7 +108,6 @@ class Browser(textual.app.App[object]):
         """Called in response to key binding."""
         self.show_tree = not self.show_tree
 
-
     @staticmethod
     def _is_dark(theme: str) -> bool:
         return not theme.endswith(("-light", "-latte", "-ansi"))
