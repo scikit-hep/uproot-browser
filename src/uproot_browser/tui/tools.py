@@ -11,7 +11,7 @@ class Tools(textual.containers.Container):
         yield textual.widgets.Label("Tools")
         with textual.widgets.Collapsible(title="Theme", collapsed=False):
             themes = self.app.available_themes
-            yield textual.widgets.Select([(t, t) for t in themes])
+            yield textual.widgets.Select([(t, t) for t in themes], allow_blank=False)
 
     @textual.on(textual.widgets.Select.Changed)
     def select_changed(self, event: textual.widgets.Select.Changed) -> None:
