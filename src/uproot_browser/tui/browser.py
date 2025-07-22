@@ -108,6 +108,10 @@ class Browser(textual.app.App[object]):
         """Called in response to key binding."""
         self.show_tree = not self.show_tree
 
+    @staticmethod
+    def _is_dark(theme: str) -> bool:
+        return not theme.endswith(("-light", "-latte", "-ansi"))
+
     def action_quit_with_dump(self) -> None:
         """Dump the current state of the application."""
 
@@ -127,9 +131,7 @@ class Browser(textual.app.App[object]):
             assert err_widget.exc
             items = [err_widget.exc]
 
-        dark = self.theme != "textual-light"
-
-        theme = "ansi_dark" if dark else "ansi_light"
+        theme = "ansi_dark" if self._is_dark(self.theme) else "ansi_light"
 
         results = rich.console.Group(
             *items,
@@ -139,9 +141,8 @@ class Browser(textual.app.App[object]):
         self.exit(message=results)
 
     def watch_theme(self, _old: str, new: str) -> None:
-        dark = not new.endswith("-light")
         if self.plot_widget.item:
-            self.plot_widget.item.theme = "dark" if dark else "default"
+            self.plot_widget.item.theme = "dark" if self._is_dark(new) else "default"
 
     def on_uproot_selected(self, message: UprootSelected) -> None:
         """A message sent by the tree when a file is clicked."""
@@ -149,8 +150,7 @@ class Browser(textual.app.App[object]):
         content_switcher = self.query_one("#main-view", textual.widgets.ContentSwitcher)
 
         try:
-            dark = self.theme != "textual-light"
-            theme = "dark" if dark else "default"
+            theme = "dark" if self._is_dark(self.theme) else "default"
             make_plot(message.upfile[message.path], theme, 20)
             self.plot_widget.item = Plotext(message.upfile, message.path, theme)
             content_switcher.current = "plot"
