@@ -58,6 +58,10 @@ Tools {
     overflow: scroll;
 }
 
+CollapsibleTitle {
+   text-style: bold;
+}
+
 Footer > .footer--highlight {
     background: $secondary-darken-2;
 }
