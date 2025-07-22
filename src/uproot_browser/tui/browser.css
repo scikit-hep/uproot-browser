@@ -93,3 +93,39 @@ HelpScreen {
     height: 3;
     background: $surface-lighten-1;
 }
+
+
+HeaderCloseIcon {
+    dock: left;
+    border: none;
+    min-width: 3;
+}
+
+HeaderCloseIcon:hover {
+    background: $panel-lighten-2;
+}
+
+HeaderHelpIcon {
+    dock: right;
+    padding: 0 1;
+    border: none;
+    min-width: 4;
+    content-align: right middle;
+}
+
+HeaderHelpIcon:hover {
+    background: $panel-lighten-2;
+}
+
+HeaderTitle {
+    content-align: center middle;
+    width: 100%;
+}
+
+Header {
+    dock: top;
+    width: 100%;
+    background: $foreground 5%;
+    color: $text;
+    height: 1;
+}
