@@ -7,21 +7,27 @@ import rich.text
 import textual.app
 import textual.reactive
 import textual.widget
-import textual.widgets
+from textual.widgets import Button
 
 if typing.TYPE_CHECKING:
     from .browser import Browser
 
 
-class HeaderCloseIcon(textual.widgets.Button):
+class HeaderCloseIcon(Button):
     def on_click(self) -> None:
         self.app.exit()
 
+    def on_button_pressed(self, _: Button.Pressed) -> None:
+        self.app.exit()
 
-class HeaderHelpIcon(textual.widgets.Button):
+
+class HeaderHelpIcon(Button):
     app: Browser
 
     def on_click(self) -> None:
+        self.app.action_help()
+
+    def on_button_pressed(self, _: Button.Pressed) -> None:
         self.app.action_help()
 
 

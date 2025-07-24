@@ -31,10 +31,10 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
     BINDINGS: ClassVar[
         list[textual.binding.Binding | tuple[str, str] | tuple[str, str, str]]
     ] = [
-        textual.binding.Binding("h", "cursor_out", "Cursor out", show=False),
+        textual.binding.Binding("h,left", "cursor_out", "Cursor out", show=False),
         textual.binding.Binding("j", "cursor_down", "Cursor Down", show=False),
         textual.binding.Binding("k", "cursor_up", "Cursor Up", show=False),
-        textual.binding.Binding("l", "cursor_in", "Cursor in", show=False),
+        textual.binding.Binding("l,right", "cursor_in", "Cursor in", show=False),
     ]
 
     def __init__(self, path: str, **args: Any) -> None:
