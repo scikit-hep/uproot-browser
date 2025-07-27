@@ -65,7 +65,6 @@ class Browser(textual.app.App[object]):
     ]
 
     show_tree = var(True)
-    show_tools = var(False)
 
     def __init__(self, path: str, **kwargs: Any) -> None:
         self.path = path
