@@ -1,7 +1,7 @@
 import skhep_testdata
 
 from uproot_browser.tui.browser import Browser
-from uproot_browser.tui.right_panel import Plotext, Error
+from uproot_browser.tui.right_panel import Plotext
 
 
 async def test_browse_logo() -> None:

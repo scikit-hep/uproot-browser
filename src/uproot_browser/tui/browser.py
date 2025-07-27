@@ -34,16 +34,13 @@ with contextlib.suppress(AttributeError):
 
 from uproot_browser.exceptions import EmptyTreeError
 
+from .error import Error
 from .header import Header
 from .help import HelpScreen
 from .left_panel import UprootSelected, UprootTree
-from .right_panel import (
-    Error,
-    Plotext,
-    PlotWidget,
-    make_plot,
-)
+from .plot import Plotext, make_plot
 from .tools import Info, Tools
+from .viewer import ViewWidget
 
 
 class Browser(textual.app.App[object]):
@@ -67,7 +64,7 @@ class Browser(textual.app.App[object]):
         self.path = path
         super().__init__(**kwargs)
 
-        self.plot_widget = PlotWidget()
+        self.view_widget = ViewWidget()
 
     def compose(self) -> textual.app.ComposeResult:
         """Compose our UI."""
@@ -82,7 +79,7 @@ class Browser(textual.app.App[object]):
                 with textual.widgets.TabPane("Info"):
                     yield Info()
             # main_panel
-            yield self.plot_widget
+            yield self.view_widget
         yield textual.widgets.Footer()
 
     def on_mount(self, _event: textual.events.Mount) -> None:
@@ -109,13 +106,13 @@ class Browser(textual.app.App[object]):
         msg = f'\nimport uproot\nuproot_file = uproot.open("{self.path}")'
 
         items: list[Plotext | Error] = []
-        if isinstance(self.plot_widget.item, Error):
-            items = [err_widget.exc]
-        elif isinstance(self.plot_widget.item, Plotext):
+        if isinstance(self.view_widget.item, Error):
+            items = [self.view_widget.item.exc]
+        elif isinstance(self.view_widget.item, Plotext):
             msg += (
-                f'\nitem = uproot_file["{self.plot_widget.item.selection.lstrip("/")}"]'
+                f'\nitem = uproot_file["{self.view_widget.item.selection.lstrip("/")}"]'
             )
-            items = [self.plot_widget.item]
+            items = [self.view_widget.item]
 
         theme = "ansi_dark" if self._is_dark(self.theme) else "ansi_light"
 
@@ -127,8 +124,8 @@ class Browser(textual.app.App[object]):
         self.exit(message=results)
 
     def watch_theme(self, _old: str, new: str) -> None:
-        if self.plot_widget.item:
-            self.plot_widget.item.theme = "dark" if self._is_dark(new) else "default"
+        if self.view_widget.item:
+            self.view_widget.item.theme = "dark" if self._is_dark(new) else "default"
 
     def on_uproot_selected(self, message: UprootSelected) -> None:
         """A message sent by the tree when a file is clicked."""
@@ -136,15 +133,16 @@ class Browser(textual.app.App[object]):
         try:
             theme = "dark" if self._is_dark(self.theme) else "default"
             make_plot(message.upfile[message.path], theme, 20)
-            self.plot_widget.item = Plotext(message.upfile, message.path, theme)
+            self.view_widget.item = Plotext(message.upfile, message.path, theme)
 
         except EmptyTreeError:
-            self.plot_widget.item = None
+            self.view_widget.item = None
 
         except Exception:
             exc = sys.exc_info()
             assert exc[1]
-            self.plot_widget.item = Error(exc)
+            self.view_widget.item = Error(exc)
+
 
 if __name__ in {"<run_path>", "__main__"}:
     fname = "../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.root"
