@@ -74,36 +74,27 @@ class Plotext:
         yield rich.text.Text.from_ansi(canvas)
 
 
-class PlotWidget(textual.widget.Widget):
-    _item: Plotext | None
+class PlotWidget(textual.containers.Container):
+    def __init__(self, **kargs: Any):
+        super().__init__(**kargs)
+        self._item: Error | Plotext | None = None
 
     @property
-    def item(self) -> Plotext | None:
+    def item(self) -> Plotext | Error | None:
         return self._item
 
     @item.setter
     def item(self, value: Plotext) -> None:
         self._item = value
-        self.refresh()
+        self.refresh(recompose=True)
 
-    def __init__(self, **kargs: Any):
-        super().__init__(**kargs)
-        self._item = None
-
-    def render(self) -> rich.console.RenderableType:
-        return self.item or ""
-
-
-class EmptyWidget(textual.widget.Widget):
-    # if the plot is empty
-
-    def render(self) -> rich.console.RenderableType:
-        return rich.text.Text("Plot is Empty")
-
-
-class LogoWidget(textual.widget.Widget):
-    def render(self) -> rich.console.RenderableType:
-        return LOGO_PANEL
+    def compose(self) -> rich.console.RenderableType:
+        if self.item is None:
+            yield textual.widgets.Static(LOGO_PANEL, id="logo")
+        elif isinstance(self.item, Error):
+            yield textual.containers.VerticalScroll(textual.widgets.Static(self.item, id="error"))
+        else:
+            yield textual.widgets.Static(self.item, id="plot")
 
 
 @dataclasses.dataclass
@@ -117,22 +108,3 @@ class Error:
 
         yield rich.traceback.Traceback.from_exception(*self.exc, width=width)
 
-
-class ErrorWidget(RichLog):
-    _exc: Error | None
-
-    @property
-    def exc(self) -> Error | None:
-        return self._exc
-
-    @exc.setter
-    def exc(self, value: Error) -> None:
-        self._exc = value
-        self.clear()
-        self.write(self._exc)
-        # self.refresh()
-
-    def __init__(self, **kargs: Any):
-        super().__init__(**kargs)
-        self.write("No Exception set!")
-        self._exc = None

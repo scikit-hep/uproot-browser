@@ -26,12 +26,13 @@ Browser.-show-panel #left-view {
     max-width: 50%;
 }
 
-ContentSwitcher#main-view {
+PlotWidget {
     height: 100%;
 }
 
 #logo {
     content-align: center middle;
+    height: 100%;
 }
 
 #plot {
@@ -44,10 +45,6 @@ ContentSwitcher#main-view {
 #error{
     overflow: auto;
     min-width: 100%;
-}
-
-#empty {
-    content-align: center middle;
 }
 
 Info {
