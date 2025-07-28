@@ -4,6 +4,7 @@ import dataclasses
 from types import TracebackType
 
 import rich.console
+import rich.traceback
 
 
 @dataclasses.dataclass

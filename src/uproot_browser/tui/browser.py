@@ -4,7 +4,6 @@ if not __package__:
     __package__ = "uproot_browser.tui"  # pylint: disable=redefined-builtin
 
 import contextlib
-import sys
 from typing import Any, ClassVar
 
 import plotext as plt
@@ -32,13 +31,13 @@ with contextlib.suppress(AttributeError):
     # pylint: disable-next=protected-access
     plt._dict.themes["dark"][2] = dark_text
 
-from uproot_browser.exceptions import EmptyTreeError
 
 from .error import Error
 from .header import Header
 from .help import HelpScreen
-from .left_panel import UprootSelected, UprootTree
-from .plot import Plotext, make_plot
+from .left_panel import UprootTree
+from .messages import EmptyMessage, ErrorMessage, UprootSelected
+from .plot import Plotext
 from .tools import Info, Tools
 from .viewer import ViewWidget
 
@@ -130,18 +129,14 @@ class Browser(textual.app.App[object]):
     def on_uproot_selected(self, message: UprootSelected) -> None:
         """A message sent by the tree when a file is clicked."""
 
-        try:
-            theme = "dark" if self._is_dark(self.theme) else "default"
-            make_plot(message.upfile[message.path], theme, 20)
-            self.view_widget.item = Plotext(message.upfile, message.path, theme)
+        theme = "dark" if self._is_dark(self.theme) else "default"
+        self.view_widget.item = Plotext(message.upfile, message.path, theme, self.app)
 
-        except EmptyTreeError:
-            self.view_widget.item = None
+    def on_empty_message(self, message: EmptyMessage) -> None:
+        self.view_widget.item = None
 
-        except Exception:
-            exc = sys.exc_info()
-            assert exc[1]
-            self.view_widget.item = Error(exc)
+    def on_error_message(self, message: ErrorMessage) -> None:
+        self.view_widget.item = message.err
 
 
 if __name__ in {"<run_path>", "__main__"}:
