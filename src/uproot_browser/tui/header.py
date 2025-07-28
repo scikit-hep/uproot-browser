@@ -14,14 +14,14 @@ if typing.TYPE_CHECKING:
 
 
 class HeaderCloseIcon(textual.widgets.Button):
-    def on_click(self) -> None:
+    def on_button_pressed(self, _: textual.widgets.Button.Pressed) -> None:
         self.app.exit()
 
 
 class HeaderHelpIcon(textual.widgets.Button):
     app: Browser
 
-    def on_click(self) -> None:
+    def on_button_pressed(self, _: textual.widgets.Button.Pressed) -> None:
         self.app.action_help()
 
 
