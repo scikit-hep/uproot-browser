@@ -4,10 +4,8 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 import rich.panel
-import rich.repr
 import rich.text
 import textual.binding
-import textual.message
 import textual.widget
 import textual.widgets
 import textual.widgets.tree
@@ -15,14 +13,7 @@ import uproot
 from rich.style import Style
 
 from ..tree import UprootEntry
-
-
-@rich.repr.auto
-class UprootSelected(textual.message.Message, bubble=True):
-    def __init__(self, upfile: Any, path: str) -> None:
-        self.upfile = upfile
-        self.path = path
-        super().__init__()
+from .messages import UprootSelected
 
 
 class UprootTree(textual.widgets.Tree[UprootEntry]):

@@ -4,7 +4,6 @@ if not __package__:
     __package__ = "uproot_browser.tui"  # pylint: disable=redefined-builtin
 
 import contextlib
-import sys
 from typing import Any, ClassVar
 
 import plotext as plt
@@ -32,21 +31,15 @@ with contextlib.suppress(AttributeError):
     # pylint: disable-next=protected-access
     plt._dict.themes["dark"][2] = dark_text
 
-from uproot_browser.exceptions import EmptyTreeError
 
+from .error import Error
 from .header import Header
 from .help import HelpScreen
-from .left_panel import UprootSelected, UprootTree
-from .right_panel import (
-    EmptyWidget,
-    Error,
-    ErrorWidget,
-    LogoWidget,
-    Plotext,
-    PlotWidget,
-    make_plot,
-)
+from .left_panel import UprootTree
+from .messages import ErrorMessage, UprootSelected
+from .plot import Plotext
 from .tools import Info, Tools
+from .viewer import ViewWidget
 
 
 class Browser(textual.app.App[object]):
@@ -65,14 +58,12 @@ class Browser(textual.app.App[object]):
     ]
 
     show_tree = var(True)
-    show_tools = var(False)
 
     def __init__(self, path: str, **kwargs: Any) -> None:
         self.path = path
         super().__init__(**kwargs)
 
-        self.plot_widget = PlotWidget(id="plot")
-        self.error_widget = ErrorWidget(id="error")
+        self.view_widget = ViewWidget()
 
     def compose(self) -> textual.app.ComposeResult:
         """Compose our UI."""
@@ -87,11 +78,7 @@ class Browser(textual.app.App[object]):
                 with textual.widgets.TabPane("Info"):
                     yield Info()
             # main_panel
-            with textual.widgets.ContentSwitcher(id="main-view", initial="logo"):
-                yield LogoWidget(id="logo")
-                yield self.plot_widget
-                yield self.error_widget
-                yield EmptyWidget(id="empty")
+            yield self.view_widget
         yield textual.widgets.Footer()
 
     def on_mount(self, _event: textual.events.Mount) -> None:
@@ -115,21 +102,16 @@ class Browser(textual.app.App[object]):
     def action_quit_with_dump(self) -> None:
         """Dump the current state of the application."""
 
-        content_switcher = self.query_one("#main-view", textual.widgets.ContentSwitcher)
-        err_widget = content_switcher.query_one("#error", ErrorWidget)
-
         msg = f'\nimport uproot\nuproot_file = uproot.open("{self.path}")'
 
         items: list[Plotext | Error] = []
-        if content_switcher.current == "plot":
-            assert self.plot_widget.item
+        if isinstance(self.view_widget.item, Error):
+            items = [self.view_widget.item]
+        elif isinstance(self.view_widget.item, Plotext):
             msg += (
-                f'\nitem = uproot_file["{self.plot_widget.item.selection.lstrip("/")}"]'
+                f'\nitem = uproot_file["{self.view_widget.item.selection.lstrip("/")}"]'
             )
-            items = [self.plot_widget.item]
-        elif content_switcher.current == "error":
-            assert err_widget.exc
-            items = [err_widget.exc]
+            items = [self.view_widget.item]
 
         theme = "ansi_dark" if self._is_dark(self.theme) else "ansi_light"
 
@@ -141,28 +123,20 @@ class Browser(textual.app.App[object]):
         self.exit(message=results)
 
     def watch_theme(self, _old: str, new: str) -> None:
-        if self.plot_widget.item:
-            self.plot_widget.item.theme = "dark" if self._is_dark(new) else "default"
+        if isinstance(self.view_widget.item, Plotext):
+            self.view_widget.item.theme = "dark" if self._is_dark(new) else "default"
 
     def on_uproot_selected(self, message: UprootSelected) -> None:
         """A message sent by the tree when a file is clicked."""
 
-        content_switcher = self.query_one("#main-view", textual.widgets.ContentSwitcher)
+        theme = "dark" if self._is_dark(self.theme) else "default"
+        self.view_widget.item = Plotext(message.upfile, message.path, theme, self)
 
-        try:
-            theme = "dark" if self._is_dark(self.theme) else "default"
-            make_plot(message.upfile[message.path], theme, 20)
-            self.plot_widget.item = Plotext(message.upfile, message.path, theme)
-            content_switcher.current = "plot"
+    def on_empty_message(self) -> None:
+        self.view_widget.item = None
 
-        except EmptyTreeError:
-            content_switcher.current = "empty"
-
-        except Exception:
-            exc = sys.exc_info()
-            assert exc[1]
-            self.error_widget.exc = Error(exc)
-            content_switcher.current = "error"
+    def on_error_message(self, message: ErrorMessage) -> None:
+        self.view_widget.item = message.err
 
 
 if __name__ in {"<run_path>", "__main__"}:
