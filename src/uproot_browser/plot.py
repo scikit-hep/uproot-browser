@@ -71,7 +71,6 @@ def plot_branch(
     plt.bar(
         histogram.axes[0].centers,
         histogram.values().astype(float),
-        width=histogram.axes[0].widths,
     )
     plt.ylim(lower=0)
     plt.xticks(np.linspace(histogram.axes[0][0][0], histogram.axes[0][-1][-1], 5))
