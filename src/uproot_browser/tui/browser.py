@@ -13,6 +13,7 @@ import textual.binding
 import textual.containers
 import textual.events
 import textual.widgets
+import textual.worker
 from textual.reactive import var
 
 with contextlib.suppress(AttributeError):
@@ -36,7 +37,7 @@ from .error import Error
 from .header import Header
 from .help import HelpScreen
 from .left_panel import UprootTree
-from .messages import ErrorMessage, UprootSelected
+from .messages import ErrorMessage, RequestPlot, UprootSelected
 from .plot import Plotext
 from .tools import Info, Tools
 from .viewer import ViewWidget
@@ -139,6 +140,16 @@ class Browser(textual.app.App[object]):
 
     def on_error_message(self, message: ErrorMessage) -> None:
         self.view_widget.item = message.err
+
+    def on_request_plot(self, message: RequestPlot) -> None:
+        self.render_plot(message.plot)
+
+    @textual.work(exclusive=True, thread=True)
+    def render_plot(self, plot: Plotext) -> None:
+        worker = textual.worker.get_current_worker()
+        new_plot = plot.make_plot()
+        if new_plot and not worker.is_cancelled:
+            self.call_from_thread(self.view_widget.plot_widget.update, new_plot)
 
 
 if __name__ in {"<run_path>", "__main__"}:
