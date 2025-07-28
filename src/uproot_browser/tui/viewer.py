@@ -21,7 +21,7 @@ class ViewWidget(textual.containers.Container):
         return self._item
 
     @item.setter
-    def item(self, value: Plotext) -> None:
+    def item(self, value: Plotext | Error | None) -> None:
         self._item = value
         self.refresh(recompose=True)
 

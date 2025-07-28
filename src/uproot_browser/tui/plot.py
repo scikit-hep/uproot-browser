@@ -49,7 +49,7 @@ class Plotext:
         *_, item = apply_selection(self.upfile, self.selection.split(":"))
 
         if item is None:
-            self.app.view_widget.item = None
+            self.app.post_message(EmptyMessage())
             return
 
         width = options.max_width or console.width

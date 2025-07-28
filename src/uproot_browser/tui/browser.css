@@ -38,6 +38,7 @@ PlotWidget {
 #plot {
     overflow: auto;
     min-width: 100%;
+    height: 100%;
     padding-left: 1;
     padding-right: 1;
 }
@@ -45,6 +46,7 @@ PlotWidget {
 #error{
     overflow: auto;
     min-width: 100%;
+    padding: 1;
 }
 
 Info {

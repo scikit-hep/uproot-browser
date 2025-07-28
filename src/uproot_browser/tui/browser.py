@@ -36,7 +36,7 @@ from .error import Error
 from .header import Header
 from .help import HelpScreen
 from .left_panel import UprootTree
-from .messages import EmptyMessage, ErrorMessage, UprootSelected
+from .messages import ErrorMessage, UprootSelected
 from .plot import Plotext
 from .tools import Info, Tools
 from .viewer import ViewWidget
@@ -106,7 +106,7 @@ class Browser(textual.app.App[object]):
 
         items: list[Plotext | Error] = []
         if isinstance(self.view_widget.item, Error):
-            items = [self.view_widget.item.exc]
+            items = [self.view_widget.item]
         elif isinstance(self.view_widget.item, Plotext):
             msg += (
                 f'\nitem = uproot_file["{self.view_widget.item.selection.lstrip("/")}"]'
@@ -123,16 +123,16 @@ class Browser(textual.app.App[object]):
         self.exit(message=results)
 
     def watch_theme(self, _old: str, new: str) -> None:
-        if self.view_widget.item:
+        if isinstance(self.view_widget.item, Plotext):
             self.view_widget.item.theme = "dark" if self._is_dark(new) else "default"
 
     def on_uproot_selected(self, message: UprootSelected) -> None:
         """A message sent by the tree when a file is clicked."""
 
         theme = "dark" if self._is_dark(self.theme) else "default"
-        self.view_widget.item = Plotext(message.upfile, message.path, theme, self.app)
+        self.view_widget.item = Plotext(message.upfile, message.path, theme, self)
 
-    def on_empty_message(self, message: EmptyMessage) -> None:
+    def on_empty_message(self) -> None:
         self.view_widget.item = None
 
     def on_error_message(self, message: ErrorMessage) -> None:
