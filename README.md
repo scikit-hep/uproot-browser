@@ -21,10 +21,10 @@ You can install this library from [PyPI](https://pypi.org/project/uproot-browser
 python3 -m pip install uproot-browser
 ```
 
-You can also use `pipx` to run the library without installing it:
+You can also use `pipx run` or `uvx` to run the library without installing it; for example, this will let you try it out in one line:
 
 ```bash
-pipx run uproot-browser
+uvx uproot-browser[testdata] --testdata uproot-Event.root
 ```
 
 ## Features
@@ -38,12 +38,12 @@ uproot-browser currently provides the following features (get help with `-h` or 
 
 ## Examples
 
-This example uses data from the [scikit-hep-testdata](https://github.com/scikit-hep/scikit-hep-testdata) package. It is placed in the same directory as the uproot-browser repository.
+This example uses data from the [scikit-hep-testdata](https://github.com/scikit-hep/scikit-hep-testdata) package. The `--testdata` flag will load from there if it is installed; use the `[testdata]` extra if you want to play with it.
 
 **`browse` command:**
 
 ```bash
-uproot-browser browse ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.root
+uproot-browser browse --testdata uproot-Event.root
 ```
 
 ![GIF of the TUI functionality](https://github.com/scikit-hep/uproot-browser/releases/download/v0.5.0/tui.gif)
@@ -51,7 +51,7 @@ uproot-browser browse ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Even
 **`plot` command:**
 
 ```bash
-uproot-browser plot ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.root:hstat
+uproot-browser plot --testdata uproot-Event.root:hstat
                         hstat -- Entries: 1000
     ┌───────────────────────────────────────────────────────────────┐
 18.0┤▐▌                                                             │
@@ -89,7 +89,7 @@ pipx run uproot-browser[iterm]
 Adding the argument `--iterm` gives us the plot:
 
 ```bash
-uproot-browser plot ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.root:hstat --iterm
+uproot-browser plot --testdata uproot-Event.root:hstat --iterm
 ```
 
 <img alt="iterm example" width="600px" src="https://raw.githubusercontent.com/scikit-hep/uproot-browser/main/docs/_images/iterm.png"/>
@@ -99,7 +99,7 @@ uproot-browser plot ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.
 **`tree` command:**
 
 ```bash
-uproot-browser tree ../scikit-hep-testdata/src/skhep_testdata/data/uproot-Event.root
+uproot-browser tree --testdata uproot-Event.root
 📁 uproot-Event.root
 ┣━━ ❓ <unnamed> TProcessID
 ┣━━ 🌴 T (1000)

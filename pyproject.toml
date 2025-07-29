@@ -54,6 +54,9 @@ iterm = [
   "itermplot==0.5",
   "mplhep",
 ]
+testdata = [
+  "scikit-hep-testdata >=0.4.10",
+]
 
 [project.urls]
 homepage = "https://github.com/scikit-hep/uproot-browser"
@@ -99,7 +102,7 @@ warn_unused_configs = true
 strict = true
 
 [[tool.mypy.overrides]]
-module = ["plotext.*", "awkward.*", "uproot.*", "matplotlib.*"]
+module = ["plotext.*", "awkward.*", "uproot.*", "matplotlib.*", "skhep_testdata"]
 ignore_missing_imports = true
 
 
@@ -128,31 +131,31 @@ messages_control.disable = [
 
 [tool.ruff.lint]
 extend-select = [
-  "B",           # flake8-bugbear
-  "I",           # isort
-  "ARG",         # flake8-unused-arguments
-  "C4",          # flake8-comprehensions
-  "EM",          # flake8-errmsg
-  "ICN",         # flake8-import-conventions
-  "ISC",         # flake8-implicit-str-concat
-  "PGH",         # pygrep-hooks
-  "PIE",         # flake8-pie
-  "PL",          # pylint
-  "PT",          # flake8-pytest-style
-  "PTH",         # flake8-use-pathlib
-  "RET",         # flake8-return
-  "RUF",         # Ruff-specific
-  "SIM",         # flake8-simplify
-  "T20",         # flake8-print
-  "UP",          # pyupgrade
-  "YTT",         # flake8-2020
+  "B",    # flake8-bugbear
+  "I",    # isort
+  "ARG",  # flake8-unused-arguments
+  "C4",   # flake8-comprehensions
+  "EM",   # flake8-errmsg
+  "ICN",  # flake8-import-conventions
+  "ISC",  # flake8-implicit-str-concat
+  "PGH",  # pygrep-hooks
+  "PIE",  # flake8-pie
+  "PL",   # pylint
+  "PT",   # flake8-pytest-style
+  "PTH",  # flake8-use-pathlib
+  "RET",  # flake8-return
+  "RUF",  # Ruff-specific
+  "SIM",  # flake8-simplify
+  "T20",  # flake8-print
+  "UP",   # pyupgrade
+  "YTT",  # flake8-2020
 ]
 ignore = [
-    "E501",
-    "E722",
-    "RUF001",  # Unicode chars
-    "PLR",
-    "ISC001",  # Conflicts with formatter
+  "E501",
+  "E722",
+  "RUF001",  # Unicode chars
+  "PLR",
+  "ISC001",  # Conflicts with formatter
 ]
 unfixable = [
   "SIM118", # Dict .keys() removal (uproot)
@@ -162,3 +165,4 @@ unfixable = [
 "noxfile.py" = ["T20"]
 "tests/*" = ["T20"]
 "src/uproot_browser/tree.py" = ["UP006"]
+"src/uproot_browser/__main__.py" = ["PLC0415"]  # Import outside toplevel
