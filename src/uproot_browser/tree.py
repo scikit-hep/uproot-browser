@@ -161,11 +161,8 @@ def _process_item_tfile(
     )
 
 
-# Python 3.11 can just use `|` directly for register
-@process_item.register(uproot.TTree)
-def _process_item_ttree(
-    uproot_object: uproot.TTree | uproot.behaviors.RNTuple.RNTuple,
-) -> MetaDict:
+@process_item.register
+def _process_item_ttree(uproot_object: uproot.TTree) -> MetaDict:
     """
     Given an tree, return a rich.tree.Tree output.
     """
@@ -181,10 +178,49 @@ def _process_item_ttree(
     )
 
 
-if hasattr(uproot.behaviors, "RNTuple") and hasattr(
+if hasattr(uproot.behaviors, "RNTuple") and hasattr(  # type: ignore[misc]
     uproot.behaviors.RNTuple, "HasFields"
 ):
-    process_item.register(uproot.behaviors.RNTuple.RNTuple)(_process_item_ttree)  # type: ignore[no-untyped-call]
+
+    @process_item.register
+    def _process_item_ttree(
+        uproot_object: uproot.behaviors.RNTuple.RNTuple,
+    ) -> MetaDict:
+        """
+        Given an tree, return a rich.tree.Tree output.
+        """
+        label_text = Text.assemble(
+            (f"{uproot_object.name} ", "bold"),
+            f"({uproot_object.num_entries:g})",
+        )
+
+        return MetaDict(
+            label_icon="🌳 ",
+            label_text=label_text,
+            guide_style="bold bright_green",
+        )
+
+
+if hasattr(uproot.models, "RNTuple"):  # type: ignore[misc]
+
+    @process_item.register
+    def _process_item_tbranch(uproot_object: uproot.models.RNTuple.RField) -> MetaDict:
+        """
+        Given an branch, return a rich.tree.Tree output.
+        """
+
+        icon = "🍁 "
+
+        label_text = Text.assemble(
+            (f"{uproot_object.name} ", "bold"),
+            (f"{uproot_object.typename}", "italic"),
+        )
+
+        return MetaDict(
+            label_icon=icon,
+            label_text=label_text,
+            guide_style="bold bright_green",
+        )
 
 
 @process_item.register

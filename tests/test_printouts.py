@@ -90,3 +90,30 @@ def test_tree(capsys):
 
     assert not err
     assert out == OUT1
+
+
+OUT2 = """\
+📁 ntpl001_staff_rntuple_v1-0-0-0.root
+┗━━ 🌳 Staff (3354)
+    ┣━━ 🍁 Age std::int32_t
+    ┣━━ 🍁 Category std::int32_t
+    ┣━━ 🍁 Children std::int32_t
+    ┣━━ 🍁 Cost std::int32_t
+    ┣━━ 🍁 Division std::string
+    ┣━━ 🍁 Flag std::uint32_t
+    ┣━━ 🍁 Grade std::int32_t
+    ┣━━ 🍁 Hrweek std::int32_t
+    ┣━━ 🍁 Nation std::string
+    ┣━━ 🍁 Service std::int32_t
+    ┗━━ 🍁 Step std::int32_t
+"""
+
+
+def test_tree_rntuple(capsys):
+    filename = data_path("ntpl001_staff_rntuple_v1-0-0-0.root")
+    console = rich.console.Console(width=120)
+
+    print_tree(filename, console=console)
+    out, err = capsys.readouterr()
+    assert not err
+    assert out == OUT2
