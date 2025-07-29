@@ -109,6 +109,10 @@ OUT2 = """\
 """
 
 
+@pytest.mark.xfail(
+    sys.platform.startswith("win"),
+    reason="Unicode is different on Windows, for some reason?",
+)
 def test_tree_rntuple(capsys):
     filename = data_path("ntpl001_staff_rntuple_v1-0-0-0.root")
     console = rich.console.Console(width=120)

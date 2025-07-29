@@ -57,13 +57,9 @@ def _(item: uproot.behaviors.TBranch.HasBranches) -> bool:
     return len(item.branches) > 0
 
 
-if hasattr(uproot.behaviors, "RNTuple") and hasattr(
-    uproot.behaviors.RNTuple, "HasFields"
-):
-
-    @is_dir.register
-    def _(item: uproot.behaviors.RNTuple.HasFields) -> bool:
-        return len(item.keys()) > 0
+@is_dir.register
+def _(item: uproot.behaviors.RNTuple.HasFields) -> bool:
+    return len(item.keys()) > 0
 
 
 def get_children(item: Mapping[str, Any]) -> set[str]:
@@ -178,49 +174,23 @@ def _process_item_ttree(uproot_object: uproot.TTree) -> MetaDict:
     )
 
 
-if hasattr(uproot.behaviors, "RNTuple") and hasattr(  # type: ignore[misc]
-    uproot.behaviors.RNTuple, "HasFields"
-):
+@process_item.register
+def _process_item_rntuple(
+    uproot_object: uproot.behaviors.RNTuple.RNTuple,
+) -> MetaDict:
+    """
+    Given an tree, return a rich.tree.Tree output.
+    """
+    label_text = Text.assemble(
+        (f"{uproot_object.name} ", "bold"),
+        f"({uproot_object.num_entries:g})",
+    )
 
-    @process_item.register
-    def _process_item_ttree(
-        uproot_object: uproot.behaviors.RNTuple.RNTuple,
-    ) -> MetaDict:
-        """
-        Given an tree, return a rich.tree.Tree output.
-        """
-        label_text = Text.assemble(
-            (f"{uproot_object.name} ", "bold"),
-            f"({uproot_object.num_entries:g})",
-        )
-
-        return MetaDict(
-            label_icon="🌳 ",
-            label_text=label_text,
-            guide_style="bold bright_green",
-        )
-
-
-if hasattr(uproot.models, "RNTuple"):  # type: ignore[misc]
-
-    @process_item.register
-    def _process_item_tbranch(uproot_object: uproot.models.RNTuple.RField) -> MetaDict:
-        """
-        Given an branch, return a rich.tree.Tree output.
-        """
-
-        icon = "🍁 "
-
-        label_text = Text.assemble(
-            (f"{uproot_object.name} ", "bold"),
-            (f"{uproot_object.typename}", "italic"),
-        )
-
-        return MetaDict(
-            label_icon=icon,
-            label_text=label_text,
-            guide_style="bold bright_green",
-        )
+    return MetaDict(
+        label_icon="🌳 ",
+        label_text=label_text,
+        guide_style="bold bright_green",
+    )
 
 
 @process_item.register
@@ -236,6 +206,26 @@ def _process_item_tbranch(uproot_object: uproot.TBranch) -> MetaDict:
 
     if len(uproot_object.branches):
         icon = "🌿 "
+
+    label_text = Text.assemble(
+        (f"{uproot_object.name} ", "bold"),
+        (f"{uproot_object.typename}", "italic"),
+    )
+
+    return MetaDict(
+        label_icon=icon,
+        label_text=label_text,
+        guide_style="bold bright_green",
+    )
+
+
+@process_item.register
+def _process_item_rbranch(uproot_object: uproot.models.RNTuple.RField) -> MetaDict:
+    """
+    Given an branch, return a rich.tree.Tree output.
+    """
+
+    icon = "🍁 "
 
     label_text = Text.assemble(
         (f"{uproot_object.name} ", "bold"),
