@@ -24,6 +24,21 @@ else:
     from click_default_group import DefaultGroup
 
 
+def get_testdata(filename: str, *, testdata: bool) -> str:
+    if not testdata:
+        return filename
+
+    try:
+        from skhep_testdata import data_path
+    except ModuleNotFoundError:
+        msg = "Install scikit-hep-testdata to use --testdata"
+        raise click.ClickException(msg) from None
+
+    name, _, sel = filename.partition(":")
+    data_name: str = data_path(name)
+    return f"{data_name}:{sel}" if sel else data_name
+
+
 @click.group(context_settings=CONTEXT_SETTINGS, cls=DefaultGroup, default="browse")
 @click.version_option(version=VERSION)
 def main() -> None:
@@ -34,13 +49,16 @@ def main() -> None:
 
 @main.command()
 @click.argument("filename")
-def tree(filename: str) -> None:
+@click.option(
+    "--testdata", is_flag=True, help="Interpret the filename as a testdata file"
+)
+def tree(filename: str, testdata: bool) -> None:
     """
     Display a tree.
     """
-    import uproot_browser.tree  # noqa: PLC0415
+    import uproot_browser.tree
 
-    uproot_browser.tree.print_tree(filename)
+    uproot_browser.tree.print_tree(get_testdata(filename, testdata=testdata))
 
 
 def intercept(func: Callable[..., Any], *names: str) -> Callable[..., Any]:
@@ -62,20 +80,23 @@ def intercept(func: Callable[..., Any], *names: str) -> Callable[..., Any]:
 @click.option(
     "--iterm", is_flag=True, help="Display an iTerm plot (requires [iterm] extra)."
 )
-def plot(filename: str, iterm: bool) -> None:
+@click.option(
+    "--testdata", is_flag=True, help="Interpret the filename as a testdata file"
+)
+def plot(filename: str, iterm: bool, testdata: bool) -> None:
     """
     Display a plot.
     """
     if iterm:
         os.environ.setdefault("MPLBACKEND", r"module://itermplot")
 
-        import matplotlib.pyplot as plt  # noqa: PLC0415
+        import matplotlib.pyplot as plt
 
-        import uproot_browser.plot_mpl  # noqa: PLC0415
+        import uproot_browser.plot_mpl
     else:
-        import uproot_browser.plot  # noqa: PLC0415
+        import uproot_browser.plot
 
-    item = uproot.open(filename)
+    item = uproot.open(get_testdata(filename, testdata=testdata))
 
     if iterm:
         uproot_browser.plot_mpl.plot(item)
@@ -95,14 +116,17 @@ def plot(filename: str, iterm: bool) -> None:
 
 @main.command()
 @click.argument("filename")
-def browse(filename: str) -> None:
+@click.option(
+    "--testdata", is_flag=True, help="Interpret the filename as a testdata file"
+)
+def browse(filename: str, testdata: bool) -> None:
     """
     Display a TUI.
     """
-    import uproot_browser.tui.browser  # noqa: PLC0415
+    import uproot_browser.tui.browser
 
     app = uproot_browser.tui.browser.Browser(
-        path=filename,
+        path=get_testdata(filename, testdata=testdata)
     )
 
     app.run()
