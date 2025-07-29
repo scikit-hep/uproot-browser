@@ -70,8 +70,7 @@ def plot_branch(tree: uproot.TBranch | uproot.models.RNTuple.RField) -> None:
     plt.title(make_hist_title(tree, histogram))
 
 
-if hasattr(uproot.models, "RNTuple") and hasattr(uproot.models.RNTuple, "RField"):
-    plot.register(uproot.models.RNTuple.RField)(plot_branch)  # type: ignore[no-untyped-call]
+plot.register(uproot.models.RNTuple.RField)(plot_branch)  # type: ignore[no-untyped-call]
 
 
 @plot.register

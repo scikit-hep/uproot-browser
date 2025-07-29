@@ -6,10 +6,6 @@ nox.needs_version = ">=2024.4.15"
 nox.options.default_venv_backend = "uv|virtualenv"
 
 
-def dep_group(group: str) -> list[str]:
-    return nox.project.load_toml("pyproject.toml")["dependency-groups"][group]  # type: ignore[no-any-return]
-
-
 @nox.session(reuse_venv=True)
 def lint(session: nox.Session) -> None:
     """
@@ -34,7 +30,7 @@ def tests(session: nox.Session) -> None:
     """
     Run the unit and regular tests.
     """
-    session.install("-e.", *dep_group("test"))
+    session.install("-e.", "--group=test")
     session.run("pytest", *session.posargs)
 
 
@@ -44,7 +40,7 @@ def minimums(session: nox.Session) -> None:
     Run the unit and regular tests.
     """
     session.install(
-        "-e.", *dep_group("test"), "--resolution=lowest-direct", "--only-binary=:all:"
+        "-e.", "--group=test", "--resolution=lowest-direct", "--only-binary=:all:"
     )
     session.run("pytest", *session.posargs)
 
