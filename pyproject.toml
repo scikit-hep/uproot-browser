@@ -166,3 +166,4 @@ unfixable = [
 "tests/*" = ["T20"]
 "src/uproot_browser/tree.py" = ["UP006"]
 "src/uproot_browser/__main__.py" = ["PLC0415"]  # Import outside toplevel
+"src/uproot_browser/tui/*" = ["SIM117"]  # Don't combine with's for textual, nicer looking
