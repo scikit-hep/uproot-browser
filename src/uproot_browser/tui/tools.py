@@ -11,6 +11,16 @@ class Tools(textual.containers.Container):
         with textual.widgets.Collapsible(title="Theme", collapsed=False):
             themes = self.app.available_themes
             yield textual.widgets.Select([(t, t) for t in themes], allow_blank=False)
+        with textual.widgets.Collapsible(title="Plot", collapsed=False):
+            with textual.containers.Horizontal():
+                yield textual.widgets.Label("Entry box")
+                yield textual.widgets.Switch()
+
+    @textual.on(textual.widgets.Switch.Changed)
+    def switch_changed(self, event: textual.widgets.Switch.Changed) -> None:
+        self.app.query_one("#plot-input-container").set_class(
+            event.value, "-show-container"
+        )
 
     @textual.on(textual.widgets.Select.Changed)
     def select_changed(self, event: textual.widgets.Select.Changed) -> None:

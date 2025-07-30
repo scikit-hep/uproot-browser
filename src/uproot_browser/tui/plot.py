@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 import plotext as plt  # plots in text
 import rich.text
+import textual.widgets
 
 import uproot_browser.plot
 from uproot_browser.exceptions import EmptyTreeError
@@ -27,11 +28,11 @@ def apply_selection(tree: Any, selection: Iterable[str]) -> Iterable[Any]:
         yield tree
 
 
-def make_plot(item: Any, theme: str, *size: int) -> Any:
+def make_plot(item: Any, theme: str, *size: int, expr: str) -> Any:
     plt.clf()
-    plt.plotsize(*size)
-    uproot_browser.plot.plot(item)
     plt.theme(theme)
+    plt.plotsize(*size)
+    uproot_browser.plot.plot(item, expr=expr)
     return plt.build()
 
 
@@ -42,6 +43,7 @@ class Plotext:
     selection: str
     theme: str
     app: Browser
+    expr: str = ""
 
     def __rich_console__(
         self, console: rich.console.Console, options: rich.console.ConsoleOptions
@@ -58,11 +60,12 @@ class Plotext:
         height = options.height or console.height
 
         try:
-            canvas = make_plot(item, self.theme, width, height)
+            canvas = make_plot(item, self.theme, width, height, expr=self.expr)
             yield rich.text.Text.from_ansi(canvas)
         except EmptyTreeError:
             self.app.post_message(EmptyMessage())
         except Exception:
+            self.app.query_one("#plot-input", textual.widgets.Input).value = ""
             exc = sys.exc_info()
             assert exc[1]
             self.app.post_message(ErrorMessage(Error(exc)))

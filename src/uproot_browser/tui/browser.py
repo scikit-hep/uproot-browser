@@ -63,7 +63,7 @@ class Browser(textual.app.App[object]):
         self.path = path
         super().__init__(**kwargs)
 
-        self.view_widget = ViewWidget()
+        self.view_widget = ViewWidget(id="plot-view")
 
     def compose(self) -> textual.app.ComposeResult:
         """Compose our UI."""
@@ -79,6 +79,7 @@ class Browser(textual.app.App[object]):
                     yield Info()
             # main_panel
             yield self.view_widget
+
         yield textual.widgets.Footer()
 
     def on_mount(self, _event: textual.events.Mount) -> None:
@@ -130,6 +131,7 @@ class Browser(textual.app.App[object]):
         """A message sent by the tree when a file is clicked."""
 
         theme = "dark" if self._is_dark(self.theme) else "default"
+        self.view_widget.plot_input.value = ""
         self.view_widget.item = Plotext(message.upfile, message.path, theme, self)
 
     def on_empty_message(self) -> None:

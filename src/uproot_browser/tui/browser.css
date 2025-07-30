@@ -30,6 +30,15 @@ ViewWidget {
     height: 100%;
 }
 
+Label {
+  padding-top: 1;
+  padding-bottom: 1;
+}
+
+Switch {
+  dock: right;
+}
+
 #logo {
     content-align: center middle;
     height: 100%;
@@ -38,15 +47,37 @@ ViewWidget {
 #plot {
     overflow: auto;
     min-width: 100%;
-    height: 100%;
     padding-left: 1;
     padding-right: 1;
+    height: 100%;
 }
 
 #error{
     overflow: auto;
     min-width: 100%;
     padding: 1;
+}
+
+#plot-window {
+    height: 100%;
+}
+
+#plot-input-container {
+    display: none;
+}
+
+#plot-input-container.-show-container  {
+    height: 3;
+    dock: bottom;
+    display: block;
+}
+
+#plot-button {
+    dock: right;
+}
+
+#plot-input.-needs-update {
+    background-tint: red 20%;
 }
 
 Info {
