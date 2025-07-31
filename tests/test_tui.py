@@ -16,6 +16,7 @@ async def test_browse_plot() -> None:
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
         await pilot.press("down", "down", "down", "enter")
+        await pilot.pause()
         assert isinstance(pilot.app.view_widget.item, Plotext)
 
 
@@ -24,6 +25,7 @@ async def test_browse_empty() -> None:
         skhep_testdata.data_path("uproot-empty.root")
     ).run_test() as pilot:
         await pilot.press("down", "space", "down", "enter")
+        await pilot.pause()
         assert pilot.app.view_widget.item is None
 
 
@@ -32,6 +34,7 @@ async def test_browse_empty_vim() -> None:
         skhep_testdata.data_path("uproot-empty.root")
     ).run_test() as pilot:
         await pilot.press("j", "l", "j", "enter")
+        await pilot.pause()
         assert pilot.app.view_widget.item is None
 
 

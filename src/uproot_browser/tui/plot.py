@@ -7,13 +7,12 @@ from typing import TYPE_CHECKING, Any
 
 import plotext as plt  # plots in text
 import rich.text
-import textual.widgets
 
 import uproot_browser.plot
 from uproot_browser.exceptions import EmptyTreeError
 
 from .error import Error
-from .messages import EmptyMessage, ErrorMessage
+from .messages import EmptyMessage, ErrorMessage, RequestPlot
 
 if TYPE_CHECKING:
     from .browser import Browser
@@ -32,7 +31,7 @@ def make_plot(item: Any, theme: str, *size: int, expr: str) -> Any:
     plt.clf()
     plt.theme(theme)
     plt.plotsize(*size)
-    uproot_browser.plot.plot(item, expr=expr)
+    uproot_browser.plot.plot(item, width=(size[0] - 5) * 4, expr=expr)
     return plt.build()
 
 
@@ -44,6 +43,24 @@ class Plotext:
     theme: str
     app: Browser
     expr: str = ""
+    size: tuple[int, int] | None = None
+    previous: rich.text.Text | None = None
+    old_expr: str = ""
+
+    def make_plot(self) -> Plotext | None:
+        *_, item = apply_selection(self.upfile, self.selection.split(":"))
+        assert self.size
+        try:
+            canvas = make_plot(item, self.theme, *self.size, expr=self.expr)
+            return dataclasses.replace(self, previous=rich.text.Text.from_ansi(canvas))
+        except EmptyTreeError:
+            self.app.post_message(EmptyMessage())
+            return None
+        except Exception:
+            exc = sys.exc_info()
+            assert exc[1]
+            self.app.post_message(ErrorMessage(Error(exc)))
+            return None
 
     def __rich_console__(
         self, console: rich.console.Console, options: rich.console.ConsoleOptions
@@ -59,13 +76,17 @@ class Plotext:
         width = options.max_width or console.width
         height = options.height or console.height
 
-        try:
-            canvas = make_plot(item, self.theme, width, height, expr=self.expr)
-            yield rich.text.Text.from_ansi(canvas)
-        except EmptyTreeError:
-            self.app.post_message(EmptyMessage())
-        except Exception:
-            self.app.query_one("#plot-input", textual.widgets.Input).value = ""
-            exc = sys.exc_info()
-            assert exc[1]
-            self.app.post_message(ErrorMessage(Error(exc)))
+        if (
+            self.size
+            and (width, height) == self.size
+            and self.previous is not None
+            and self.old_expr == self.expr
+        ):
+            yield self.previous
+
+        else:
+            self.size = (width, height)
+            self.previous = rich.text.Text("... plotting ...")
+            self.old_expr = self.expr
+            yield self.previous
+            self.app.post_message(RequestPlot(self))
