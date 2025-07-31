@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import dataclasses
 import functools
-from collections.abc import Mapping
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, Protocol, TypedDict
 
 import uproot
 import uproot.reading
@@ -27,6 +27,10 @@ __all__ = (
     "print_tree",
     "process_item",
 )
+
+
+class SupportsRecursiveKeys(Protocol):
+    def keys(self, recursive: bool = True) -> Iterable[str]: ...
 
 
 def __dir__() -> tuple[str, ...]:
@@ -52,22 +56,16 @@ def _(item: uproot.reading.ReadOnlyDirectory) -> Literal[True]:  # noqa: ARG001
     return True
 
 
-@is_dir.register
-def _(item: uproot.behaviors.TBranch.HasBranches) -> bool:
-    return len(item.branches) > 0
+@is_dir.register(uproot.behaviors.TBranch.HasBranches)
+@is_dir.register(uproot.behaviors.RNTuple.HasFields)
+def _(
+    item: uproot.behaviors.TBranch.HasBranches | uproot.behaviors.RNTuple.HasFields,
+) -> bool:
+    return len(item) > 0
 
 
-@is_dir.register
-def _(item: uproot.behaviors.RNTuple.HasFields) -> bool:
-    return len(item.keys()) > 0
-
-
-def get_children(item: Mapping[str, Any]) -> set[str]:
-    return {
-        key.split(";")[0]
-        for key in item.keys()  # noqa: SIM118
-        if "/" not in key
-    }
+def get_children(item: SupportsRecursiveKeys) -> set[str]:
+    return {key.split(";")[0] for key in item.keys(recursive=False)}
 
 
 @dataclasses.dataclass
