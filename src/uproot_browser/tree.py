@@ -56,7 +56,8 @@ def _(item: uproot.reading.ReadOnlyDirectory) -> Literal[True]:  # noqa: ARG001
     return True
 
 
-@is_dir.register
+@is_dir.register(uproot.behaviors.TBranch.HasBranches)
+@is_dir.register(uproot.behaviors.RNTuple.HasFields)
 def _(
     item: uproot.behaviors.TBranch.HasBranches | uproot.behaviors.RNTuple.HasFields,
 ) -> bool:
