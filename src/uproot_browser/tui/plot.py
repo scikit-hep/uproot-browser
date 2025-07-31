@@ -31,7 +31,7 @@ def make_plot(item: Any, theme: str, *size: int, expr: str) -> Any:
     plt.clf()
     plt.theme(theme)
     plt.plotsize(*size)
-    uproot_browser.plot.plot(item, expr=expr)
+    uproot_browser.plot.plot(item, width=(size[0] - 5) * 4, expr=expr)
     return plt.build()
 
 

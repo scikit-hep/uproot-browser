@@ -13,6 +13,8 @@ import hist
 import numpy as np
 import plotext as plt
 import uproot
+import uproot.behaviors.TH1
+import uproot.models.RNTuple
 
 from uproot_browser.exceptions import EmptyTreeError
 
@@ -42,7 +44,7 @@ def make_hist_title(item: Any, histogram: hist.Hist) -> str:
 
 
 @functools.singledispatch
-def plot(tree: Any, *, expr: str = "") -> None:  # noqa: ARG001
+def plot(tree: Any, *, width: int = 100, expr: str = "") -> None:  # noqa: ARG001
     """
     Implement this for each type of plottable.
     """
@@ -53,7 +55,10 @@ def plot(tree: Any, *, expr: str = "") -> None:  # noqa: ARG001
 # Simpler in Python 3.11+
 @plot.register(uproot.TBranch)
 def plot_branch(
-    tree: uproot.TBranch | uproot.models.RNTuple.RField, *, expr: str = ""
+    tree: uproot.TBranch | uproot.models.RNTuple.RField,
+    *,
+    width: int = 100,
+    expr: str = "",
 ) -> None:
     """
     Plot a single tree branch.
@@ -64,12 +69,12 @@ def plot_branch(
     if len(finite) < 1:
         msg = f"Branch {tree.name} is empty."
         raise EmptyTreeError(msg)
-    histogram: hist.Hist = hist.numpy.histogram(finite, bins=100, histogram=hist.Hist)
+    histogram: hist.Hist = hist.numpy.histogram(finite, bins=width, histogram=hist.Hist)
     if expr:
         # pylint: disable-next=eval-used
         histogram = eval(expr, {"h": histogram})
     plt.bar(
-        histogram.axes[0].centers,
+        histogram.axes[0].edges,
         histogram.values().astype(float),
     )
     plt.ylim(lower=0)
@@ -82,7 +87,11 @@ plot.register(uproot.models.RNTuple.RField)(plot_branch)  # type: ignore[no-unty
 
 
 @plot.register
-def plot_hist(tree: uproot.behaviors.TH1.Histogram, expr: str = "") -> None:
+def plot_hist(
+    tree: uproot.behaviors.TH1.Histogram,
+    width: int = 100,  # noqa: ARG001
+    expr: str = "",
+) -> None:
     """
     Plot a 1-D Histogram.
     """
@@ -90,7 +99,7 @@ def plot_hist(tree: uproot.behaviors.TH1.Histogram, expr: str = "") -> None:
     if expr:
         # pylint: disable-next=eval-used
         histogram = eval(expr, {"h": histogram})
-    plt.bar(histogram.axes[0].centers, histogram.values().astype(float))
+    plt.bar(histogram.axes[0].edges, histogram.values().astype(float))
     plt.ylim(lower=0)
     plt.xticks(np.linspace(histogram.axes[0][0][0], histogram.axes[0][-1][-1], 5))
     plt.xlabel(histogram.axes[0].name)
