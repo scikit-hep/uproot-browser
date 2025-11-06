@@ -6,9 +6,8 @@ from __future__ import annotations
 
 import dataclasses
 import functools
-from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Literal, Protocol, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict
 
 import uproot
 import uproot.reading
@@ -16,6 +15,9 @@ from rich.console import Console
 from rich.markup import escape
 from rich.text import Text
 from rich.tree import Tree
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 console = Console()
 

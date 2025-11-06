@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import dataclasses
 import sys
-from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any
 
 import plotext as plt  # plots in text
@@ -15,6 +14,8 @@ from .error import Error
 from .messages import EmptyMessage, ErrorMessage, RequestPlot
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from .browser import Browser
 
 

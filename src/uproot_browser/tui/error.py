@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import dataclasses
-from types import TracebackType
+from typing import TYPE_CHECKING
 
 import rich.console
 import rich.traceback
+
+if TYPE_CHECKING:
+    from types import TracebackType
 
 
 @dataclasses.dataclass
