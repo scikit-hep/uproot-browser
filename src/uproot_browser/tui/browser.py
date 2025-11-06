@@ -4,7 +4,7 @@ if not __package__:
     __package__ = "uproot_browser.tui"  # pylint: disable=redefined-builtin
 
 import contextlib
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import plotext as plt
 import rich.syntax
@@ -37,10 +37,12 @@ from .error import Error
 from .header import Header
 from .help import HelpScreen
 from .left_panel import UprootTree
-from .messages import ErrorMessage, RequestPlot, UprootSelected
 from .plot import Plotext
 from .tools import Info, Tools
 from .viewer import ViewWidget
+
+if TYPE_CHECKING:
+    from .messages import ErrorMessage, RequestPlot, UprootSelected
 
 
 class Browser(textual.app.App[object]):

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import rich.panel
 import rich.text
@@ -10,10 +10,12 @@ import textual.widget
 import textual.widgets
 import textual.widgets.tree
 import uproot
-from rich.style import Style
 
 from ..tree import UprootEntry
 from .messages import UprootSelected
+
+if TYPE_CHECKING:
+    from rich.style import Style
 
 
 class UprootTree(textual.widgets.Tree[UprootEntry]):
