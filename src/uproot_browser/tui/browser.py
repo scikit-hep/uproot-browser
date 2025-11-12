@@ -88,7 +88,7 @@ class Browser(textual.app.App[object]):
     def on_mount(self, _event: textual.events.Mount) -> None:
         self.query_one("#tree-view").focus()
 
-    def watch_show_tree(self, show_tree: bool) -> None:
+    def watch_show_tree(self, show_tree: bool) -> None:  # noqa: FBT001
         """Called when show_tree is modified."""
         self.set_class(show_tree, "-show-panel")
 

@@ -57,7 +57,7 @@ class Plotext:
         except EmptyTreeError:
             self.app.post_message(EmptyMessage())
             return None
-        except Exception:
+        except Exception:  # noqa: BLE001
             exc = sys.exc_info()
             assert exc[1]
             self.app.post_message(ErrorMessage(Error(exc)))
