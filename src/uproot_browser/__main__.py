@@ -7,12 +7,15 @@ from __future__ import annotations
 import functools
 import os
 import typing
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import click
 import uproot
 
 from ._version import version as __version__
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 
@@ -52,7 +55,7 @@ def main() -> None:
 @click.option(
     "--testdata", is_flag=True, help="Interpret the filename as a testdata file"
 )
-def tree(filename: str, testdata: bool) -> None:
+def tree(filename: str, *, testdata: bool) -> None:
     """
     Display a tree.
     """
@@ -83,7 +86,7 @@ def intercept(func: Callable[..., Any], *names: str) -> Callable[..., Any]:
 @click.option(
     "--testdata", is_flag=True, help="Interpret the filename as a testdata file"
 )
-def plot(filename: str, iterm: bool, testdata: bool) -> None:
+def plot(filename: str, *, iterm: bool, testdata: bool) -> None:
     """
     Display a plot.
     """
@@ -119,7 +122,7 @@ def plot(filename: str, iterm: bool, testdata: bool) -> None:
 @click.option(
     "--testdata", is_flag=True, help="Interpret the filename as a testdata file"
 )
-def browse(filename: str, testdata: bool) -> None:
+def browse(filename: str, *, testdata: bool) -> None:
     """
     Display a TUI.
     """

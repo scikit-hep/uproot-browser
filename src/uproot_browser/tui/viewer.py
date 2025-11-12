@@ -29,7 +29,7 @@ class PlotInput(textual.widgets.Input):
         plot = self.app.query_one("#plot-view", ViewWidget)
         if isinstance(plot.item, Plotext):
             plot.item = dataclasses.replace(plot.item, expr=self.value)
-            self.set_class(False, "-needs-update")
+            self.set_class(False, "-needs-update")  # noqa: FBT003
             plot.plot_widget.update(plot.item)
 
 

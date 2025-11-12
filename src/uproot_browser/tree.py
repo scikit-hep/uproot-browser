@@ -32,7 +32,7 @@ __all__ = (
 
 
 class SupportsRecursiveKeys(Protocol):
-    def keys(self, recursive: bool = True) -> Iterable[str]: ...
+    def keys(self, *, recursive: bool = True) -> Iterable[str]: ...
 
 
 def __dir__() -> tuple[str, ...]:

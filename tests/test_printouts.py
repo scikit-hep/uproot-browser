@@ -81,7 +81,7 @@ OUT1 = """\
     sys.platform.startswith("win"),
     reason="Unicode is different on Windows, for some reason?",
 )
-def test_tree(capsys):
+def test_tree(capsys: pytest.CaptureFixture[str]) -> None:
     filename = data_path("uproot-Event.root")
     console = rich.console.Console(width=120)
 
@@ -113,7 +113,7 @@ OUT2 = """\
     sys.platform.startswith("win"),
     reason="Unicode is different on Windows, for some reason?",
 )
-def test_tree_rntuple(capsys):
+def test_tree_rntuple(capsys: pytest.CaptureFixture[str]) -> None:
     filename = data_path("ntpl001_staff_rntuple_v1-0-0-0.root")
     console = rich.console.Console(width=120)
 
