@@ -31,13 +31,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/download-artifact@v6
+    - uses: actions/download-artifact@v8
       with:
         path: dist
         name: Packages
 
     - name: Generate artifact attestation for sdist and wheel
-      uses: actions/attest-build-provenance@v3
+      uses: actions/attest-build-provenance@v4
       with:
         subject-path: "dist/uproot_browser-*"
 
