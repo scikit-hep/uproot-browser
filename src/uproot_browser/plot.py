@@ -69,7 +69,9 @@ def plot_branch(
     if len(finite) < 1:
         msg = f"Branch {tree.name} is empty."
         raise EmptyTreeError(msg)
-    histogram: hist.Hist[Any] = hist.numpy.histogram(finite, bins=width, histogram=hist.Hist)
+    histogram: hist.Hist[Any] = hist.numpy.histogram(
+        finite, bins=width, histogram=hist.Hist
+    )
     if expr:
         # pylint: disable-next=eval-used
         histogram = eval(expr, {"h": histogram})
