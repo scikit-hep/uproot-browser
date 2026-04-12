@@ -26,6 +26,7 @@ async def test_browse_empty() -> None:
     ).run_test() as pilot:
         await pilot.press("down", "space", "down", "enter")
         await pilot.pause()
+        await pilot.pause()  # wait for thread worker to post EmptyMessage
         assert pilot.app.view_widget.item is None
 
 
@@ -35,6 +36,7 @@ async def test_browse_empty_vim() -> None:
     ).run_test() as pilot:
         await pilot.press("j", "l", "j", "enter")
         await pilot.pause()
+        await pilot.pause()  # wait for thread worker to post EmptyMessage
         assert pilot.app.view_widget.item is None
 
 

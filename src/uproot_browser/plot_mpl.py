@@ -31,7 +31,7 @@ def plot_branch(tree: uproot.TBranch) -> None:
     Plot a single tree branch.
     """
     array = tree.array()
-    histogram: hist.Hist = hist.numpy.histogram(
+    histogram: hist.Hist[Any] = hist.numpy.histogram(
         ak.flatten(array) if array.ndim > 1 else array, bins=50, histogram=hist.Hist
     )
     histogram.plot()
