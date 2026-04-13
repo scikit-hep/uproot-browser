@@ -34,8 +34,8 @@ def show() -> None:
 
 
 def make_hist_title(item: Any, histogram: hist.Hist[Any]) -> str:
-    inner_sum: float = float(np.sum(histogram.values()))
-    full_sum: float = float(np.sum(histogram.values(flow=True)))
+    inner_sum = float(np.sum(histogram.values()))
+    full_sum = float(np.sum(histogram.values(flow=True)))
 
     if math.isclose(inner_sum, full_sum):
         return f"{item.name} -- Entries: {inner_sum:g}"
