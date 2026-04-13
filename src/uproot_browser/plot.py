@@ -33,9 +33,9 @@ def show() -> None:
     plt.show()
 
 
-def make_hist_title(item: Any, histogram: hist.Hist) -> str:
-    inner_sum: float = np.sum(histogram.values())
-    full_sum: float = np.sum(histogram.values(flow=True))
+def make_hist_title(item: Any, histogram: hist.Hist[Any]) -> str:
+    inner_sum = float(np.sum(histogram.values()))
+    full_sum = float(np.sum(histogram.values(flow=True)))
 
     if math.isclose(inner_sum, full_sum):
         return f"{item.name} -- Entries: {inner_sum:g}"
@@ -69,7 +69,9 @@ def plot_branch(
     if len(finite) < 1:
         msg = f"Branch {tree.name} is empty."
         raise EmptyTreeError(msg)
-    histogram: hist.Hist = hist.numpy.histogram(finite, bins=width, histogram=hist.Hist)
+    histogram: hist.Hist[Any] = hist.numpy.histogram(
+        finite, bins=width, histogram=hist.Hist
+    )
     if expr:
         # pylint: disable-next=eval-used
         histogram = eval(expr, {"h": histogram})
