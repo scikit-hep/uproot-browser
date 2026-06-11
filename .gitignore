@@ -142,3 +142,7 @@ src/*/_version.py
 
 # Common debug file
 /uproot-Event.root
+
+# Symlink to AGENTS.md
+CLAUDE.md
+.claude/
