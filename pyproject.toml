@@ -22,7 +22,6 @@ classifiers = [
   "Intended Audience :: Science/Research",
   "Intended Audience :: Developers",
   "Operating System :: OS Independent",
-  "License :: OSI Approved :: BSD License",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
@@ -151,6 +150,5 @@ flake8-boolean-trap.extend-allowed-calls = ["textual.reactive.var"]
 "noxfile.py" = ["T20"]
 "tests/*" = ["T20", "INP001"]
 "docs/*" = ["INP001"]
-"src/uproot_browser/tree.py" = ["UP006"]
 "src/uproot_browser/__main__.py" = ["PLC0415"]    # Import outside toplevel
 "src/uproot_browser/tui/browser.py" = ["SLF001"]  # Have to access private var in plt

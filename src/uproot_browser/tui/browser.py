@@ -45,13 +45,11 @@ if TYPE_CHECKING:
     from .messages import ErrorMessage, RequestPlot, UprootSelected
 
 
-class Browser(textual.app.App[object]):
+class Browser(textual.app.App[None]):
     """A basic implementation of the uproot-browser TUI"""
 
     CSS_PATH = "browser.css"
-    BINDINGS: ClassVar[
-        list[textual.binding.Binding | tuple[str, str] | tuple[str, str, str]]
-    ] = [
+    BINDINGS: ClassVar[list[textual.binding.BindingType]] = [
         textual.binding.Binding("b", "toggle_files", "Navbar"),
         textual.binding.Binding("q", "quit", "Quit"),
         textual.binding.Binding("d", "quit_with_dump", "Dump & Quit"),
