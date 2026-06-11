@@ -82,14 +82,13 @@ class UprootEntry:
     def meta(self) -> MetaDict:
         return process_item(self.item)
 
-    def label(self) -> Text:
-        meta = self.meta()
-        return Text.assemble(meta["label_icon"], meta["label_text"])
-
     def tree_args(self) -> dict[str, Any]:
-        d: dict[str, Text | str] = {"label": self.label()}
-        if "guide_style" in self.meta():
-            d["guide_style"] = self.meta()["guide_style"]
+        meta = self.meta()
+        d: dict[str, Text | str] = {
+            "label": Text.assemble(meta["label_icon"], meta["label_text"])
+        }
+        if "guide_style" in meta:
+            d["guide_style"] = meta["guide_style"]
         return d
 
     @property
@@ -265,6 +264,6 @@ def print_tree(entry: str, *, console: Console = console) -> None:
     single filename. Colons are not allowed currently in the filename.
     """
 
-    upfile = uproot.open(entry)
-    tree = make_tree(UprootEntry("/", upfile))
+    with uproot.open(entry) as upfile:
+        tree = make_tree(UprootEntry("/", upfile))
     console.print(tree)

@@ -26,8 +26,9 @@ async def test_browse_empty() -> None:
         skhep_testdata.data_path("uproot-empty.root")
     ).run_test() as pilot:
         await pilot.press("down", "space", "down", "enter")
-        await pilot.pause()
-        await pilot.pause()  # wait for thread worker to post EmptyMessage
+        await pilot.pause()  # process RequestPlot → spawn the render worker
+        await pilot.app.workers.wait_for_complete()  # block on the thread
+        await pilot.pause()  # drain the EmptyMessage the worker posted
         assert pilot.app.view_widget.item is None
 
 
@@ -36,8 +37,9 @@ async def test_browse_empty_vim() -> None:
         skhep_testdata.data_path("uproot-empty.root")
     ).run_test() as pilot:
         await pilot.press("j", "l", "j", "enter")
-        await pilot.pause()
-        await pilot.pause()  # wait for thread worker to post EmptyMessage
+        await pilot.pause()  # process RequestPlot → spawn the render worker
+        await pilot.app.workers.wait_for_complete()  # block on the thread
+        await pilot.pause()  # drain the EmptyMessage the worker posted
         assert pilot.app.view_widget.item is None
 
 
@@ -47,13 +49,11 @@ async def test_theme_switch_updates_plot() -> None:
     ).run_test() as pilot:
         await pilot.press("down", "down", "down", "enter")
         await pilot.pause()
-        await pilot.pause()
         item_before = pilot.app.view_widget.item
         assert isinstance(item_before, Plotext)
         assert item_before.theme == "dark"
 
         pilot.app.theme = "textual-light"
-        await pilot.pause()
         await pilot.pause()
         item_after = pilot.app.view_widget.item
         assert isinstance(item_after, Plotext)

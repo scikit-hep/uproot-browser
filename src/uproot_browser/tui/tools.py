@@ -1,11 +1,16 @@
+from __future__ import annotations
+
 import importlib.metadata
+from typing import TYPE_CHECKING
 
 import textual.app
 import textual.containers
 import textual.widgets
-from textual.theme import Theme
 
 from .. import __version__
+
+if TYPE_CHECKING:
+    from textual.theme import Theme
 
 
 class Tools(textual.containers.Container):

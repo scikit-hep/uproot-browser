@@ -27,14 +27,9 @@ class HeaderHelpIcon(textual.widgets.Button):
 
 class HeaderTitle(textual.widget.Widget):
     text = textual.reactive.Reactive("")
-    sub_text = textual.reactive.Reactive("")
 
     def render(self) -> textual.app.RenderResult:
-        text = rich.text.Text(self.text, no_wrap=True, overflow="ellipsis")
-        if self.sub_text:
-            text.append(" — ")
-            text.append(self.sub_text, "dim")
-        return text
+        return rich.text.Text(self.text, no_wrap=True, overflow="ellipsis")
 
 
 class Header(textual.widget.Widget):

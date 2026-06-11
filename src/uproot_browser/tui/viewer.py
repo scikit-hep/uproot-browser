@@ -15,8 +15,7 @@ from .plot import Plotext
 
 class PlotButton(textual.widgets.Button):
     def on_button_pressed(self) -> None:
-        plot_input = self.app.query_one("#plot-input", PlotInput)
-        plot_input.on_input_submitted()
+        self.app.query_one("#plot-input", PlotInput).apply_expression()
 
 
 class PlotInput(textual.widgets.Input):
@@ -26,18 +25,20 @@ class PlotInput(textual.widgets.Input):
             self.set_class(value not in {"", plot.item.expr}, "-needs-update")
 
     def on_input_submitted(self) -> None:
+        self.apply_expression()
+
+    def apply_expression(self) -> None:
         plot = self.app.query_one("#plot-view", ViewWidget)
         if isinstance(plot.item, Plotext):
+            # assigning item triggers watch_item, which updates the plot
             plot.item = dataclasses.replace(plot.item, expr=self.value)
             self.set_class(False, "-needs-update")  # noqa: FBT003
-            plot.plot_widget.update(plot.item)
 
 
 class ViewWidget(textual.widgets.ContentSwitcher):
     item: textual.reactive.var[Error | Plotext | None] = textual.reactive.var(None)
 
     def __init__(self, **kargs: Any):
-        self._item: Error | Plotext | None = None
         self.error_widget = textual.widgets.Static("", id="error")
         self.plot_widget = textual.widgets.Static("", id="plot")
         self.plot_input = PlotInput(
