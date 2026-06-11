@@ -4,6 +4,7 @@ if not __package__:
     __package__ = "uproot_browser.tui"  # pylint: disable=redefined-builtin
 
 import contextlib
+import dataclasses
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import plotext as plt
@@ -99,10 +100,6 @@ class Browser(textual.app.App[object]):
         """Called in response to key binding."""
         self.show_tree = not self.show_tree
 
-    @staticmethod
-    def _is_dark(theme: str) -> bool:
-        return not theme.endswith(("-light", "-latte", "-ansi"))
-
     def action_quit_with_dump(self) -> None:
         """Dump the current state of the application."""
 
@@ -117,7 +114,7 @@ class Browser(textual.app.App[object]):
             )
             items = [self.view_widget.item]
 
-        theme = "ansi_dark" if self._is_dark(self.theme) else "ansi_light"
+        theme = "ansi_dark" if self.current_theme.dark else "ansi_light"
 
         results = rich.console.Group(
             *items,
@@ -126,14 +123,19 @@ class Browser(textual.app.App[object]):
 
         self.exit(message=results)
 
-    def watch_theme(self, _old: str, new: str) -> None:
+    def watch_theme(self) -> None:
         if isinstance(self.view_widget.item, Plotext):
-            self.view_widget.item.theme = "dark" if self._is_dark(new) else "default"
+            theme = "dark" if self.current_theme.dark else "default"
+            # Reassign (rather than mutate) so that watchers fire and the
+            # cached canvas is invalidated.
+            self.view_widget.item = dataclasses.replace(
+                self.view_widget.item, theme=theme, previous=None
+            )
 
     def on_uproot_selected(self, message: UprootSelected) -> None:
         """A message sent by the tree when a file is clicked."""
 
-        theme = "dark" if self._is_dark(self.theme) else "default"
+        theme = "dark" if self.current_theme.dark else "default"
         self.view_widget.plot_input.value = ""
         self.view_widget.item = Plotext(message.upfile, message.path, theme, self)
 
