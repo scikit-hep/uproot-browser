@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import functools
 import os
-import typing
 from typing import TYPE_CHECKING, Any
 
 import click
@@ -19,9 +18,7 @@ if TYPE_CHECKING:
 
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 
-VERSION = __version__
-
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     DefaultGroup = click.Group
 else:
     from click_default_group import DefaultGroup
@@ -43,7 +40,7 @@ def get_testdata(filename: str, *, testdata: bool) -> str:
 
 
 @click.group(context_settings=CONTEXT_SETTINGS, cls=DefaultGroup, default="browse")
-@click.version_option(version=VERSION)
+@click.version_option(version=__version__)
 def main() -> None:
     """
     Must provide a subcommand.

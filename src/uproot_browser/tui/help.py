@@ -15,9 +15,7 @@ if typing.TYPE_CHECKING:
 
 
 class HelpScreen(textual.screen.ModalScreen[None]):
-    BINDINGS: ClassVar[
-        list[textual.binding.Binding | tuple[str, str] | tuple[str, str, str]]
-    ] = [
+    BINDINGS: ClassVar[list[textual.binding.BindingType]] = [
         textual.binding.Binding("d", "", "Nothing", show=False),
         textual.binding.Binding("b", "", "Nothing", show=False),
         textual.binding.Binding("f1", "", "Nothing", show=False),
@@ -38,7 +36,7 @@ class HelpScreen(textual.screen.ModalScreen[None]):
         self.query_one("#help-text", textual.widgets.MarkdownViewer).focus()
 
     def on_button_pressed(self, _event: textual.widgets.Button.Pressed) -> None:
-        self.app.pop_screen()
+        self.dismiss()
 
     def action_done(self) -> None:
-        self.app.pop_screen()
+        self.dismiss()
