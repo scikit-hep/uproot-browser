@@ -115,6 +115,10 @@ class Browser(textual.app.App[object]):
             msg += (
                 f'\nitem = uproot_file["{self.view_widget.item.selection.lstrip("/")}"]'
             )
+            if self.view_widget.item.expr:
+                msg += (
+                    f"\n# plotted histogram h sliced with: {self.view_widget.item.expr}"
+                )
             items = [self.view_widget.item]
 
         theme = "ansi_dark" if self._is_dark(self.theme) else "ansi_light"
