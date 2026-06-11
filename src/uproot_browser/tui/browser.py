@@ -12,6 +12,7 @@ import textual.app
 import textual.binding
 import textual.containers
 import textual.events
+import textual.lazy
 import textual.widgets
 import textual.worker
 from textual.reactive import var
@@ -77,9 +78,9 @@ class Browser(textual.app.App[object]):
                 with textual.widgets.TabPane("Tree"):
                     yield UprootTree(self.path, id="tree-view")
                 with textual.widgets.TabPane("Tools"):
-                    yield Tools()
+                    yield textual.lazy.Lazy(Tools())
                 with textual.widgets.TabPane("Info"):
-                    yield Info()
+                    yield textual.lazy.Lazy(Info())
             # main_panel
             yield self.view_widget
 
