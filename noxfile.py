@@ -40,7 +40,11 @@ def minimums(session: nox.Session) -> None:
     Run the unit and regular tests.
     """
     session.install(
-        "-e.", "--group=test", "--resolution=lowest-direct", "--only-binary=:all:"
+        "-e.",
+        "--group=test",
+        "--resolution=lowest-direct",
+        "--only-binary=:all:",
+        "--no-binary=uproot_browser",
     )
     session.run("pytest", *session.posargs)
 
