@@ -71,6 +71,7 @@ async def test_theme_select_tracks_theme() -> None:
             "#left-view", textual.widgets.TabbedContent
         ).active = "tab-2"
         await pilot.pause()
+        await pilot.pause()  # second pause lets the lazy content finish mounting
         select = pilot.app.query_one(textual.widgets.Select)
         assert select.value == pilot.app.theme
 
