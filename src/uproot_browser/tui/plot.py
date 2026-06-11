@@ -66,14 +66,6 @@ class Plotext:
     def __rich_console__(
         self, console: rich.console.Console, options: rich.console.ConsoleOptions
     ) -> rich.console.RenderResult:
-        *_, item = apply_selection(
-            self.upfile, [s for s in self.selection.split("/") if s]
-        )
-
-        if item is None:
-            self.app.post_message(EmptyMessage())
-            return
-
         width = options.max_width or console.width
         height = options.height or console.height
 
