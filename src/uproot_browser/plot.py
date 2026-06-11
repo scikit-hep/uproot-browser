@@ -76,11 +76,11 @@ def plot_branch(
         # pylint: disable-next=eval-used
         histogram = eval(expr, {"h": histogram})
     plt.bar(
-        histogram.axes[0].edges,
+        histogram.axes[0].centers,
         histogram.values().astype(float),
     )
     plt.ylim(lower=0)
-    plt.xticks(np.linspace(histogram.axes[0][0][0], histogram.axes[0][-1][-1], 5))
+    plt.xticks(np.linspace(histogram.axes[0].edges[0], histogram.axes[0].edges[-1], 5))
     plt.xlabel(histogram.axes[0].name)
     plt.title(make_hist_title(tree, histogram))
 
@@ -91,6 +91,7 @@ plot.register(uproot.models.RNTuple.RField)(plot_branch)  # type: ignore[no-unty
 @plot.register
 def plot_hist(
     tree: uproot.behaviors.TH1.Histogram,
+    *,
     width: int = 100,  # noqa: ARG001
     expr: str = "",
 ) -> None:
@@ -101,8 +102,8 @@ def plot_hist(
     if expr:
         # pylint: disable-next=eval-used
         histogram = eval(expr, {"h": histogram})
-    plt.bar(histogram.axes[0].edges, histogram.values().astype(float))
+    plt.bar(histogram.axes[0].centers, histogram.values().astype(float))
     plt.ylim(lower=0)
-    plt.xticks(np.linspace(histogram.axes[0][0][0], histogram.axes[0][-1][-1], 5))
+    plt.xticks(np.linspace(histogram.axes[0].edges[0], histogram.axes[0].edges[-1], 5))
     plt.xlabel(histogram.axes[0].name)
     plt.title(make_hist_title(tree, histogram))
