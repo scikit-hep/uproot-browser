@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import functools
 import math
+import operator
 from typing import Any
 
 import awkward as ak
@@ -14,6 +15,7 @@ import numpy as np
 import plotext as plt
 import uproot
 import uproot.behaviors.TH1
+import uproot.interpretation.objects
 import uproot.models.RNTuple
 
 from uproot_browser.exceptions import EmptyTreeError
@@ -63,15 +65,24 @@ def plot_branch(
     """
     Plot a single tree branch.
     """
-    array = tree.array()
-    values = ak.flatten(array) if array.ndim > 1 else array
-    finite = values[np.isfinite(values)]
-    if len(finite) < 1:
-        msg = f"Branch {tree.name} is empty."
-        raise EmptyTreeError(msg)
-    histogram: hist.Hist[Any] = hist.numpy.histogram(
-        finite, bins=width, histogram=hist.Hist
-    )
+    if isinstance(tree.interpretation, uproot.interpretation.objects.AsObjects):
+        arr = tree.array(library="np")
+        if len(arr) == 0:
+            msg = f"Branch {tree.name} is empty."
+            raise EmptyTreeError(msg)
+        if not isinstance(arr[0], uproot.behaviors.TH1.Histogram):
+            msg = f"Branch {tree.name} ({tree.typename}) contains objects that cannot be plotted"
+            raise TypeError(msg)
+        histograms = [h.to_hist() for h in arr]
+        histogram: hist.Hist[Any] = functools.reduce(operator.add, histograms)
+    else:
+        array = tree.array()
+        values = ak.flatten(array) if array.ndim > 1 else array
+        finite = values[np.isfinite(values)]
+        if len(finite) < 1:
+            msg = f"Branch {tree.name} is empty."
+            raise EmptyTreeError(msg)
+        histogram = hist.numpy.histogram(finite, bins=width, histogram=hist.Hist)
     if expr:
         # pylint: disable-next=eval-used
         histogram = eval(expr, {"h": histogram})
