@@ -35,13 +35,11 @@ with contextlib.suppress(AttributeError):
     plt._dict.themes["dark"][2] = dark_text
 
 
-import uproot_browser.plot
-
 from .error import Error
 from .header import Header
 from .help import HelpScreen
 from .left_panel import UprootTree
-from .plot import Plotext, apply_selection
+from .plot import Plotext, apply_selection, dump
 from .tools import Info, Tools
 from .viewer import ViewWidget
 
@@ -113,11 +111,9 @@ class Browser(textual.app.App[None]):
             plotext = self.view_widget.item
             msg += f'\nitem = uproot_file["{plotext.selection.lstrip("/")}"]'
             *_, selected = apply_selection(plotext.upfile, plotext.selection.split(":"))
-            width = (plotext.size[0] - 5) * 4 if plotext.size else 100
+            size = plotext.size or ()
             with contextlib.suppress(RuntimeError):
-                msg += f"\n{uproot_browser.plot.dump(selected, width=width)}"
-                if plotext.expr:
-                    msg += f"\nh = {plotext.expr}"
+                msg += f"\n{dump(selected, *size, expr=plotext.expr)}"
             items = [plotext]
 
         theme = "ansi_dark" if self.current_theme.dark else "ansi_light"

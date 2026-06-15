@@ -8,7 +8,7 @@ import rich.console
 import uproot
 from skhep_testdata import data_path
 
-import uproot_browser.plot
+import uproot_browser.tui.plot
 from uproot_browser.tree import print_tree
 
 OUT1 = """\
@@ -140,9 +140,7 @@ def test_dump_is_runnable(selection: str, expr: str) -> None:
     uproot_file = uproot.open(data_path("uproot-Event.root"))
     item = uproot_file[selection]
 
-    code = uproot_browser.plot.dump(item, width=100)
-    if expr:
-        code += f"\nh = {expr}"
+    code = uproot_browser.tui.plot.dump(item, 105, 30, expr=expr)
 
     namespace: dict[str, object] = {"item": item}
     exec(code, namespace)
