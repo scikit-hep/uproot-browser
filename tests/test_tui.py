@@ -115,13 +115,16 @@ async def test_jump_opens_and_lists_all() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        # Grab the tree before opening the modal: older Textual scopes
+        # app.query_one to the active screen, so #tree-view is unreachable
+        # once the JumpScreen is on top.
+        expected = len(pilot.app.query_one("#tree-view", UprootTree).all_entries())
         await pilot.press("/")
         assert isinstance(pilot.app.screen, JumpScreen)
         results = pilot.app.screen.query_one(
             "#jump-results", textual.widgets.OptionList
         )
-        tree = pilot.app.query_one("#tree-view", UprootTree)
-        assert results.option_count == len(tree.all_entries())
+        assert results.option_count == expected
 
 
 async def test_jump_filters_and_plots() -> None:
