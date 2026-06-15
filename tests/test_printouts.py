@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import sys
 
+import hist
 import pytest
 import rich.console
+import uproot
 from skhep_testdata import data_path
 
+import uproot_browser.plot
 from uproot_browser.tree import print_tree
 
 OUT1 = """\
@@ -121,3 +124,27 @@ def test_tree_rntuple(capsys: pytest.CaptureFixture[str]) -> None:
     out, err = capsys.readouterr()
     assert not err
     assert out == OUT2
+
+
+@pytest.mark.parametrize(
+    ("selection", "expr"),
+    [
+        ("hstat", ""),
+        ("hstat", "h[50:]"),
+        ("T/event/fNtrack", ""),
+        ("T/event/fH", "h[::2j]"),
+    ],
+)
+def test_dump_is_runnable(selection: str, expr: str) -> None:
+    """The "Dump & Quit" source rebuilds the plotted histogram as ``h``."""
+    uproot_file = uproot.open(data_path("uproot-Event.root"))
+    item = uproot_file[selection]
+
+    code = uproot_browser.plot.dump(item, width=100)
+    if expr:
+        code += f"\nh = {expr}"
+
+    namespace: dict[str, object] = {"item": item}
+    exec(code, namespace)
+
+    assert isinstance(namespace["h"], hist.Hist)
