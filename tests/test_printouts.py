@@ -127,17 +127,18 @@ def test_tree_rntuple(capsys: pytest.CaptureFixture[str]) -> None:
 
 
 @pytest.mark.parametrize(
-    ("selection", "expr"),
+    ("filename", "selection", "expr"),
     [
-        ("hstat", ""),
-        ("hstat", "h[50:]"),
-        ("T/event/fNtrack", ""),
-        ("T/event/fH", "h[::2j]"),
+        ("uproot-Event.root", "hstat", ""),
+        ("uproot-Event.root", "hstat", "h[50:]"),
+        ("uproot-Event.root", "T/event/fNtrack", ""),
+        ("uproot-Event.root", "T/event/fH", "h[::2j]"),
+        ("ntpl001_staff_rntuple_v1-0-0-0.root", "Staff/Age", "h[::2j]"),
     ],
 )
-def test_dump_is_runnable(selection: str, expr: str) -> None:
+def test_dump_is_runnable(filename: str, selection: str, expr: str) -> None:
     """The "Dump & Quit" source rebuilds the plotted histogram as ``h``."""
-    uproot_file = uproot.open(data_path("uproot-Event.root"))
+    uproot_file = uproot.open(data_path(filename))
     item = uproot_file[selection]
 
     code = uproot_browser.tui.plot.dump(item, 105, 30, expr=expr)

@@ -65,7 +65,9 @@ def plot_branch(
     """
     Plot a single tree branch.
     """
-    if isinstance(tree.interpretation, uproot.interpretation.objects.AsObjects):
+    # RField has no `interpretation`; it is always read as an array.
+    interpretation = getattr(tree, "interpretation", None)
+    if isinstance(interpretation, uproot.interpretation.objects.AsObjects):
         arr = tree.array(library="np")
         if len(arr) == 0:
             msg = f"Branch {tree.name} is empty."
@@ -120,7 +122,9 @@ def dump_branch(
     """
     Source for rebuilding a single tree branch as a histogram.
     """
-    if isinstance(tree.interpretation, uproot.interpretation.objects.AsObjects):
+    # RField has no `interpretation`; it is always read as an array.
+    interpretation = getattr(tree, "interpretation", None)
+    if isinstance(interpretation, uproot.interpretation.objects.AsObjects):
         return (
             "import functools\n"
             "import operator\n"
