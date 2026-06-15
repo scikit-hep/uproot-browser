@@ -86,8 +86,8 @@ async def test_theme_select_tracks_theme() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
-        # Tools tab is lazy-loaded; activate it so the Select mounts and starts
-        # tracking the theme (Tools.on_mount sets up the watcher).
+        # Activate the Tools tab and wait for the Select to settle (Tools.on_mount
+        # sets up the watcher that keeps it in sync with the theme).
         pilot.app.query_one(
             "#left-view", textual.widgets.TabbedContent
         ).active = "tab-2"
