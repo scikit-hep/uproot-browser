@@ -38,9 +38,7 @@ class JumpScreen(textual.screen.ModalScreen[str | None]):
 
     def compose(self) -> textual.app.ComposeResult:
         with textual.containers.Container(id="jump-dialog"):
-            yield textual.widgets.Input(
-                placeholder="Jump to branch…", id="jump-input"
-            )
+            yield textual.widgets.Input(placeholder="Jump to branch…", id="jump-input")
             yield textual.widgets.OptionList(id="jump-results")
 
     def on_mount(self) -> None:
