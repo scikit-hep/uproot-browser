@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 import importlib.metadata
-from typing import TYPE_CHECKING
 
 import textual.app
 import textual.containers
 import textual.widgets
 
 from .. import __version__
-
-if TYPE_CHECKING:
-    from textual.theme import Theme
 
 
 class Tools(textual.containers.Container):
@@ -28,10 +24,13 @@ class Tools(textual.containers.Container):
             yield textual.widgets.Switch()
 
     def on_mount(self) -> None:
-        self.app.theme_changed_signal.subscribe(self, self._on_theme_change)
+        # Keep the Select in sync with the app theme. init=True syncs the value
+        # immediately, so this also catches a theme set before this lazy widget
+        # mounted — no race between mounting and tracking.
+        self.watch(self.app, "theme", self._sync_theme)
 
-    def _on_theme_change(self, theme: Theme) -> None:
-        self.query_one(textual.widgets.Select).value = theme.name
+    def _sync_theme(self, theme: str) -> None:
+        self.query_one(textual.widgets.Select).value = theme
 
     @textual.on(textual.widgets.Switch.Changed)
     def switch_changed(self, event: textual.widgets.Switch.Changed) -> None:
