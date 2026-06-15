@@ -1,8 +1,28 @@
+from collections.abc import Callable
+
 import skhep_testdata
+import textual.pilot
 import textual.widgets
 
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.plot import Plotext
+
+
+async def wait_until(
+    pilot: textual.pilot.Pilot[None],
+    predicate: Callable[[], bool],
+    *,
+    tries: int = 100,
+) -> None:
+    """Pump the event loop until predicate holds (or give up after `tries`).
+
+    Lazy-mounted widgets can take a variable number of message cycles to settle,
+    especially on slower CI runners, so poll instead of guessing a pause count.
+    """
+    for _ in range(tries):
+        if predicate():
+            return
+        await pilot.pause()
 
 
 async def test_browse_logo() -> None:
@@ -70,13 +90,20 @@ async def test_theme_select_tracks_theme() -> None:
         pilot.app.query_one(
             "#left-view", textual.widgets.TabbedContent
         ).active = "tab-2"
-        await pilot.pause()
-        await pilot.pause()  # second pause lets the lazy content finish mounting
+        # Lazy mount takes a variable number of cycles; wait for it to settle.
+        await wait_until(
+            pilot,
+            lambda: (
+                bool(pilot.app.query(textual.widgets.Select))
+                and pilot.app.query_one(textual.widgets.Select).value
+                != textual.widgets.Select.BLANK
+            ),
+        )
         select = pilot.app.query_one(textual.widgets.Select)
         assert select.value == pilot.app.theme
 
         pilot.app.theme = "nord"
-        await pilot.pause()
+        await wait_until(pilot, lambda: select.value == "nord")
         assert select.value == "nord"
 
 
