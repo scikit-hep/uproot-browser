@@ -36,6 +36,15 @@ def make_plot(item: Any, theme: str, *size: int, expr: str) -> Any:
     return plt.build()
 
 
+def make_dump(item: Any, *size: int, expr: str = "") -> str:
+    """Standalone Python source rebuilding the plotted histogram as ``h``."""
+    width = (size[0] - 5) * 4 if size else 100
+    code = uproot_browser.plot.dump(item, width=width)
+    if expr:
+        code += f"\nh = {expr}"
+    return code
+
+
 # wrapper for plotext into a textual widget
 @dataclasses.dataclass
 class Plotext:

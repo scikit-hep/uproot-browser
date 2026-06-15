@@ -39,7 +39,7 @@ from .error import Error
 from .header import Header
 from .help import HelpScreen
 from .left_panel import UprootTree
-from .plot import Plotext
+from .plot import Plotext, apply_selection, make_dump
 from .tools import Info, Tools
 from .viewer import ViewWidget
 
@@ -112,14 +112,13 @@ class Browser(textual.app.App[None]):
         if isinstance(self.view_widget.item, Error):
             items = [self.view_widget.item]
         elif isinstance(self.view_widget.item, Plotext):
-            msg += (
-                f'\nitem = uproot_file["{self.view_widget.item.selection.lstrip("/")}"]'
-            )
-            if self.view_widget.item.expr:
-                msg += (
-                    f"\n# plotted histogram h sliced with: {self.view_widget.item.expr}"
-                )
-            items = [self.view_widget.item]
+            plotext = self.view_widget.item
+            msg += f'\nitem = uproot_file["{plotext.selection.lstrip("/")}"]'
+            *_, selected = apply_selection(plotext.upfile, plotext.selection.split(":"))
+            size = plotext.size or ()
+            with contextlib.suppress(RuntimeError):
+                msg += f"\n{make_dump(selected, *size, expr=plotext.expr)}"
+            items = [plotext]
 
         theme = "ansi_dark" if self.current_theme.dark else "ansi_light"
 

@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import functools
 import sys
 
+import hist
 import pytest
 import rich.console
+import uproot
 from skhep_testdata import data_path
 
+import uproot_browser.tui.plot
 from uproot_browser.tree import print_tree
 
 OUT1 = """\
@@ -121,3 +125,30 @@ def test_tree_rntuple(capsys: pytest.CaptureFixture[str]) -> None:
     out, err = capsys.readouterr()
     assert not err
     assert out == OUT2
+
+
+@pytest.mark.parametrize(
+    ("filename", "selection", "expr"),
+    [
+        ("uproot-Event.root", "hstat", ""),
+        ("uproot-Event.root", "hstat", "h[50:]"),
+        ("uproot-Event.root", "T/event/fNtrack", ""),
+        ("uproot-Event.root", "T/event/fH", "h[::2j]"),
+        ("ntpl001_staff_rntuple_v1-0-0-0.root", "Staff/Age", "h[::2j]"),
+    ],
+)
+def test_dump_is_runnable(filename: str, selection: str, expr: str) -> None:
+    """The "Dump & Quit" source rebuilds the plotted histogram as ``h``."""
+    uproot_file = uproot.open(data_path(filename))
+    # Navigate key-by-key, like the tree browser does (RNTuple fields are not
+    # reachable via a recursive "a/b" lookup on the minimum uproot).
+    item = functools.reduce(
+        lambda obj, key: obj[key], selection.split("/"), uproot_file
+    )
+
+    code = uproot_browser.tui.plot.make_dump(item, 105, 30, expr=expr)
+
+    namespace: dict[str, object] = {"item": item}
+    exec(code, namespace)
+
+    assert isinstance(namespace["h"], hist.Hist)
