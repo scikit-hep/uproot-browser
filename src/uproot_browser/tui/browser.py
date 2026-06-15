@@ -77,7 +77,11 @@ class Browser(textual.app.App[None]):
                 with textual.widgets.TabPane("Tree"):
                     yield UprootTree(self.path, id="tree-view")
                 with textual.widgets.TabPane("Tools"):
-                    yield textual.lazy.Lazy(Tools())
+                    # Not lazy: lazy-mounting a Select races its internal mount
+                    # (SelectCurrent.update queries "#label" before that child is
+                    # mounted), which crashes on slow runners. Tools is cheap to
+                    # build anyway; only the Info tab is worth deferring.
+                    yield Tools()
                 with textual.widgets.TabPane("Info"):
                     yield textual.lazy.Lazy(Info())
             # main_panel
