@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import sys
 
 import hist
@@ -139,7 +140,11 @@ def test_tree_rntuple(capsys: pytest.CaptureFixture[str]) -> None:
 def test_dump_is_runnable(filename: str, selection: str, expr: str) -> None:
     """The "Dump & Quit" source rebuilds the plotted histogram as ``h``."""
     uproot_file = uproot.open(data_path(filename))
-    item = uproot_file[selection]
+    # Navigate key-by-key, like the tree browser does (RNTuple fields are not
+    # reachable via a recursive "a/b" lookup on the minimum uproot).
+    item = functools.reduce(
+        lambda obj, key: obj[key], selection.split("/"), uproot_file
+    )
 
     code = uproot_browser.tui.plot.dump(item, 105, 30, expr=expr)
 
