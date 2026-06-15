@@ -9,6 +9,11 @@ something to plot. Press `spacebar` to open/close a directory or tree. You can
 also use the VIM keys: `j` to move down, `k` to move up, `l` to open a folder,
 and `h` to close a folder.
 
+Press `/` to open a fuzzy finder: start typing a branch or field name and the
+list narrows as you type (`fzf`-style). Use the arrow keys to pick a match and
+press `enter` to jump to it in the tree (plotting it if it's plottable), or
+`esc` to cancel.
+
 You can also open the command palette with `ctrl-p`, which gives you some
 options like changing the theme, writing out an SVG, or quitting the program.
 

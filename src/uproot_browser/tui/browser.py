@@ -38,6 +38,7 @@ with contextlib.suppress(AttributeError):
 from .error import Error
 from .header import Header
 from .help import HelpScreen
+from .jump import JumpScreen
 from .left_panel import UprootTree
 from .plot import Plotext, apply_selection, make_dump
 from .tools import Info, Tools
@@ -53,6 +54,7 @@ class Browser(textual.app.App[None]):
     CSS_PATH = "browser.css"
     BINDINGS: ClassVar[list[textual.binding.BindingType]] = [
         textual.binding.Binding("b", "toggle_files", "Navbar"),
+        textual.binding.Binding("/", "jump", "Jump"),
         textual.binding.Binding("q", "quit", "Quit"),
         textual.binding.Binding("d", "quit_with_dump", "Dump & Quit"),
         textual.binding.Binding("f1", "help", "Help"),
@@ -74,7 +76,7 @@ class Browser(textual.app.App[None]):
         with textual.containers.Container():
             # left_panel
             with textual.widgets.TabbedContent(id="left-view"):
-                with textual.widgets.TabPane("Tree"):
+                with textual.widgets.TabPane("Tree", id="tree-tab"):
                     yield UprootTree(self.path, id="tree-view")
                 with textual.widgets.TabPane("Tools"):
                     # Not lazy: lazy-mounting a Select races its internal mount
@@ -98,6 +100,17 @@ class Browser(textual.app.App[None]):
 
     def action_help(self) -> None:
         self.push_screen(HelpScreen())
+
+    def action_jump(self) -> None:
+        """Open the fuzzy finder to jump to a branch/field."""
+        tree = self.query_one("#tree-view", UprootTree)
+        self.push_screen(JumpScreen(tree.all_entries()), self._on_jumped)
+
+    def _on_jumped(self, path: str | None) -> None:
+        if path is None:
+            return
+        self.query_one("#left-view", textual.widgets.TabbedContent).active = "tree-tab"
+        self.query_one("#tree-view", UprootTree).select_path(path)
 
     def action_toggle_files(self) -> None:
         """Called in response to key binding."""

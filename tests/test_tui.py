@@ -5,7 +5,11 @@ import textual.pilot
 import textual.widgets
 
 from uproot_browser.tui.browser import Browser
+from uproot_browser.tui.jump import JumpScreen
+from uproot_browser.tui.left_panel import UprootTree
 from uproot_browser.tui.plot import Plotext
+
+LEAF_PATH = "//T/event/fFlag"
 
 
 async def wait_until(
@@ -105,6 +109,74 @@ async def test_theme_select_tracks_theme() -> None:
         pilot.app.theme = "nord"
         await wait_until(pilot, lambda: select.value == "nord")
         assert select.value == "nord"
+
+
+async def test_jump_opens_and_lists_all() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        # Grab the tree before opening the modal: older Textual scopes
+        # app.query_one to the active screen, so #tree-view is unreachable
+        # once the JumpScreen is on top.
+        expected = len(pilot.app.query_one("#tree-view", UprootTree).all_entries())
+        await pilot.press("/")
+        assert isinstance(pilot.app.screen, JumpScreen)
+        results = pilot.app.screen.query_one(
+            "#jump-results", textual.widgets.OptionList
+        )
+        assert results.option_count == expected
+
+
+async def test_jump_filters_and_plots() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        await pilot.press("/")
+        await pilot.press(*"fflag")  # fuzzy-matches only fFlag
+        await pilot.pause()
+        results = pilot.app.screen.query_one(
+            "#jump-results", textual.widgets.OptionList
+        )
+        assert results.get_option_at_index(0).id == LEAF_PATH
+
+        await pilot.press("enter")
+        await pilot.pause()
+        assert not isinstance(pilot.app.screen, JumpScreen)
+        item = pilot.app.view_widget.item
+        assert isinstance(item, Plotext)
+        assert item.selection == LEAF_PATH
+
+
+async def test_jump_expands_ancestors() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        tree.select_path(LEAF_PATH)
+        await wait_until(
+            pilot,
+            lambda: (
+                tree.cursor_node is not None
+                and tree.cursor_node.data is not None
+                and tree.cursor_node.data.path == LEAF_PATH
+            ),
+        )
+        node = tree.cursor_node
+        assert node is not None
+        assert node.data is not None
+        assert node.data.path == LEAF_PATH
+
+
+async def test_jump_cancel() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        await pilot.press("/")
+        assert isinstance(pilot.app.screen, JumpScreen)
+        await pilot.press("escape")
+        await pilot.pause()
+        assert not isinstance(pilot.app.screen, JumpScreen)
+        assert pilot.app.view_widget.item is None
 
 
 async def test_help_focus() -> None:

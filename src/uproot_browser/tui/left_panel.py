@@ -12,6 +12,7 @@ import textual.widgets.tree
 import uproot
 
 from ..tree import UprootEntry
+from .jump import Candidate
 from .messages import UprootSelected
 
 if TYPE_CHECKING:
@@ -32,7 +33,58 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         self.upfile = uproot.open(path)
         file_path = Path(self.upfile.file_path)
         data = UprootEntry("/", self.upfile)
+        self._candidates: list[Candidate] | None = None
         super().__init__(name=str(file_path), data=data, label=file_path.stem, **args)
+
+    def all_entries(self) -> list[Candidate]:
+        """All jump targets in the file, built once and cached."""
+        if self._candidates is None:
+            root = UprootEntry("/", self.upfile)
+            self._candidates = [
+                Candidate(
+                    path=entry.path,
+                    name=entry.path.rstrip("/").rsplit("/", 1)[-1],
+                    icon=entry.meta()["label_icon"],
+                    is_dir=entry.is_dir,
+                )
+                for entry in root.walk()
+            ]
+        return self._candidates
+
+    def select_path(self, target: str) -> None:
+        """Navigate to (and reveal) the node at ``target``, plotting leaves."""
+        node = self.root
+        self.load_directory(node)
+        while node.data is not None and node.data.path != target:
+            child = next(
+                (
+                    c
+                    for c in node.children
+                    if c.data is not None
+                    and (c.data.path == target or target.startswith(c.data.path + "/"))
+                ),
+                None,
+            )
+            if child is None:
+                return
+            self.load_directory(child)
+            if child.data is not None and child.data.path != target:
+                child.expand()
+            node = child
+
+        target_node = node
+
+        def reveal() -> None:
+            self.move_cursor(target_node)
+            self.scroll_to_node(target_node)
+
+        self.call_after_refresh(reveal)
+
+        if target_node.data is not None:
+            if target_node.data.is_dir:
+                target_node.expand()
+            else:
+                self.post_message(UprootSelected(self.upfile, target_node.data.path))
 
     def render_label(
         self,

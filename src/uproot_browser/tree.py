@@ -17,7 +17,7 @@ from rich.text import Text
 from rich.tree import Tree
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Iterator
 
 console = Console()
 
@@ -100,6 +100,12 @@ class UprootEntry:
             UprootEntry(f"{self.path}/{key}", self.item[key])
             for key in sorted(get_children(self.item))
         ]
+
+    def walk(self) -> Iterator[UprootEntry]:
+        """Yield every descendant entry depth-first (not including self)."""
+        for child in self.children:
+            yield child
+            yield from child.walk()
 
 
 def make_tree(node: UprootEntry, *, tree: Tree | None = None) -> Tree:
