@@ -146,7 +146,7 @@ def test_dump_is_runnable(filename: str, selection: str, expr: str) -> None:
         lambda obj, key: obj[key], selection.split("/"), uproot_file
     )
 
-    code = uproot_browser.tui.plot.dump(item, 105, 30, expr=expr)
+    code = uproot_browser.tui.plot.make_dump(item, 105, 30, expr=expr)
 
     namespace: dict[str, object] = {"item": item}
     exec(code, namespace)
