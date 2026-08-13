@@ -76,6 +76,9 @@ dev = [
   {include-group = "test"},
 ]
 
+[tool.uv]
+exclude-newer = "7 days"
+
 [tool.hatch]
 version.source = "vcs"
 build.hooks.vcs.version-file = "src/uproot_browser/_version.py"

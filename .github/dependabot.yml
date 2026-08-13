@@ -6,6 +6,8 @@ updates:
     schedule:
       interval: "monthly"
     groups:
-      actions:
+      github-actions:
         patterns:
           - "*"
+    cooldown:
+      default-days: 7
