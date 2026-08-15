@@ -5,7 +5,7 @@ ci:
 
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v6.0.0
+  rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
   hooks:
   - id: check-added-large-files
   - id: check-case-conflict
@@ -19,14 +19,15 @@ repos:
   - id: trailing-whitespace
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: "v0.15.15"
+  # Held at v0.15.15; v0.16 adds new rules that current sources fail.
+  rev: "0671d8ab202c4ac093b78433ae5baf74f3fc7246"  # frozen: v0.15.15
   hooks:
     - id: ruff-check
       args: ["--fix", "--show-fixes"]
     - id: ruff-format
 
 - repo: https://github.com/pre-commit/mirrors-mypy
-  rev: v2.1.0
+  rev: 41e691678310dfd3833f7ab4e180ddb014310356  # frozen: v2.3.0
   hooks:
   - id: mypy
     files: src
@@ -34,14 +35,22 @@ repos:
     - rich>=12
     - click
     - hist
-    - numpy
+    # 2.4+ stubs need python_version 3.12+, but we target 3.10
+    - numpy<2.4
     - textual>=0.86
 
 - repo: https://github.com/codespell-project/codespell
-  rev: v2.4.2
+  rev: 57b21406f092110c18776e39b0bda50d37c945c8  # frozen: v2.4.3
   hooks:
   - id: codespell
     args: [-L, "hist,iterm"]
+
+- repo: https://github.com/zizmorcore/zizmor-pre-commit
+  rev: 451b56af716f9f0d0c2b816503a3fd0cf8b036fa  # frozen: v1.29.0
+  hooks:
+  - id: zizmor
+    files: "^\\.github"
+    args: [--persona=pedantic]
 
 - repo: local
   hooks:
