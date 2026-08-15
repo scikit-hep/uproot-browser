@@ -35,7 +35,8 @@ repos:
     - rich>=12
     - click
     - hist
-    - numpy
+    # 2.4+ stubs need python_version 3.12+, but we target 3.10
+    - numpy<2.4
     - textual>=0.86
 
 - repo: https://github.com/codespell-project/codespell
