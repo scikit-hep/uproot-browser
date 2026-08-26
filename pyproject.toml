@@ -41,7 +41,7 @@ dependencies = [
   'hist >=2.6',
   'lz4>=2',
   'numpy >=1.18',
-  'plotext >=5.2.8,<6',
+  'plotext >=6',
   'rich >=13.3.3',
   'textual >=0.86.0',
   'uproot >=5.6.1',
@@ -78,6 +78,7 @@ dev = [
 
 [tool.uv]
 exclude-newer = "7 days"
+exclude-newer-package = { plotext = "2026-08-24T00:00:00Z" }  # plotext 6 is newer than 7 days; remove after 2026-08-30
 
 [tool.hatch]
 version.source = "vcs"
@@ -154,4 +155,3 @@ flake8-boolean-trap.extend-allowed-calls = ["textual.reactive.var"]
 "tests/*" = ["T20", "INP001"]
 "docs/*" = ["INP001"]
 "src/uproot_browser/__main__.py" = ["PLC0415"]    # Import outside toplevel
-"src/uproot_browser/tui/browser.py" = ["SLF001"]  # Have to access private var in plt

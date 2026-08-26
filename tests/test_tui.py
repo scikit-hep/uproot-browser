@@ -75,7 +75,7 @@ async def test_theme_switch_updates_plot() -> None:
         await pilot.pause()
         item_before = pilot.app.view_widget.item
         assert isinstance(item_before, Plotext)
-        assert item_before.theme == "dark"
+        assert item_before.theme == "uproot_dark"
 
         pilot.app.theme = "textual-light"
         await pilot.pause()
@@ -83,7 +83,7 @@ async def test_theme_switch_updates_plot() -> None:
         assert isinstance(item_after, Plotext)
         # the item must be replaced, not mutated, so the plot re-renders
         assert item_after is not item_before
-        assert item_after.theme == "default"
+        assert item_after.theme == "uproot_light"
 
 
 async def test_theme_select_tracks_theme() -> None:
