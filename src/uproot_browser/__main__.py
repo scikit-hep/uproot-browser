@@ -32,7 +32,11 @@ def get_testdata(filename: str | None, *, testdata: bool) -> str:
             msg = "Missing argument 'FILENAME'."
             raise click.UsageError(msg)
         name, _, _ = filename.partition(":")
-        if "://" not in name and not Path(name).is_file():
+        if (
+            "://" not in filename
+            and not Path(name).is_file()
+            and not Path(filename).is_file()
+        ):
             msg = f"File {name!r} does not exist."
             raise click.ClickException(msg)
         return filename

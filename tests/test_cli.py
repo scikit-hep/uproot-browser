@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from click.testing import CliRunner
 
-from uproot_browser.__main__ import main
+from uproot_browser.__main__ import get_testdata, main
 
 
 def test_missing_local_file() -> None:
@@ -35,3 +35,8 @@ def test_missing_filename() -> None:
     result = runner.invoke(main, ["tree"])
     assert result.exit_code != 0
     assert "FILENAME" in result.output
+
+
+def test_remote_url_not_checked_locally() -> None:
+    url = "https://example.com/a.root:events"
+    assert get_testdata(url, testdata=False) == url
