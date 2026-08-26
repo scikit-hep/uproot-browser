@@ -30,13 +30,43 @@ def make_hist_title(item: Any, histogram: hist.Hist[Any]) -> str:
     return f"{item.name} -- Entries: {inner_sum:g} ({full_sum:g} with flow)"
 
 
-def _draw_hist(fig: Any, tree: Any, histogram: hist.Hist[Any]) -> None:
+def _bin_ticks(axis: Any, count: int = 5) -> tuple[list[int], list[str]]:
+    positions = np.unique(
+        np.linspace(0, len(axis) - 1, min(count, len(axis))).round().astype(int)
+    )
+    return positions.tolist(), [f"{axis.centers[i]:g}" for i in positions]
+
+
+def _draw_hist_2d(fig: Any, tree: Any, histogram: hist.Hist[Any]) -> None:
+    xaxis, yaxis = histogram.axes
+    values = histogram.values().astype(float)
+    # heatmap rows draw top-to-bottom; flip so y increases upward
+    fig.draw(fig.heatmap(values.T[::-1].tolist(), map="viridis", fill=True))
+    fig.ruler("x").ticks(*_bin_ticks(xaxis))
+    fig.ruler("y").ticks(*_bin_ticks(yaxis))
+    fig.label(xaxis.name, axis="x")
+    fig.label(yaxis.name, axis="y")
+    fig.title(make_hist_title(tree, histogram))
+
+
+def _draw_hist_1d(fig: Any, tree: Any, histogram: hist.Hist[Any]) -> None:
     axis = histogram.axes[0]
     fig.draw(fig.bar(axis.centers, histogram.values().astype(float)))
     fig.ruler("y").lim(lower=0)
     fig.ruler("x").ticks(np.linspace(axis.edges[0], axis.edges[-1], 5))
     fig.label(axis.name, axis="x")
     fig.title(make_hist_title(tree, histogram))
+
+
+def _draw_hist(fig: Any, tree: Any, histogram: hist.Hist[Any]) -> None:
+    match len(histogram.axes):
+        case 1:
+            _draw_hist_1d(fig, tree, histogram)
+        case 2:
+            _draw_hist_2d(fig, tree, histogram)
+        case ndim:
+            msg = f"Histograms with {ndim} dimensions are not plottable; reduce to 1 or 2 first"
+            raise RuntimeError(msg)
 
 
 @functools.singledispatch

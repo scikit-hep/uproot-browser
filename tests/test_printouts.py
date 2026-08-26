@@ -4,11 +4,13 @@ import functools
 import sys
 
 import hist
+import plotext
 import pytest
 import rich.console
 import uproot
 from skhep_testdata import data_path
 
+import uproot_browser.plot
 import uproot_browser.tui.plot
 from uproot_browser.tree import print_tree
 
@@ -134,6 +136,7 @@ def test_tree_rntuple(capsys: pytest.CaptureFixture[str]) -> None:
         ("uproot-Event.root", "hstat", "h[50:]"),
         ("uproot-Event.root", "T/event/fNtrack", ""),
         ("uproot-Event.root", "T/event/fH", "h[::2j]"),
+        ("uproot-hepdata-example.root", "hpxpy", ""),
         ("ntpl001_staff_rntuple_v1-0-0-0.root", "Staff/Age", "h[::2j]"),
     ],
 )
@@ -152,3 +155,31 @@ def test_dump_is_runnable(filename: str, selection: str, expr: str) -> None:
     exec(code, namespace)
 
     assert isinstance(namespace["h"], hist.Hist)
+
+
+def test_plot_2d() -> None:
+    """A TH2 renders as a heatmap with both axes labeled (issue #175)."""
+    item = uproot.open(data_path("uproot-hepdata-example.root"))["hpxpy"]
+
+    fig = plotext.figure
+    fig.clear()
+    fig.plot_size(80, 25)
+    uproot_browser.plot.plot(item, fig=fig)
+    out = str(fig.build())
+
+    assert "hpxpy" in out
+    assert "xaxis" in out
+    assert "yaxis" in out
+
+
+def test_plot_3d_errors() -> None:
+    """3+ dimensional histograms give a clear error, not a plotext internal one."""
+    item = uproot.open(data_path("uproot-hepdata-example.root"))["hpxpy"]
+    # the expr namespace only holds ``h``, so reach hist.Hist through it
+    expr = "h.__class__.new.Reg(4, 0, 4).Reg(3, 0, 3).Reg(2, 0, 2).Double()"
+
+    fig = plotext.figure
+    fig.clear()
+    fig.plot_size(80, 25)
+    with pytest.raises(RuntimeError, match="3 dimensions"):
+        uproot_browser.plot.plot(item, fig=fig, expr=expr)
