@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import rich.panel
 import rich.text
 import textual.binding
+import textual.css.query
+import textual.events
 import textual.widget
 import textual.widgets
 import textual.widgets.tree
@@ -17,6 +20,10 @@ from .messages import UprootSelected
 
 if TYPE_CHECKING:
     from rich.style import Style
+
+SCROLLOFF = 2  # lines kept visible past the cursor, like vim's 'scrolloff'
+MAX_COUNT_DIGITS = 4
+COUNT_MOTIONS = frozenset({"up", "down", "j", "k"})
 
 
 class UprootTree(textual.widgets.Tree[UprootEntry]):
@@ -34,6 +41,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         file_path = Path(self.upfile.file_path)
         data = UprootEntry("/", self.upfile)
         self._candidates: list[Candidate] | None = None
+        self._count = ""
         super().__init__(name=str(file_path), data=data, label=file_path.stem, **args)
 
     def all_entries(self) -> list[Candidate]:
@@ -86,6 +94,43 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
             else:
                 self.post_message(UprootSelected(self.upfile, target_node.data.path))
 
+    def scroll_to_line(self, line: int, animate: bool = True) -> None:  # noqa: FBT001, FBT002
+        """Scroll to a line, keeping ``SCROLLOFF`` lines visible on both sides."""
+        if self.scrollable_content_region.height > 2 * SCROLLOFF + 1:
+            # Bring both edges into view; the second call moves the view further
+            # only if the first one scrolled past the cursor.
+            super().scroll_to_line(max(line - SCROLLOFF, 0), animate=animate)
+            super().scroll_to_line(
+                min(line + SCROLLOFF, self.last_line), animate=animate
+            )
+        super().scroll_to_line(line, animate=animate)
+
+    def _set_count(self, count: str) -> None:
+        """Store the pending count and echo it on the tab."""
+        self._count = count
+        with contextlib.suppress(textual.css.query.NoMatches):
+            tabs = self.screen.query_one("#left-view", textual.widgets.TabbedContent)
+            tabs.get_tab("tree-tab").label = f"Tree {count}" if count else "Tree"
+
+    def _take_count(self) -> int:
+        """Consume the pending count, defaulting to 1."""
+        count = int(self._count or 1)
+        self._set_count("")
+        return count
+
+    def on_key(self, event: textual.events.Key) -> None:
+        """Collect a vim-style count prefix for the cursor motions."""
+        character = event.character
+        if character is not None and (
+            character in "123456789" or (character == "0" and self._count)
+        ):
+            if len(self._count) < MAX_COUNT_DIGITS:
+                self._set_count(self._count + character)
+            event.stop()
+            event.prevent_default()
+        elif event.key not in COUNT_MOTIONS:
+            self._set_count("")
+
     def render_label(
         self,
         node: textual.widgets.tree.TreeNode[UprootEntry],
@@ -129,6 +174,21 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         assert item
         if item.is_dir:
             self.load_directory(event.node)
+
+    def action_cursor_down(self) -> None:
+        count = self._take_count()
+        if self.cursor_line == -1:
+            count -= 1
+        self.cursor_line = max(self.cursor_line, 0) + count
+        self.scroll_to_line(self.cursor_line, animate=False)
+
+    def action_cursor_up(self) -> None:
+        count = self._take_count()
+        if self.cursor_line == -1:
+            self.cursor_line = self.last_line - count + 1
+        else:
+            self.cursor_line -= count
+        self.scroll_to_line(self.cursor_line, animate=False)
 
     def action_cursor_in(self) -> None:
         node = self.cursor_node
