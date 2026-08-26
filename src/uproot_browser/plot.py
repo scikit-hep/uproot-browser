@@ -45,6 +45,16 @@ def make_hist_title(item: Any, histogram: hist.Hist[Any]) -> str:
     return f"{item.name} -- Entries: {inner_sum:g} ({full_sum:g} with flow)"
 
 
+def _draw_hist(tree: Any, histogram: hist.Hist[Any]) -> None:
+    axis = histogram.axes[0]
+    fig = plt.figure
+    fig.draw(fig.bar(axis.centers, histogram.values().astype(float)))
+    fig.ruler("y").lim(lower=0)
+    fig.ruler("x").ticks(np.linspace(axis.edges[0], axis.edges[-1], 5))
+    fig.label(axis.name, axis="x")
+    fig.title(make_hist_title(tree, histogram))
+
+
 @functools.singledispatch
 def plot(tree: Any, *, width: int = 100, expr: str = "") -> None:  # noqa: ARG001
     """
@@ -88,19 +98,7 @@ def plot_branch(
     if expr:
         # pylint: disable-next=eval-used
         histogram = eval(expr, {"h": histogram})
-    fig = plt.figure
-    fig.draw(
-        fig.bar(
-            histogram.axes[0].centers,
-            histogram.values().astype(float),
-        )
-    )
-    fig.ruler("y").lim(lower=0)
-    fig.ruler("x").ticks(
-        np.linspace(histogram.axes[0].edges[0], histogram.axes[0].edges[-1], 5)
-    )
-    fig.label(histogram.axes[0].name, axis="x")
-    fig.title(make_hist_title(tree, histogram))
+    _draw_hist(tree, histogram)
 
 
 plot.register(uproot.models.RNTuple.RField)(plot_branch)  # type: ignore[no-untyped-call]
@@ -176,11 +174,4 @@ def plot_hist(
     if expr:
         # pylint: disable-next=eval-used
         histogram = eval(expr, {"h": histogram})
-    fig = plt.figure
-    fig.draw(fig.bar(histogram.axes[0].centers, histogram.values().astype(float)))
-    fig.ruler("y").lim(lower=0)
-    fig.ruler("x").ticks(
-        np.linspace(histogram.axes[0].edges[0], histogram.axes[0].edges[-1], 5)
-    )
-    fig.label(histogram.axes[0].name, axis="x")
-    fig.title(make_hist_title(tree, histogram))
+    _draw_hist(tree, histogram)

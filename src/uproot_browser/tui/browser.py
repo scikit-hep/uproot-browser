@@ -27,12 +27,15 @@ from .plot import Plotext, apply_selection, make_dump
 from .tools import Info, Tools
 from .viewer import ViewWidget
 
+# Registered under our own names to avoid overriding plotext's built-in themes
 light_background = 0xF5, 0xF5, 0xF5
-plt.add_theme("default", canvas=light_background, text=((0, 0, 0), light_background))
+plt.add_theme(
+    "uproot_light", canvas=light_background, text=((0, 0, 0), light_background)
+)
 
 dark_background = 0x1E, 0x1E, 0x1E
 dark_text = 0xFF, 0xA6, 0x2B
-plt.add_theme("dark", canvas=dark_background, text=(dark_text, dark_background))
+plt.add_theme("uproot_dark", canvas=dark_background, text=(dark_text, dark_background))
 
 if TYPE_CHECKING:
     from .messages import ErrorMessage, RequestPlot, UprootSelected
@@ -134,7 +137,7 @@ class Browser(textual.app.App[None]):
 
     def watch_theme(self) -> None:
         if isinstance(self.view_widget.item, Plotext):
-            theme = "dark" if self.current_theme.dark else "default"
+            theme = "uproot_dark" if self.current_theme.dark else "uproot_light"
             # Reassign (rather than mutate) so that watchers fire and the
             # cached canvas is invalidated.
             self.view_widget.item = dataclasses.replace(
@@ -144,7 +147,7 @@ class Browser(textual.app.App[None]):
     def on_uproot_selected(self, message: UprootSelected) -> None:
         """A message sent by the tree when a file is clicked."""
 
-        theme = "dark" if self.current_theme.dark else "default"
+        theme = "uproot_dark" if self.current_theme.dark else "uproot_light"
         self.view_widget.plot_input.value = ""
         self.view_widget.item = Plotext(message.upfile, message.path, theme, self)
 
