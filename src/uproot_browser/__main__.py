@@ -5,18 +5,14 @@ This is the click-powered CLI.
 from __future__ import annotations
 
 import difflib
-import functools
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import click
 import uproot
 
 from ._version import version as __version__
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
 
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 
@@ -85,20 +81,6 @@ def tree(filename: str | None, *, testdata: bool) -> None:
     uproot_browser.tree.print_tree(get_testdata(filename, testdata=testdata))
 
 
-def intercept(func: Callable[..., Any], *names: str) -> Callable[..., Any]:
-    """
-    Intercept function arguments and remove them
-    """
-
-    @functools.wraps(func)
-    def new_func(*args: Any, **kwargs: Any) -> Any:
-        for name in names:
-            kwargs.pop(name)
-        return func(*args, **kwargs)
-
-    return new_func
-
-
 @main.command()
 @click.argument("filename", required=False)
 @click.option(
@@ -126,13 +108,6 @@ def plot(filename: str | None, *, iterm: bool, testdata: bool) -> None:
 
     if iterm:
         uproot_browser.plot_mpl.plot(item)
-        if plt.get_backend() == r"module://itermplot":
-            fm = plt.get_current_fig_manager()
-            canvas = fm.canvas
-            canvas.__class__.print_figure = intercept(
-                canvas.__class__.print_figure, "facecolor", "edgecolor"
-            )
-
         plt.show()
     else:
         fig = plotext.figure

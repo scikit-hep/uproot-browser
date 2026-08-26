@@ -94,6 +94,13 @@ uproot-browser plot --testdata uproot-Event.root:hstat --iterm
 
 <img alt="iterm example" width="600px" src="https://raw.githubusercontent.com/scikit-hep/uproot-browser/main/docs/_images/iterm.png"/>
 
+The plot background is transparent. On a dark theme, set `ITERMPLOT=rv` to
+invert the plot colors, which makes the text and the axes readable:
+
+```bash
+ITERMPLOT=rv uproot-browser plot --testdata uproot-Event.root:hstat --iterm
+```
+
 </details><br>
 
 **`tree` command:**
