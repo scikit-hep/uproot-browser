@@ -29,11 +29,12 @@ def apply_selection(tree: Any, selection: Iterable[str]) -> Iterable[Any]:
 
 
 def make_plot(item: Any, theme: str, *size: int, expr: str) -> Any:
-    plt.clf()
-    plt.theme(theme)
-    plt.plotsize(*size)
+    fig = plt.figure
+    fig.clear()
+    fig.theme(theme)
+    fig.plot_size(*size)
     uproot_browser.plot.plot(item, width=(size[0] - 5) * 4, expr=expr)
-    return plt.build()
+    return str(fig.build())
 
 
 def make_dump(item: Any, *size: int, expr: str = "") -> str:

@@ -18,23 +18,6 @@ import textual.widgets
 import textual.worker
 from textual.reactive import var
 
-with contextlib.suppress(AttributeError):
-    light_background = 0xF5, 0xF5, 0xF5
-    # pylint: disable-next=protected-access
-    plt._dict.themes["default"][0] = light_background
-    # pylint: disable-next=protected-access
-    plt._dict.themes["default"][1] = light_background
-
-    dark_background = 0x1E, 0x1E, 0x1E
-    dark_text = 0xFF, 0xA6, 0x2B
-    # pylint: disable-next=protected-access
-    plt._dict.themes["dark"][0] = dark_background
-    # pylint: disable-next=protected-access
-    plt._dict.themes["dark"][1] = dark_background
-    # pylint: disable-next=protected-access
-    plt._dict.themes["dark"][2] = dark_text
-
-
 from .error import Error
 from .header import Header
 from .help import HelpScreen
@@ -43,6 +26,13 @@ from .left_panel import UprootTree
 from .plot import Plotext, apply_selection, make_dump
 from .tools import Info, Tools
 from .viewer import ViewWidget
+
+light_background = 0xF5, 0xF5, 0xF5
+plt.add_theme("default", canvas=light_background, text=((0, 0, 0), light_background))
+
+dark_background = 0x1E, 0x1E, 0x1E
+dark_text = 0xFF, 0xA6, 0x2B
+plt.add_theme("dark", canvas=dark_background, text=(dark_text, dark_background))
 
 if TYPE_CHECKING:
     from .messages import ErrorMessage, RequestPlot, UprootSelected

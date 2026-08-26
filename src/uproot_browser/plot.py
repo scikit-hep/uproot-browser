@@ -25,14 +25,14 @@ def clf() -> None:
     """
     Clear the plot.
     """
-    plt.clf()
+    plt.figure.clear()
 
 
 def show() -> None:
     """
     Show the plot.
     """
-    plt.show()
+    plt.figure.show()
 
 
 def make_hist_title(item: Any, histogram: hist.Hist[Any]) -> str:
@@ -88,14 +88,19 @@ def plot_branch(
     if expr:
         # pylint: disable-next=eval-used
         histogram = eval(expr, {"h": histogram})
-    plt.bar(
-        histogram.axes[0].centers,
-        histogram.values().astype(float),
+    fig = plt.figure
+    fig.draw(
+        fig.bar(
+            histogram.axes[0].centers,
+            histogram.values().astype(float),
+        )
     )
-    plt.ylim(lower=0)
-    plt.xticks(np.linspace(histogram.axes[0].edges[0], histogram.axes[0].edges[-1], 5))
-    plt.xlabel(histogram.axes[0].name)
-    plt.title(make_hist_title(tree, histogram))
+    fig.ruler("y").lim(lower=0)
+    fig.ruler("x").ticks(
+        np.linspace(histogram.axes[0].edges[0], histogram.axes[0].edges[-1], 5)
+    )
+    fig.label(histogram.axes[0].name, axis="x")
+    fig.title(make_hist_title(tree, histogram))
 
 
 plot.register(uproot.models.RNTuple.RField)(plot_branch)  # type: ignore[no-untyped-call]
@@ -171,8 +176,11 @@ def plot_hist(
     if expr:
         # pylint: disable-next=eval-used
         histogram = eval(expr, {"h": histogram})
-    plt.bar(histogram.axes[0].centers, histogram.values().astype(float))
-    plt.ylim(lower=0)
-    plt.xticks(np.linspace(histogram.axes[0].edges[0], histogram.axes[0].edges[-1], 5))
-    plt.xlabel(histogram.axes[0].name)
-    plt.title(make_hist_title(tree, histogram))
+    fig = plt.figure
+    fig.draw(fig.bar(histogram.axes[0].centers, histogram.values().astype(float)))
+    fig.ruler("y").lim(lower=0)
+    fig.ruler("x").ticks(
+        np.linspace(histogram.axes[0].edges[0], histogram.axes[0].edges[-1], 5)
+    )
+    fig.label(histogram.axes[0].name, axis="x")
+    fig.title(make_hist_title(tree, histogram))
