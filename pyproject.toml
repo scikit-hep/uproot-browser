@@ -53,6 +53,11 @@ iterm = [
   "itermplot==0.5",
   "mplhep",
 ]
+image = [
+  "matplotlib",
+  "mplhep",
+  "textual-image >=0.8",
+]
 testdata = [
   "scikit-hep-testdata >=0.5.0",
 ]
@@ -105,7 +110,7 @@ warn_unused_configs = true
 strict = true
 
 [[tool.mypy.overrides]]
-module = ["plotext.*", "awkward.*", "uproot.*", "matplotlib.*", "skhep_testdata"]
+module = ["plotext.*", "awkward.*", "uproot.*", "matplotlib.*", "skhep_testdata", "textual_image.*", "PIL.*"]
 ignore_missing_imports = true
 
 

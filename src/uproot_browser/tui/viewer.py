@@ -1,15 +1,21 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import textual.app
 import textual.containers
+import textual.events
 import textual.reactive
 import textual.widgets
 
+if TYPE_CHECKING:
+    import textual_image.widget
+
 from .error import Error
+from .image_plot import MPLPlot
 from .logo import LOGO_PANEL
+from .messages import RequestImage
 from .plot import Plotext
 
 
@@ -36,9 +42,11 @@ class PlotInput(textual.widgets.Input):
 
 
 class ViewWidget(textual.widgets.ContentSwitcher):
-    item: textual.reactive.var[Error | Plotext | None] = textual.reactive.var(None)
+    item: textual.reactive.var[Error | Plotext | MPLPlot | None] = textual.reactive.var(
+        None
+    )
 
-    def __init__(self, **kargs: Any):
+    def __init__(self, *, image: bool = False, **kargs: Any):
         self.error_widget = textual.widgets.Static("", id="error")
         self.plot_widget = textual.widgets.Static("", id="plot")
         self.plot_input = PlotInput(
@@ -56,18 +64,51 @@ class ViewWidget(textual.widgets.ContentSwitcher):
             id="plot-window",
         )
 
-        super().__init__(
+        children = [
             textual.widgets.Static(LOGO_PANEL, id="logo"),
             textual.containers.VerticalScroll(self.error_widget, id="error-scroll"),
             self.plot_window,
-            initial="logo",
-            **kargs,
-        )
+        ]
 
-    def watch_item(self, value: Plotext | Error | None) -> None:
+        self.image_widget: textual_image.widget.Image | None = None
+        if image:
+            # Deferred: importing textual_image queries the terminal, and the
+            # matplotlib stack is only present with the [image] extra.
+            import textual_image.widget  # noqa: PLC0415
+
+            self.image_widget = textual_image.widget.Image(id="image-view")
+            children.append(
+                textual.containers.Container(self.image_widget, id="image-window")
+            )
+
+        super().__init__(*children, initial="logo", **kargs)
+
+    def update_image(self, image: Any) -> None:
+        assert self.image_widget is not None
+        self.image_widget.image = image
+
+    def image_pixel_size(self) -> tuple[int, int] | None:
+        """Content size of the image pane in terminal pixels, if known."""
+        import textual_image.widget  # noqa: PLC0415
+
+        cell = textual_image.widget.get_cell_size()
+        # subtract the #image-window padding (1 cell on each side)
+        width = self.container_size.width - 2
+        height = self.container_size.height - 2
+        if width <= 0 or height <= 0:
+            return None
+        return (width * cell.width, height * cell.height)
+
+    def on_resize(self, _event: textual.events.Resize) -> None:
+        if isinstance(self.item, MPLPlot):
+            self.post_message(RequestImage())
+
+    def watch_item(self, value: Plotext | MPLPlot | Error | None) -> None:
         if isinstance(value, Plotext):
             self.plot_widget.update(value)
             self.current = "plot-window"
+        elif isinstance(value, MPLPlot):
+            self.current = "image-window"
         elif isinstance(value, Error):
             self.error_widget.update(value)
             self.current = "error-scroll"

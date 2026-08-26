@@ -35,3 +35,15 @@ class RequestPlot(textual.message.Message, bubble=True):
     def __init__(self, plot: Plotext) -> None:
         self.plot = plot
         super().__init__()
+
+
+@rich.repr.auto
+class RequestImage(textual.message.Message, bubble=True):
+    """Ask the app to re-render the current image plot (e.g. after a resize)."""
+
+
+@rich.repr.auto
+class ImageScaleChanged(textual.message.Message, bubble=True):
+    def __init__(self, scale: float) -> None:
+        self.scale = scale
+        super().__init__()
