@@ -59,9 +59,9 @@ class Plotext:
     old_expr: str = ""
 
     def make_plot(self) -> Plotext | None:
-        *_, item = apply_selection(self.upfile, self.selection.split(":"))
         assert self.size
         try:
+            *_, item = apply_selection(self.upfile, self.selection.split(":"))
             canvas = make_plot(item, self.theme, *self.size, expr=self.expr)
             return dataclasses.replace(self, previous=rich.text.Text.from_ansi(canvas))
         except EmptyTreeError:
