@@ -9,6 +9,11 @@ something to plot. Press `spacebar` to open/close a directory or tree. You can
 also use the VIM keys: `j` to move down, `k` to move up, `l` to open a folder,
 and `h` to close a folder.
 
+Type a number before a move to repeat it: `12j` goes down twelve lines. The
+pending number is shown on the `Tree` tab, and any other key discards it. The
+tree also keeps two lines visible above and below the cursor, so you can see
+what comes next.
+
 Press `/` to open a fuzzy finder: start typing a branch or field name and the
 list narrows as you type (`fzf`-style). Use the arrow keys to pick a match and
 press `enter` to jump to it in the tree (plotting it if it's plottable), or

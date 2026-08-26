@@ -6,10 +6,11 @@ import textual.widgets
 
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.jump import JumpScreen
-from uproot_browser.tui.left_panel import UprootTree
+from uproot_browser.tui.left_panel import SCROLLOFF, UprootTree
 from uproot_browser.tui.plot import Plotext
 
 LEAF_PATH = "//T/event/fFlag"
+EXPAND_EVENT = ("down", "down", "l", "j", "l")  # open //T/event: 26 lines deep
 
 
 async def wait_until(
@@ -177,6 +178,76 @@ async def test_jump_cancel() -> None:
         await pilot.pause()
         assert not isinstance(pilot.app.screen, JumpScreen)
         assert pilot.app.view_widget.item is None
+
+
+async def test_count_prefix_motion() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        await pilot.press(*EXPAND_EVENT)
+        await pilot.pause()
+        assert tree.cursor_line == 3
+
+        await pilot.press("1", "2", "j")
+        await pilot.pause()
+        assert tree.cursor_line == 15
+
+        await pilot.press("5", "k")
+        await pilot.pause()
+        assert tree.cursor_line == 10
+
+        await pilot.press("k")  # no count: single step
+        await pilot.pause()
+        assert tree.cursor_line == 9
+
+
+async def test_count_prefix_shown_and_reset() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        tabs = pilot.app.query_one("#left-view", textual.widgets.TabbedContent)
+        await pilot.press(*EXPAND_EVENT)
+        await pilot.pause()
+
+        await pilot.press("4")
+        await pilot.pause()
+        assert tabs.get_tab("tree-tab").label_text == "Tree 4"
+
+        await pilot.press("x")  # any other key discards the count
+        await pilot.pause()
+        assert tabs.get_tab("tree-tab").label_text == "Tree"
+
+        line = tree.cursor_line
+        await pilot.press("j")
+        await pilot.pause()
+        assert tree.cursor_line == line + 1
+
+
+async def test_scrolloff_keeps_context_visible() -> None:
+    async with Browser(skhep_testdata.data_path("uproot-Event.root")).run_test(
+        size=(80, 24)
+    ) as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        await pilot.press(*EXPAND_EVENT)
+        await pilot.pause()
+        height = tree.scrollable_content_region.height
+        assert tree.last_line > height  # the tree must overflow for this to matter
+
+        await pilot.press("1", "5", "j")  # down, past the fold
+        await pilot.pause()
+        last_visible = tree.scroll_offset.y + height - 1
+        assert tree.cursor_line + SCROLLOFF <= last_visible
+
+        await pilot.press("9", "9", "j")  # clamp to the last line
+        await pilot.pause()
+        assert tree.cursor_line == tree.last_line
+        top = tree.scroll_offset.y
+
+        await pilot.press(*str(tree.cursor_line - top), "k")  # up to the view top
+        await pilot.pause()
+        assert tree.cursor_line - SCROLLOFF >= tree.scroll_offset.y
 
 
 async def test_help_focus() -> None:
