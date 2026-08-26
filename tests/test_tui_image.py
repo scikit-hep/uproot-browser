@@ -4,11 +4,11 @@ import skhep_testdata
 pytest.importorskip("textual_image")
 pytest.importorskip("matplotlib")
 
-import textual.widgets  # noqa: E402
+import textual.widgets
 
-from uproot_browser.tui.browser import Browser  # noqa: E402
-from uproot_browser.tui.image_plot import MPLPlot  # noqa: E402
-from uproot_browser.tui.messages import ImageScaleChanged  # noqa: E402
+from uproot_browser.tui.browser import Browser
+from uproot_browser.tui.image_plot import MPLPlot
+from uproot_browser.tui.messages import ImageScaleChanged
 
 
 async def test_browse_image_plot() -> None:
