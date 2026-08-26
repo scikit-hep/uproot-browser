@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import sys
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import plotext as plt  # plots in text
 import rich.text
@@ -14,9 +14,25 @@ from .error import Error
 from .messages import EmptyMessage, ErrorMessage, RequestPlot
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
 
     from .browser import Browser
+
+T = TypeVar("T")
+
+
+def run_posting_errors(app: Browser, fn: Callable[[], T]) -> T | None:
+    """Run ``fn``, posting an Empty/Error message to the app on failure."""
+    try:
+        return fn()
+    except EmptyTreeError:
+        app.post_message(EmptyMessage())
+        return None
+    except Exception:  # noqa: BLE001
+        exc = sys.exc_info()
+        assert exc[1]
+        app.post_message(ErrorMessage(Error(exc)))
+        return None
 
 
 def apply_selection(tree: Any, selection: Iterable[str]) -> Iterable[Any]:
@@ -59,19 +75,15 @@ class Plotext:
     old_expr: str = ""
 
     def make_plot(self) -> Plotext | None:
-        assert self.size
-        try:
+        size = self.size
+        assert size
+
+        def build() -> Plotext:
             *_, item = apply_selection(self.upfile, self.selection.split(":"))
-            canvas = make_plot(item, self.theme, *self.size, expr=self.expr)
+            canvas = make_plot(item, self.theme, *size, expr=self.expr)
             return dataclasses.replace(self, previous=rich.text.Text.from_ansi(canvas))
-        except EmptyTreeError:
-            self.app.post_message(EmptyMessage())
-            return None
-        except Exception:  # noqa: BLE001
-            exc = sys.exc_info()
-            assert exc[1]
-            self.app.post_message(ErrorMessage(Error(exc)))
-            return None
+
+        return run_posting_errors(self.app, build)
 
     def __rich_console__(
         self, console: rich.console.Console, options: rich.console.ConsoleOptions

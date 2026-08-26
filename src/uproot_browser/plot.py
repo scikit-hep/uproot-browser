@@ -30,6 +30,47 @@ def make_hist_title(item: Any, histogram: hist.Hist[Any]) -> str:
     return f"{item.name} -- Entries: {inner_sum:g} ({full_sum:g} with flow)"
 
 
+def branch_hist(
+    tree: uproot.TBranch | uproot.models.RNTuple.RField, *, bins: int
+) -> hist.Hist[Any]:
+    """
+    Build a histogram from a branch/field. Branches holding TH1 objects are
+    summed; numeric arrays are flattened, filtered to finite values, and filled.
+    """
+    # RField has no `interpretation`; it is always read as an array.
+    interpretation = getattr(tree, "interpretation", None)
+    if isinstance(interpretation, uproot.interpretation.objects.AsObjects):
+        arr = tree.array(library="np")
+        if len(arr) == 0:
+            msg = f"Branch {tree.name} is empty."
+            raise EmptyTreeError(msg)
+        if not isinstance(arr[0], uproot.behaviors.TH1.Histogram):
+            msg = f"Branch {tree.name} ({tree.typename}) contains objects that cannot be plotted"
+            raise TypeError(msg)
+        histogram: hist.Hist[Any] = functools.reduce(
+            operator.add, (h.to_hist() for h in arr)
+        )
+        return histogram
+    array = tree.array()
+    values = ak.flatten(array) if array.ndim > 1 else array
+    finite = values[np.isfinite(values)]
+    if len(finite) < 1:
+        msg = f"Branch {tree.name} is empty."
+        raise EmptyTreeError(msg)
+    filled: hist.Hist[Any] = hist.numpy.histogram(
+        finite, bins=bins, histogram=hist.Hist
+    )
+    return filled
+
+
+def apply_expr(histogram: hist.Hist[Any], expr: str) -> hist.Hist[Any]:
+    """Evaluate the slice expression with the histogram bound to ``h``."""
+    if expr:
+        # pylint: disable-next=eval-used
+        histogram = eval(expr, {"h": histogram})
+    return histogram
+
+
 def _bin_ticks(axis: Any, count: int = 5) -> tuple[list[int], list[str]]:
     positions = np.unique(
         np.linspace(0, len(axis) - 1, min(count, len(axis))).round().astype(int)
@@ -91,30 +132,8 @@ def plot_branch(
     """
     Plot a single tree branch.
     """
-    # RField has no `interpretation`; it is always read as an array.
-    interpretation = getattr(tree, "interpretation", None)
-    if isinstance(interpretation, uproot.interpretation.objects.AsObjects):
-        arr = tree.array(library="np")
-        if len(arr) == 0:
-            msg = f"Branch {tree.name} is empty."
-            raise EmptyTreeError(msg)
-        if not isinstance(arr[0], uproot.behaviors.TH1.Histogram):
-            msg = f"Branch {tree.name} ({tree.typename}) contains objects that cannot be plotted"
-            raise TypeError(msg)
-        histograms = [h.to_hist() for h in arr]
-        histogram: hist.Hist[Any] = functools.reduce(operator.add, histograms)
-    else:
-        array = tree.array()
-        values = ak.flatten(array) if array.ndim > 1 else array
-        finite = values[np.isfinite(values)]
-        if len(finite) < 1:
-            msg = f"Branch {tree.name} is empty."
-            raise EmptyTreeError(msg)
-        histogram = hist.numpy.histogram(finite, bins=width, histogram=hist.Hist)
-    if expr:
-        # pylint: disable-next=eval-used
-        histogram = eval(expr, {"h": histogram})
-    _draw_hist(fig, tree, histogram)
+    histogram = branch_hist(tree, bins=width)
+    _draw_hist(fig, tree, apply_expr(histogram, expr))
 
 
 plot.register(uproot.models.RNTuple.RField)(plot_branch)  # type: ignore[no-untyped-call]
@@ -187,8 +206,4 @@ def plot_hist(
     """
     Plot a 1-D Histogram.
     """
-    histogram = hist.Hist(tree.to_hist())
-    if expr:
-        # pylint: disable-next=eval-used
-        histogram = eval(expr, {"h": histogram})
-    _draw_hist(fig, tree, histogram)
+    _draw_hist(fig, tree, apply_expr(hist.Hist(tree.to_hist()), expr))

@@ -10,15 +10,11 @@ from __future__ import annotations
 
 import dataclasses
 import io
-import sys
 import warnings
 from typing import TYPE_CHECKING, Any
 
-from uproot_browser.exceptions import EmptyTreeError
-
-from .error import Error
-from .messages import EmptyMessage, ErrorMessage
-from .plot import apply_selection
+from .plot import apply_selection, run_posting_errors
+from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND, as_hex
 
 if TYPE_CHECKING:
     import PIL.Image
@@ -27,11 +23,6 @@ if TYPE_CHECKING:
 
 
 DPI = 100
-
-# Matches the uproot_light / uproot_dark plotext themes in browser.py
-LIGHT_BACKGROUND = "#F5F5F5"
-DARK_BACKGROUND = "#1E1E1E"
-DARK_TEXT = "#FFA62B"
 
 
 def make_image(
@@ -58,19 +49,20 @@ def make_image(
 
     dpi = DPI * scale
     figsize = (size[0] / dpi, size[1] / dpi) if size else (8.0, 5.0)
-    background = DARK_BACKGROUND if dark else LIGHT_BACKGROUND
+    background = as_hex(DARK_BACKGROUND if dark else LIGHT_BACKGROUND)
     overrides: dict[str, Any] = {
         "figure.facecolor": background,
         "axes.facecolor": background,
         "savefig.facecolor": background,
     }
     if dark:
+        text = as_hex(DARK_TEXT)
         overrides |= {
-            "text.color": DARK_TEXT,
-            "axes.labelcolor": DARK_TEXT,
-            "axes.titlecolor": DARK_TEXT,
-            "xtick.color": DARK_TEXT,
-            "ytick.color": DARK_TEXT,
+            "text.color": text,
+            "axes.labelcolor": text,
+            "axes.titlecolor": text,
+            "xtick.color": text,
+            "ytick.color": text,
         }
     style = ["dark_background", overrides] if dark else ["default", overrides]
     with plt.style.context(style):
@@ -98,16 +90,10 @@ class MPLPlot:
     expr: str = ""
 
     def make_image(self) -> PIL.Image.Image | None:
-        *_, item = apply_selection(self.upfile, self.selection.split(":"))
-        try:
+        def build() -> PIL.Image.Image:
+            *_, item = apply_selection(self.upfile, self.selection.split(":"))
             return make_image(
                 item, dark=self.dark, size=self.size, scale=self.scale, expr=self.expr
             )
-        except EmptyTreeError:
-            self.app.post_message(EmptyMessage())
-            return None
-        except Exception:  # noqa: BLE001
-            exc = sys.exc_info()
-            assert exc[1]
-            self.app.post_message(ErrorMessage(Error(exc)))
-            return None
+
+        return run_posting_errors(self.app, build)

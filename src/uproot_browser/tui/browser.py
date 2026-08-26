@@ -25,26 +25,18 @@ from .image_plot import MPLPlot
 from .jump import JumpScreen
 from .left_panel import UprootTree
 from .plot import Plotext, apply_selection, make_dump
+from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND
 from .tools import Info, Tools
 from .viewer import ViewWidget
 
 # Registered under our own names to avoid overriding plotext's built-in themes
-light_background = 0xF5, 0xF5, 0xF5
 plt.add_theme(
-    "uproot_light", canvas=light_background, text=((0, 0, 0), light_background)
+    "uproot_light", canvas=LIGHT_BACKGROUND, text=((0, 0, 0), LIGHT_BACKGROUND)
 )
-
-dark_background = 0x1E, 0x1E, 0x1E
-dark_text = 0xFF, 0xA6, 0x2B
-plt.add_theme("uproot_dark", canvas=dark_background, text=(dark_text, dark_background))
+plt.add_theme("uproot_dark", canvas=DARK_BACKGROUND, text=(DARK_TEXT, DARK_BACKGROUND))
 
 if TYPE_CHECKING:
-    from .messages import (
-        ErrorMessage,
-        ImageScaleChanged,
-        RequestPlot,
-        UprootSelected,
-    )
+    from .messages import ErrorMessage, RequestPlot, UprootSelected
 
 
 class Browser(textual.app.App[None]):
@@ -62,17 +54,18 @@ class Browser(textual.app.App[None]):
     ]
 
     show_tree = var(True)
+    image_scale = var(1.5)
 
     def __init__(
         self, path: str, *, image: bool = False, image_scale: float = 1.5, **kwargs: Any
     ) -> None:
         self.path = path
         self.image = image
-        self.image_scale = image_scale
-        self._image_rendered: MPLPlot | None = None
+        self._image_rendered: tuple[Any, ...] | None = None
         super().__init__(**kwargs)
 
         self.view_widget = ViewWidget(id="plot-view", image=image)
+        self.set_reactive(Browser.image_scale, image_scale)
 
     def compose(self) -> textual.app.ComposeResult:
         """Compose our UI."""
@@ -189,11 +182,10 @@ class Browser(textual.app.App[None]):
     def on_request_plot(self, message: RequestPlot) -> None:
         self.render_plot(message.plot)
 
-    def on_image_scale_changed(self, message: ImageScaleChanged) -> None:
-        self.image_scale = message.scale
+    def watch_image_scale(self, scale: float) -> None:
         item = self.view_widget.item
-        if isinstance(item, MPLPlot) and item.scale != message.scale:
-            self.view_widget.item = dataclasses.replace(item, scale=message.scale)
+        if isinstance(item, MPLPlot) and item.scale != scale:
+            self.view_widget.item = dataclasses.replace(item, scale=scale)
 
     def on_request_image(self) -> None:
         """Single render trigger: assigning an MPLPlot (or a resize) lands here."""
@@ -203,8 +195,9 @@ class Browser(textual.app.App[None]):
         size = self.view_widget.image_pixel_size()
         if size is not None:
             item.size = size
-        if item != self._image_rendered:
-            self._image_rendered = dataclasses.replace(item)
+        key = (item.selection, item.expr, item.dark, item.scale, item.size)
+        if key != self._image_rendered:
+            self._image_rendered = key
             assert self.view_widget.image_widget is not None
             self.view_widget.image_widget.loading = True
             self.render_image(item)

@@ -9,7 +9,6 @@ import uproot
 
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.image_plot import MPLPlot, make_image
-from uproot_browser.tui.messages import ImageScaleChanged
 
 
 def test_make_image_object_branch() -> None:
@@ -81,7 +80,7 @@ async def test_image_scale_tool() -> None:
         await pilot.press("down", "down", "down", "enter")
         await pilot.pause()
 
-        pilot.app.post_message(ImageScaleChanged(2.0))
+        pilot.app.query_one("#image-scale-select", textual.widgets.Select).value = 2.0
         await pilot.pause()
         item = pilot.app.view_widget.item
         assert isinstance(item, MPLPlot)

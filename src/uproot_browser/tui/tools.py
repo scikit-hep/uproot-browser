@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import importlib.metadata
+from typing import TYPE_CHECKING, cast
 
 import textual.app
 import textual.containers
 import textual.widgets
 
 from .. import __version__
-from .messages import ImageScaleChanged
+
+if TYPE_CHECKING:
+    from .browser import Browser
 
 IMAGE_SCALES = [1.0, 1.25, 1.5, 2.0, 2.5, 3.0]
 
@@ -28,12 +31,13 @@ class Tools(textual.containers.Container):
         ):
             yield textual.widgets.Label("Entry box")
             yield textual.widgets.Switch()
-        if getattr(self.app, "image", False):
+        app = cast("Browser", self.app)
+        if app.image:
             with textual.widgets.Collapsible(title="Image scale", collapsed=False):
                 yield textual.widgets.Select(
                     [(f"{s:g}×", s) for s in IMAGE_SCALES],
                     allow_blank=False,
-                    value=getattr(self.app, "image_scale", 1.5),
+                    value=app.image_scale,
                     id="image-scale-select",
                 )
 
@@ -60,7 +64,8 @@ class Tools(textual.containers.Container):
     @textual.on(textual.widgets.Select.Changed, "#image-scale-select")
     def image_scale_changed(self, event: textual.widgets.Select.Changed) -> None:
         assert isinstance(event.value, float)
-        self.post_message(ImageScaleChanged(event.value))
+        # pylint: disable-next=attribute-defined-outside-init
+        cast("Browser", self.app).image_scale = event.value
 
 
 class Info(textual.containers.Container):

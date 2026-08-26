@@ -7,9 +7,12 @@ import textual.app
 import textual.containers
 import textual.events
 import textual.reactive
+import textual.timer
 import textual.widgets
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     import textual_image.widget
 
 from .error import Error
@@ -73,11 +76,14 @@ class ViewWidget(textual.widgets.ContentSwitcher):
         ]
 
         self.image_widget: textual_image.widget.Image | None = None
+        self._get_cell_size: Callable[[], Any] | None = None
+        self._resize_timer: textual.timer.Timer | None = None
         if image:
             # Deferred: importing textual_image queries the terminal, and the
             # matplotlib stack is only present with the [image] extra.
             import textual_image.widget  # noqa: PLC0415
 
+            self._get_cell_size = textual_image.widget.get_cell_size
             self.image_widget = textual_image.widget.Image(id="image-view")
             children.append(
                 textual.containers.Container(
@@ -95,9 +101,8 @@ class ViewWidget(textual.widgets.ContentSwitcher):
 
     def image_pixel_size(self) -> tuple[int, int] | None:
         """Content size of the image pane in terminal pixels, if known."""
-        import textual_image.widget  # noqa: PLC0415
-
-        cell = textual_image.widget.get_cell_size()
+        assert self._get_cell_size is not None
+        cell = self._get_cell_size()
         # subtract the #image-window padding (1 cell on each side)
         width = self.container_size.width - 2
         height = self.container_size.height - 2
@@ -106,8 +111,13 @@ class ViewWidget(textual.widgets.ContentSwitcher):
         return (width * cell.width, height * cell.height)
 
     def on_resize(self, _event: textual.events.Resize) -> None:
+        # Debounce so a drag-resize only renders the settled size
         if isinstance(self.item, MPLPlot):
-            self.post_message(RequestImage())
+            if self._resize_timer is not None:
+                self._resize_timer.stop()
+            self._resize_timer = self.set_timer(
+                0.2, lambda: self.post_message(RequestImage())
+            )
 
     def watch_item(self, value: Plotext | MPLPlot | Error | None) -> None:
         if isinstance(value, Plotext):
