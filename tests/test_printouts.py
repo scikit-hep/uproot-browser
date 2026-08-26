@@ -11,6 +11,7 @@ import uproot
 from skhep_testdata import data_path
 
 import uproot_browser.plot
+import uproot_browser.tree
 import uproot_browser.tui.plot
 from uproot_browser.tree import print_tree
 
@@ -127,6 +128,36 @@ def test_tree_rntuple(capsys: pytest.CaptureFixture[str]) -> None:
     out, err = capsys.readouterr()
     assert not err
     assert out == OUT2
+
+
+def test_tree_with_unreadable_item(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keys that fail to deserialize show as failed entries, not a crash."""
+    orig = uproot.reading.ReadOnlyDirectory.__getitem__
+
+    def bad_getitem(self: uproot.reading.ReadOnlyDirectory, key: str) -> object:
+        if key.split(";", maxsplit=1)[0] == "hstat":
+            msg = "simulated deserialization failure"
+            raise ValueError(msg)
+        return orig(self, key)
+
+    monkeypatch.setattr(uproot.reading.ReadOnlyDirectory, "__getitem__", bad_getitem)
+
+    with uproot.open(data_path("uproot-Event.root")) as upfile:
+        entry = uproot_browser.tree.UprootEntry("/", upfile)
+        children = {c.path.rsplit("/", maxsplit=1)[-1]: c for c in entry.children}
+
+        failed = children["hstat"].item
+        assert isinstance(failed, uproot_browser.tree.FailedEntry)
+        assert isinstance(failed.exception, ValueError)
+
+        meta = children["hstat"].meta()
+        assert meta["label_icon"] == "‼️ "
+        assert "hstat" in meta["label_text"].plain
+        assert "ValueError" in meta["label_text"].plain
+
+        # a failed entry is a leaf and the whole tree still renders
+        assert not children["hstat"].is_dir
+        uproot_browser.tree.make_tree(entry)
 
 
 @pytest.mark.parametrize(

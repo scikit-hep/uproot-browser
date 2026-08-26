@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 console = Console()
 
 __all__ = (
+    "FailedEntry",
     "MetaDict",
     "UprootEntry",
     "console",
@@ -46,6 +47,15 @@ class MetaDictRequired(TypedDict, total=True):
 
 class MetaDict(MetaDictRequired, total=False):
     guide_style: str
+
+
+@dataclasses.dataclass
+class FailedEntry:
+    """A key whose object could not be read (e.g. unsupported RooFit classes)."""
+
+    name: str
+    classname: str
+    exception: Exception
 
 
 @functools.singledispatch
@@ -96,10 +106,16 @@ class UprootEntry:
         if not self.is_dir:
             return []
 
-        return [
-            UprootEntry(f"{self.path}/{key}", self.item[key])
-            for key in sorted(get_children(self.item))
-        ]
+        children = []
+        for key in sorted(get_children(self.item)):
+            try:
+                item = self.item[key]
+            except Exception as err:  # noqa: BLE001
+                classname_of = getattr(self.item, "classname_of", None)
+                classname = classname_of(key) if classname_of else ""
+                item = FailedEntry(key, classname, err)
+            children.append(UprootEntry(f"{self.path}/{key}", item))
+        return children
 
     def walk(self) -> Iterator[UprootEntry]:
         """Yield every descendant entry depth-first (not including self)."""
@@ -261,6 +277,19 @@ def _process_item_th(uproot_object: uproot.behaviors.TH1.Histogram) -> MetaDict:
         label_icon=icon,
         label_text=label_text,
     )
+
+
+@process_item.register
+def _process_item_failed(uproot_object: FailedEntry) -> MetaDict:
+    """
+    Given an unreadable object, return a rich.tree.Tree output.
+    """
+    label_text = Text.assemble(
+        (f"{uproot_object.name} ", "bold"),
+        (f"{uproot_object.classname} ", "italic"),
+        (f"({uproot_object.exception.__class__.__name__})", "red"),
+    )
+    return MetaDict(label_icon="‼️ ", label_text=label_text)
 
 
 # pylint: disable-next=redefined-outer-name
