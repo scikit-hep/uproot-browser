@@ -28,6 +28,11 @@ if TYPE_CHECKING:
 
 DPI = 100
 
+# Matches the uproot_light / uproot_dark plotext themes in browser.py
+LIGHT_BACKGROUND = "#F5F5F5"
+DARK_BACKGROUND = "#1E1E1E"
+DARK_TEXT = "#FFA62B"
+
 
 def make_image(
     item: Any,
@@ -53,7 +58,21 @@ def make_image(
 
     dpi = DPI * scale
     figsize = (size[0] / dpi, size[1] / dpi) if size else (8.0, 5.0)
-    style = "dark_background" if dark else "default"
+    background = DARK_BACKGROUND if dark else LIGHT_BACKGROUND
+    overrides: dict[str, Any] = {
+        "figure.facecolor": background,
+        "axes.facecolor": background,
+        "savefig.facecolor": background,
+    }
+    if dark:
+        overrides |= {
+            "text.color": DARK_TEXT,
+            "axes.labelcolor": DARK_TEXT,
+            "axes.titlecolor": DARK_TEXT,
+            "xtick.color": DARK_TEXT,
+            "ytick.color": DARK_TEXT,
+        }
+    style = ["dark_background", overrides] if dark else ["default", overrides]
     with plt.style.context(style):
         fig = plt.figure(figsize=figsize, dpi=dpi)
         try:

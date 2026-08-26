@@ -205,6 +205,8 @@ class Browser(textual.app.App[None]):
             item.size = size
         if item != self._image_rendered:
             self._image_rendered = dataclasses.replace(item)
+            assert self.view_widget.image_widget is not None
+            self.view_widget.image_widget.loading = True
             self.render_image(item)
 
     @textual.work(exclusive=True, thread=True)
@@ -223,8 +225,7 @@ class Browser(textual.app.App[None]):
         if image is None:
             # failed (empty/error message posted); allow a retry next request
             self._image_rendered = None
-        else:
-            self.call_from_thread(self.view_widget.update_image, image)
+        self.call_from_thread(self.view_widget.update_image, image)
 
 
 if __name__ in {"<run_path>", "__main__"}:

@@ -5,6 +5,7 @@ Display tools for making plots via plotext.
 from __future__ import annotations
 
 import functools
+import operator
 from typing import Any
 
 import awkward as ak
@@ -13,6 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import uproot
 import uproot.behaviors.TH1
+import uproot.interpretation.objects
 
 import uproot_browser.plot
 from uproot_browser.exceptions import EmptyTreeError
@@ -41,15 +43,27 @@ def plot_branch(tree: uproot.TBranch, *, expr: str = "") -> None:
     """
     Plot a single tree branch.
     """
-    array = tree.array()
-    values = ak.flatten(array) if array.ndim > 1 else array
-    finite = values[np.isfinite(values)]
-    if len(finite) < 1:
-        msg = f"Branch {tree.name} is empty."
-        raise EmptyTreeError(msg)
-    histogram: hist.Hist[Any] = hist.numpy.histogram(
-        finite, bins=50, histogram=hist.Hist
-    )
+    # RField has no `interpretation`; it is always read as an array.
+    interpretation = getattr(tree, "interpretation", None)
+    if isinstance(interpretation, uproot.interpretation.objects.AsObjects):
+        arr = tree.array(library="np")
+        if len(arr) == 0:
+            msg = f"Branch {tree.name} is empty."
+            raise EmptyTreeError(msg)
+        if not isinstance(arr[0], uproot.behaviors.TH1.Histogram):
+            msg = f"Branch {tree.name} ({tree.typename}) contains objects that cannot be plotted"
+            raise TypeError(msg)
+        histogram: hist.Hist[Any] = functools.reduce(
+            operator.add, (h.to_hist() for h in arr)
+        )
+    else:
+        array = tree.array()
+        values = ak.flatten(array) if array.ndim > 1 else array
+        finite = values[np.isfinite(values)]
+        if len(finite) < 1:
+            msg = f"Branch {tree.name} is empty."
+            raise EmptyTreeError(msg)
+        histogram = hist.numpy.histogram(finite, bins=50, histogram=hist.Hist)
     _draw_hist(tree, histogram, expr)
 
 

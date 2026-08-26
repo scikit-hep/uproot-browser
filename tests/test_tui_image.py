@@ -5,10 +5,18 @@ pytest.importorskip("textual_image")
 pytest.importorskip("matplotlib")
 
 import textual.widgets
+import uproot
 
 from uproot_browser.tui.browser import Browser
-from uproot_browser.tui.image_plot import MPLPlot
+from uproot_browser.tui.image_plot import MPLPlot, make_image
 from uproot_browser.tui.messages import ImageScaleChanged
+
+
+def test_make_image_object_branch() -> None:
+    """A branch holding TH1 objects (AsObjects) is summed and plotted."""
+    with uproot.open(skhep_testdata.data_path("uproot-Event.root")) as f:
+        image = make_image(f["T"]["event"]["fH"], dark=True, size=(400, 300))
+    assert (image.width, image.height) == (400, 300)
 
 
 async def test_browse_image_plot() -> None:

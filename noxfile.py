@@ -21,7 +21,7 @@ def pylint(session: nox.Session) -> None:
     Run pylint.
     """
 
-    session.install("-e.", "pylint", "matplotlib")
+    session.install("-e.[image]", "pylint")
     session.run("pylint", "uproot_browser", *session.posargs)
 
 
