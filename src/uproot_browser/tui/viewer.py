@@ -27,7 +27,7 @@ class PlotButton(textual.widgets.Button):
 class PlotInput(textual.widgets.Input):
     def watch_value(self, value: str) -> None:
         plot = self.app.query_one("#plot-view", ViewWidget)
-        if isinstance(plot.item, Plotext):
+        if isinstance(plot.item, (Plotext, MPLPlot)):
             self.set_class(value not in {"", plot.item.expr}, "-needs-update")
 
     def on_input_submitted(self) -> None:
@@ -35,7 +35,7 @@ class PlotInput(textual.widgets.Input):
 
     def apply_expression(self) -> None:
         plot = self.app.query_one("#plot-view", ViewWidget)
-        if isinstance(plot.item, Plotext):
+        if isinstance(plot.item, (Plotext, MPLPlot)):
             # assigning item triggers watch_item, which updates the plot
             plot.item = dataclasses.replace(plot.item, expr=self.value)
             self.set_class(False, "-needs-update")  # noqa: FBT003
@@ -54,12 +54,14 @@ class ViewWidget(textual.widgets.ContentSwitcher):
             placeholder="h[:]",
             tooltip="The histogram is 'h', you can slice it. Experimental.",
         )
+        # The entry box goes into whichever window the active mode uses
+        input_container = textual.containers.Container(
+            PlotButton("Plot", id="plot-button"),
+            self.plot_input,
+            id="plot-input-container",
+        )
         self.plot_window = textual.containers.Container(
-            textual.containers.Container(
-                PlotButton("Plot", id="plot-button"),
-                self.plot_input,
-                id="plot-input-container",
-            ),
+            *([] if image else [input_container]),
             self.plot_widget,
             id="plot-window",
         )
@@ -78,7 +80,9 @@ class ViewWidget(textual.widgets.ContentSwitcher):
 
             self.image_widget = textual_image.widget.Image(id="image-view")
             children.append(
-                textual.containers.Container(self.image_widget, id="image-window")
+                textual.containers.Container(
+                    input_container, self.image_widget, id="image-window"
+                )
             )
 
         super().__init__(*children, initial="logo", **kargs)
@@ -109,6 +113,7 @@ class ViewWidget(textual.widgets.ContentSwitcher):
             self.current = "plot-window"
         elif isinstance(value, MPLPlot):
             self.current = "image-window"
+            self.post_message(RequestImage())
         elif isinstance(value, Error):
             self.error_widget.update(value)
             self.current = "error-scroll"

@@ -160,3 +160,4 @@ flake8-boolean-trap.extend-allowed-calls = ["textual.reactive.var"]
 "tests/*" = ["T20", "INP001"]
 "docs/*" = ["INP001"]
 "src/uproot_browser/__main__.py" = ["PLC0415"]    # Import outside toplevel
+"src/uproot_browser/tui/image_plot.py" = ["PLC0415"]    # Deferred [image] extra imports

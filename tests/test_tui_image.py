@@ -44,6 +44,28 @@ async def test_browse_image_empty() -> None:
         assert pilot.app.view_widget.current == "logo"
 
 
+async def test_image_expr() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root"), image=True
+    ).run_test() as pilot:
+        await pilot.press("down", "down", "down", "enter")
+        await pilot.pause()
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+
+        pilot.app.view_widget.plot_input.value = "h[::2j]"
+        pilot.app.view_widget.plot_input.apply_expression()
+        await pilot.pause()
+        item = pilot.app.view_widget.item
+        assert isinstance(item, MPLPlot)
+        assert item.expr == "h[::2j]"
+
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        # still an image plot (the expression evaluated without error)
+        assert isinstance(pilot.app.view_widget.item, MPLPlot)
+
+
 async def test_image_scale_tool() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root"), image=True

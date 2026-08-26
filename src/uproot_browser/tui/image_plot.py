@@ -30,7 +30,12 @@ DPI = 100
 
 
 def make_image(
-    item: Any, *, dark: bool, size: tuple[int, int] | None = None, scale: float = 1.0
+    item: Any,
+    *,
+    dark: bool,
+    size: tuple[int, int] | None = None,
+    scale: float = 1.0,
+    expr: str = "",
 ) -> PIL.Image.Image:
     """Render the item with the plot_mpl dispatch into a PIL image.
 
@@ -38,9 +43,9 @@ def make_image(
     aspect ratio is right for the widget it will fill. ``scale`` renders the
     same pixels at a higher dpi, making text and lines proportionally larger.
     """
-    import matplotlib
+    import matplotlib as mpl
 
-    matplotlib.use("agg")  # rendered to PNG off the main thread; never a GUI
+    mpl.use("agg")  # rendered to PNG off the main thread; never a GUI
     import matplotlib.pyplot as plt
     import PIL.Image
 
@@ -54,7 +59,7 @@ def make_image(
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                uproot_browser.plot_mpl.plot(item)
+                uproot_browser.plot_mpl.plot(item, expr=expr)
             buf = io.BytesIO()
             fig.savefig(buf, format="png")
         finally:
@@ -71,11 +76,14 @@ class MPLPlot:
     app: Browser
     size: tuple[int, int] | None = None
     scale: float = 1.0
+    expr: str = ""
 
     def make_image(self) -> PIL.Image.Image | None:
         *_, item = apply_selection(self.upfile, self.selection.split(":"))
         try:
-            return make_image(item, dark=self.dark, size=self.size, scale=self.scale)
+            return make_image(
+                item, dark=self.dark, size=self.size, scale=self.scale, expr=self.expr
+            )
         except EmptyTreeError:
             self.app.post_message(EmptyMessage())
             return None

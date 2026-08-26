@@ -69,6 +69,7 @@ class Browser(textual.app.App[None]):
         self.path = path
         self.image = image
         self.image_scale = image_scale
+        self._image_rendered: MPLPlot | None = None
         super().__init__(**kwargs)
 
         self.view_widget = ViewWidget(id="plot-view", image=image)
@@ -138,7 +139,8 @@ class Browser(textual.app.App[None]):
         elif isinstance(self.view_widget.item, MPLPlot):
             mpl_item = self.view_widget.item
             msg += f'\nitem = uproot_file["{mpl_item.selection.lstrip("/")}"]'
-            msg += "\n\nimport matplotlib.pyplot as plt\nimport uproot_browser.plot_mpl\n\nuproot_browser.plot_mpl.plot(item)\nplt.show()"
+            expr_arg = f", expr={mpl_item.expr!r}" if mpl_item.expr else ""
+            msg += f"\n\nimport matplotlib.pyplot as plt\nimport uproot_browser.plot_mpl\n\nuproot_browser.plot_mpl.plot(item{expr_arg})\nplt.show()"
 
         theme = "ansi_dark" if self.current_theme.dark else "ansi_light"
 
@@ -158,27 +160,22 @@ class Browser(textual.app.App[None]):
                 self.view_widget.item, theme=theme, previous=None
             )
         elif isinstance(self.view_widget.item, MPLPlot):
-            item = dataclasses.replace(
+            self.view_widget.item = dataclasses.replace(
                 self.view_widget.item, dark=self.current_theme.dark
             )
-            self.view_widget.item = item
-            self.render_image(item)
 
     def on_uproot_selected(self, message: UprootSelected) -> None:
         """A message sent by the tree when a file is clicked."""
 
         self.view_widget.plot_input.value = ""
         if self.image:
-            item = MPLPlot(
+            self.view_widget.item = MPLPlot(
                 message.upfile,
                 message.path,
                 self.current_theme.dark,
                 self,
-                size=self.view_widget.image_pixel_size(),
                 scale=self.image_scale,
             )
-            self.view_widget.item = item
-            self.render_image(item)
         else:
             theme = "uproot_dark" if self.current_theme.dark else "uproot_light"
             self.view_widget.item = Plotext(message.upfile, message.path, theme, self)
@@ -196,18 +193,19 @@ class Browser(textual.app.App[None]):
         self.image_scale = message.scale
         item = self.view_widget.item
         if isinstance(item, MPLPlot) and item.scale != message.scale:
-            item = dataclasses.replace(item, scale=message.scale)
-            self.view_widget.item = item
-            self.render_image(item)
+            self.view_widget.item = dataclasses.replace(item, scale=message.scale)
 
     def on_request_image(self) -> None:
+        """Single render trigger: assigning an MPLPlot (or a resize) lands here."""
         item = self.view_widget.item
-        if isinstance(item, MPLPlot):
-            size = self.view_widget.image_pixel_size()
-            if size is not None and size != item.size:
-                item = dataclasses.replace(item, size=size)
-                self.view_widget.item = item
-                self.render_image(item)
+        if not isinstance(item, MPLPlot):
+            return
+        size = self.view_widget.image_pixel_size()
+        if size is not None:
+            item.size = size
+        if item != self._image_rendered:
+            self._image_rendered = dataclasses.replace(item)
+            self.render_image(item)
 
     @textual.work(exclusive=True, thread=True)
     def render_plot(self, plot: Plotext) -> None:
@@ -220,7 +218,12 @@ class Browser(textual.app.App[None]):
     def render_image(self, plot: MPLPlot) -> None:
         worker = textual.worker.get_current_worker()
         image = plot.make_image()
-        if image is not None and not worker.is_cancelled:
+        if worker.is_cancelled:
+            return
+        if image is None:
+            # failed (empty/error message posted); allow a retry next request
+            self._image_rendered = None
+        else:
             self.call_from_thread(self.view_widget.update_image, image)
 
 
