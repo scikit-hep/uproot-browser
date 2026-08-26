@@ -118,6 +118,8 @@ def plot(filename: str | None, *, iterm: bool, testdata: bool) -> None:
 
         import uproot_browser.plot_mpl
     else:
+        import plotext
+
         import uproot_browser.plot
 
     item = uproot.open(get_testdata(filename, testdata=testdata))
@@ -133,9 +135,10 @@ def plot(filename: str | None, *, iterm: bool, testdata: bool) -> None:
 
         plt.show()
     else:
-        uproot_browser.plot.clf()
-        uproot_browser.plot.plot(item)
-        uproot_browser.plot.show()
+        fig = plotext.figure
+        fig.clear()
+        uproot_browser.plot.plot(item, fig=fig)
+        fig.show()
 
 
 @main.command()

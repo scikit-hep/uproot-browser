@@ -12,27 +12,12 @@ from typing import Any
 import awkward as ak
 import hist
 import numpy as np
-import plotext as plt
 import uproot
 import uproot.behaviors.TH1
 import uproot.interpretation.objects
 import uproot.models.RNTuple
 
 from uproot_browser.exceptions import EmptyTreeError
-
-
-def clf() -> None:
-    """
-    Clear the plot.
-    """
-    plt.figure.clear()
-
-
-def show() -> None:
-    """
-    Show the plot.
-    """
-    plt.figure.show()
 
 
 def make_hist_title(item: Any, histogram: hist.Hist[Any]) -> str:
@@ -45,9 +30,8 @@ def make_hist_title(item: Any, histogram: hist.Hist[Any]) -> str:
     return f"{item.name} -- Entries: {inner_sum:g} ({full_sum:g} with flow)"
 
 
-def _draw_hist(tree: Any, histogram: hist.Hist[Any]) -> None:
+def _draw_hist(fig: Any, tree: Any, histogram: hist.Hist[Any]) -> None:
     axis = histogram.axes[0]
-    fig = plt.figure
     fig.draw(fig.bar(axis.centers, histogram.values().astype(float)))
     fig.ruler("y").lim(lower=0)
     fig.ruler("x").ticks(np.linspace(axis.edges[0], axis.edges[-1], 5))
@@ -56,8 +40,9 @@ def _draw_hist(tree: Any, histogram: hist.Hist[Any]) -> None:
 
 
 @functools.singledispatch
-def plot(tree: Any, *, width: int = 100, expr: str = "") -> None:  # noqa: ARG001
+def plot(tree: Any, *, fig: Any, width: int = 100, expr: str = "") -> None:  # noqa: ARG001
     """
+    Plot ``tree`` into the given plotext figure.
     Implement this for each type of plottable.
     """
     msg = f"This object ({type(tree)}) is not plottable yet"
@@ -69,6 +54,7 @@ def plot(tree: Any, *, width: int = 100, expr: str = "") -> None:  # noqa: ARG00
 def plot_branch(
     tree: uproot.TBranch | uproot.models.RNTuple.RField,
     *,
+    fig: Any,
     width: int = 100,
     expr: str = "",
 ) -> None:
@@ -98,7 +84,7 @@ def plot_branch(
     if expr:
         # pylint: disable-next=eval-used
         histogram = eval(expr, {"h": histogram})
-    _draw_hist(tree, histogram)
+    _draw_hist(fig, tree, histogram)
 
 
 plot.register(uproot.models.RNTuple.RField)(plot_branch)  # type: ignore[no-untyped-call]
@@ -164,6 +150,7 @@ def dump_hist(
 def plot_hist(
     tree: uproot.behaviors.TH1.Histogram,
     *,
+    fig: Any,
     width: int = 100,  # noqa: ARG001
     expr: str = "",
 ) -> None:
@@ -174,4 +161,4 @@ def plot_hist(
     if expr:
         # pylint: disable-next=eval-used
         histogram = eval(expr, {"h": histogram})
-    _draw_hist(tree, histogram)
+    _draw_hist(fig, tree, histogram)
