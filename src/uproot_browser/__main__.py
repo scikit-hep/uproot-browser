@@ -158,7 +158,7 @@ def browse(filename: str | None, *, image: bool, testdata: bool) -> None:
     if image:
         try:
             # The terminal graphics query must run before the app starts
-            import textual_image.widget  # noqa: F401
+            import textual_image.widget  # noqa: F401  # pylint: disable=unused-import
         except ModuleNotFoundError:
             msg = "Install the [image] extra to use --image"
             raise click.ClickException(msg) from None

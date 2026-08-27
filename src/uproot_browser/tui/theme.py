@@ -10,4 +10,5 @@ DARK_TEXT = 0xFF, 0xA6, 0x2B
 
 
 def as_hex(color: tuple[int, int, int]) -> str:
-    return "#{:02X}{:02X}{:02X}".format(*color)
+    r, g, b = color
+    return f"#{r:02X}{g:02X}{b:02X}"
