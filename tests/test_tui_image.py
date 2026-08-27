@@ -76,6 +76,41 @@ async def test_image_expr() -> None:
         assert isinstance(pilot.app.view_widget.item, MPLPlot)
 
 
+async def test_image_hist_cached_across_expr_change(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An expr edit slices the cached histogram without re-reading data."""
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root"), image=True
+    ).run_test() as pilot:
+        await pilot.press("down", "down", "down", "enter")
+        await pilot.pause()
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        item = pilot.app.view_widget.item
+        assert isinstance(item, MPLPlot)
+        built = item.built.hist
+        assert built is not None
+
+        def fail(*_args: object, **_kwargs: object) -> None:
+            msg = "histogram was rebuilt"
+            raise AssertionError(msg)
+
+        monkeypatch.setattr(uproot_browser.plot_mpl, "build_hist", fail)
+
+        pilot.app.view_widget.plot_input.value = "h[::2j]"
+        pilot.app.view_widget.plot_input.apply_expression()
+        await pilot.pause()
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        # a rebuild would have raised, replacing the item with an Error
+        item = pilot.app.view_widget.item
+        assert isinstance(item, MPLPlot)
+        assert item.expr == "h[::2j]"
+        # the cache keeps the unsliced histogram
+        assert item.built.hist is built
+
+
 async def test_image_hist_cached_across_theme_change(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -89,7 +124,7 @@ async def test_image_hist_cached_across_theme_change(
         await pilot.pause()
         item = pilot.app.view_widget.item
         assert isinstance(item, MPLPlot)
-        built = item.built
+        built = item.built.hist
         assert built is not None
 
         def fail(*_args: object, **_kwargs: object) -> None:
@@ -103,7 +138,7 @@ async def test_image_hist_cached_across_theme_change(
         item = pilot.app.view_widget.item
         assert isinstance(item, MPLPlot)
         assert not item.dark
-        assert item.built is built
+        assert item.built.hist is built
 
         await pilot.app.workers.wait_for_complete()
         await pilot.pause()

@@ -81,6 +81,18 @@ def make_image(
 
 
 @dataclasses.dataclass
+class _HistCache:
+    """One-slot cache for the pre-expr histogram.
+
+    Shared by reference across ``dataclasses.replace``, so a build finished by
+    an already-superseded render worker still lands in the current item's
+    cache, and the single-attribute write cannot be observed half-updated.
+    """
+
+    hist: hist.Hist[Any] | None = None
+
+
+@dataclasses.dataclass
 class MPLPlot:
     upfile: Any
     selection: str
@@ -89,21 +101,23 @@ class MPLPlot:
     size: tuple[int, int] | None = None
     scale: float = 1.0
     expr: str = ""
-    # cache of the built histogram; carried across dataclasses.replace so
-    # theme/scale/resize re-renders only redraw instead of re-reading data
-    built: hist.Hist[Any] | None = None
-    built_expr: str = ""
+    # theme/scale/expr/resize re-renders only redraw instead of re-reading data
+    built: _HistCache = dataclasses.field(default_factory=_HistCache)
 
     def make_image(self) -> PIL.Image.Image | None:
         def build() -> PIL.Image.Image:
+            import uproot_browser.plot
             import uproot_browser.plot_mpl
 
             *_, item = apply_selection(self.upfile, self.selection.split(":"))
-            histogram = self.built
-            if histogram is None or self.built_expr != self.expr:
-                histogram = uproot_browser.plot_mpl.build_hist(item, expr=self.expr)
-                self.built = histogram
-                self.built_expr = self.expr
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                histogram = self.built.hist
+                if histogram is None:
+                    histogram = uproot_browser.plot_mpl.build_hist(item)
+                    self.built.hist = histogram
+                # copy so an in-place expr cannot corrupt the cache
+                histogram = uproot_browser.plot.apply_expr(histogram.copy(), self.expr)
             return make_image(
                 item, histogram, dark=self.dark, size=self.size, scale=self.scale
             )
