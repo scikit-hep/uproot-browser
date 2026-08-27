@@ -4,6 +4,7 @@ import skhep_testdata
 pytest.importorskip("textual_image")
 pytest.importorskip("matplotlib")
 
+import textual.pilot
 import textual.widgets
 import uproot
 
@@ -15,10 +16,25 @@ from uproot_browser.tui.image_plot import MPLPlot, make_image
 def test_make_image_object_branch() -> None:
     """A branch holding TH1 objects (AsObjects) is summed and plotted."""
     with uproot.open(skhep_testdata.data_path("uproot-Event.root")) as f:
-        item = f["T"]["event"]["fH"]
-        histogram = uproot_browser.plot_mpl.build_hist(item)
-        image = make_image(item, histogram, dark=True, size=(400, 300))
+        histogram = uproot_browser.plot_mpl.build_hist(f["T"]["event"]["fH"])
+    image = make_image(histogram, title="fH", dark=True, size=(400, 300))
     assert (image.width, image.height) == (400, 300)
+
+
+def _fail_build(*_args: object, **_kwargs: object) -> None:
+    msg = "histogram was rebuilt"
+    raise AssertionError(msg)
+
+
+async def _open_settled_plot(pilot: textual.pilot.Pilot[object]) -> MPLPlot:
+    """Select the first plottable branch and wait for the render to settle."""
+    await pilot.press("down", "down", "down", "enter")
+    await pilot.pause()
+    await pilot.app.workers.wait_for_complete()
+    await pilot.pause()
+    item = pilot.app.view_widget.item
+    assert isinstance(item, MPLPlot)
+    return item
 
 
 async def test_browse_image_plot() -> None:
@@ -83,20 +99,9 @@ async def test_image_hist_cached_across_expr_change(
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root"), image=True
     ).run_test() as pilot:
-        await pilot.press("down", "down", "down", "enter")
-        await pilot.pause()
-        await pilot.app.workers.wait_for_complete()
-        await pilot.pause()
-        item = pilot.app.view_widget.item
-        assert isinstance(item, MPLPlot)
-        built = item.built.hist
+        built = (await _open_settled_plot(pilot)).built.hist
         assert built is not None
-
-        def fail(*_args: object, **_kwargs: object) -> None:
-            msg = "histogram was rebuilt"
-            raise AssertionError(msg)
-
-        monkeypatch.setattr(uproot_browser.plot_mpl, "build_hist", fail)
+        monkeypatch.setattr(uproot_browser.plot_mpl, "build_hist", _fail_build)
 
         pilot.app.view_widget.plot_input.value = "h[::2j]"
         pilot.app.view_widget.plot_input.apply_expression()
@@ -118,20 +123,9 @@ async def test_image_hist_cached_across_theme_change(
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root"), image=True
     ).run_test() as pilot:
-        await pilot.press("down", "down", "down", "enter")
-        await pilot.pause()
-        await pilot.app.workers.wait_for_complete()
-        await pilot.pause()
-        item = pilot.app.view_widget.item
-        assert isinstance(item, MPLPlot)
-        built = item.built.hist
+        built = (await _open_settled_plot(pilot)).built.hist
         assert built is not None
-
-        def fail(*_args: object, **_kwargs: object) -> None:
-            msg = "histogram was rebuilt"
-            raise AssertionError(msg)
-
-        monkeypatch.setattr(uproot_browser.plot_mpl, "build_hist", fail)
+        monkeypatch.setattr(uproot_browser.plot_mpl, "build_hist", _fail_build)
 
         pilot.app.theme = "textual-light"
         await pilot.pause()

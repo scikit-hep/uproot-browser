@@ -27,14 +27,14 @@ DPI = 100
 
 
 def make_image(
-    item: Any,
     histogram: hist.Hist[Any],
     *,
+    title: str,
     dark: bool,
     size: tuple[int, int] | None = None,
     scale: float = 1.0,
 ) -> PIL.Image.Image:
-    """Draw an already-built histogram for ``item`` into a PIL image.
+    """Draw an already-built histogram into a PIL image.
 
     ``size`` is the target size in pixels; the figure is built to match so the
     aspect ratio is right for the widget it will fill. ``scale`` renders the
@@ -71,7 +71,7 @@ def make_image(
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                uproot_browser.plot_mpl.draw_hist(item, histogram)
+                uproot_browser.plot_mpl.draw_hist(histogram, title)
             buf = io.BytesIO()
             fig.savefig(buf, format="png")
         finally:
@@ -82,13 +82,14 @@ def make_image(
 
 @dataclasses.dataclass
 class _HistCache:
-    """One-slot cache for the pre-expr histogram.
+    """One-slot cache for the resolved item and its pre-expr histogram.
 
     Shared by reference across ``dataclasses.replace``, so a build finished by
     an already-superseded render worker still lands in the current item's
-    cache, and the single-attribute write cannot be observed half-updated.
+    cache, and a single-attribute write cannot be observed half-updated.
     """
 
+    item: Any = None
     hist: hist.Hist[Any] | None = None
 
 
@@ -109,17 +110,25 @@ class MPLPlot:
             import uproot_browser.plot
             import uproot_browser.plot_mpl
 
-            *_, item = apply_selection(self.upfile, self.selection.split(":"))
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                histogram = self.built.hist
-                if histogram is None:
+            item = self.built.item
+            if item is None:
+                *_, item = apply_selection(self.upfile, self.selection.split(":"))
+                self.built.item = item
+            histogram = self.built.hist
+            if histogram is None:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
                     histogram = uproot_browser.plot_mpl.build_hist(item)
-                    self.built.hist = histogram
+                self.built.hist = histogram
+            if self.expr:
                 # copy so an in-place expr cannot corrupt the cache
                 histogram = uproot_browser.plot.apply_expr(histogram.copy(), self.expr)
             return make_image(
-                item, histogram, dark=self.dark, size=self.size, scale=self.scale
+                histogram,
+                title=uproot_browser.plot.make_hist_title(item, histogram),
+                dark=self.dark,
+                size=self.size,
+                scale=self.scale,
             )
 
         return run_posting_errors(self.app, build)
