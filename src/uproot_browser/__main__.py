@@ -144,16 +144,29 @@ def plot(filename: str | None, *, iterm: bool, testdata: bool) -> None:
 @main.command()
 @click.argument("filename", required=False)
 @click.option(
+    "--image",
+    is_flag=True,
+    help="Plot with real images (Sixel/TGP, works in iTerm2; requires [image] extra).",
+)
+@click.option(
     "--testdata", is_flag=True, help="Interpret the filename as a testdata file"
 )
-def browse(filename: str | None, *, testdata: bool) -> None:
+def browse(filename: str | None, *, image: bool, testdata: bool) -> None:
     """
     Display a TUI.
     """
+    if image:
+        try:
+            # The terminal graphics query must run before the app starts
+            import textual_image.widget  # noqa: F401  # pylint: disable=unused-import
+        except ModuleNotFoundError:
+            msg = "Install the [image] extra to use --image"
+            raise click.ClickException(msg) from None
+
     import uproot_browser.tui.browser
 
     app = uproot_browser.tui.browser.Browser(
-        path=get_testdata(filename, testdata=testdata)
+        path=get_testdata(filename, testdata=testdata), image=image
     )
 
     app.run()

@@ -21,21 +21,19 @@ from textual.reactive import var
 from .error import Error
 from .header import Header
 from .help import HelpScreen
+from .image_plot import MPLPlot
 from .jump import JumpScreen
 from .left_panel import UprootTree
 from .plot import Plotext, apply_selection, make_dump
+from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND
 from .tools import Info, Tools
 from .viewer import ViewWidget
 
 # Registered under our own names to avoid overriding plotext's built-in themes
-light_background = 0xF5, 0xF5, 0xF5
 plt.add_theme(
-    "uproot_light", canvas=light_background, text=((0, 0, 0), light_background)
+    "uproot_light", canvas=LIGHT_BACKGROUND, text=((0, 0, 0), LIGHT_BACKGROUND)
 )
-
-dark_background = 0x1E, 0x1E, 0x1E
-dark_text = 0xFF, 0xA6, 0x2B
-plt.add_theme("uproot_dark", canvas=dark_background, text=(dark_text, dark_background))
+plt.add_theme("uproot_dark", canvas=DARK_BACKGROUND, text=(DARK_TEXT, DARK_BACKGROUND))
 
 if TYPE_CHECKING:
     from .messages import ErrorMessage, RequestPlot, UprootSelected
@@ -56,12 +54,18 @@ class Browser(textual.app.App[None]):
     ]
 
     show_tree = var(True)
+    image_scale = var(1.5)
 
-    def __init__(self, path: str, **kwargs: Any) -> None:
+    def __init__(
+        self, path: str, *, image: bool = False, image_scale: float = 1.5, **kwargs: Any
+    ) -> None:
         self.path = path
+        self.image = image
+        self._image_rendered: tuple[Any, ...] | None = None
         super().__init__(**kwargs)
 
-        self.view_widget = ViewWidget(id="plot-view")
+        self.view_widget = ViewWidget(id="plot-view", image=image)
+        self.set_reactive(Browser.image_scale, image_scale)
 
     def compose(self) -> textual.app.ComposeResult:
         """Compose our UI."""
@@ -125,6 +129,11 @@ class Browser(textual.app.App[None]):
             with contextlib.suppress(RuntimeError):
                 msg += f"\n{make_dump(selected, *size, expr=plotext.expr)}"
             items = [plotext]
+        elif isinstance(self.view_widget.item, MPLPlot):
+            mpl_item = self.view_widget.item
+            msg += f'\nitem = uproot_file["{mpl_item.selection.lstrip("/")}"]'
+            expr_arg = f", expr={mpl_item.expr!r}" if mpl_item.expr else ""
+            msg += f"\n\nimport matplotlib.pyplot as plt\nimport uproot_browser.plot_mpl\n\nuproot_browser.plot_mpl.plot(item{expr_arg})\nplt.show()"
 
         theme = "ansi_dark" if self.current_theme.dark else "ansi_light"
 
@@ -143,13 +152,26 @@ class Browser(textual.app.App[None]):
             self.view_widget.item = dataclasses.replace(
                 self.view_widget.item, theme=theme, previous=None
             )
+        elif isinstance(self.view_widget.item, MPLPlot):
+            self.view_widget.item = dataclasses.replace(
+                self.view_widget.item, dark=self.current_theme.dark
+            )
 
     def on_uproot_selected(self, message: UprootSelected) -> None:
         """A message sent by the tree when a file is clicked."""
 
-        theme = "uproot_dark" if self.current_theme.dark else "uproot_light"
         self.view_widget.plot_input.value = ""
-        self.view_widget.item = Plotext(message.upfile, message.path, theme, self)
+        if self.image:
+            self.view_widget.item = MPLPlot(
+                message.upfile,
+                message.path,
+                self.current_theme.dark,
+                self,
+                scale=self.image_scale,
+            )
+        else:
+            theme = "uproot_dark" if self.current_theme.dark else "uproot_light"
+            self.view_widget.item = Plotext(message.upfile, message.path, theme, self)
 
     def on_empty_message(self) -> None:
         self.view_widget.item = None
@@ -160,12 +182,43 @@ class Browser(textual.app.App[None]):
     def on_request_plot(self, message: RequestPlot) -> None:
         self.render_plot(message.plot)
 
+    def watch_image_scale(self, scale: float) -> None:
+        item = self.view_widget.item
+        if isinstance(item, MPLPlot) and item.scale != scale:
+            self.view_widget.item = dataclasses.replace(item, scale=scale)
+
+    def on_request_image(self) -> None:
+        """Single render trigger: assigning an MPLPlot (or a resize) lands here."""
+        item = self.view_widget.item
+        if not isinstance(item, MPLPlot):
+            return
+        size = self.view_widget.image_pixel_size()
+        if size is not None:
+            item.size = size
+        key = (item.selection, item.expr, item.dark, item.scale, item.size)
+        if key != self._image_rendered:
+            self._image_rendered = key
+            assert self.view_widget.image_widget is not None
+            self.view_widget.image_widget.loading = True
+            self.render_image(item)
+
     @textual.work(exclusive=True, thread=True)
     def render_plot(self, plot: Plotext) -> None:
         worker = textual.worker.get_current_worker()
         new_plot = plot.make_plot()
         if new_plot and not worker.is_cancelled:
             self.call_from_thread(self.view_widget.plot_widget.update, new_plot)
+
+    @textual.work(exclusive=True, thread=True)
+    def render_image(self, plot: MPLPlot) -> None:
+        worker = textual.worker.get_current_worker()
+        image = plot.make_image()
+        if worker.is_cancelled:
+            return
+        if image is None:
+            # failed (empty/error message posted); allow a retry next request
+            self._image_rendered = None
+        self.call_from_thread(self.view_widget.update_image, image)
 
 
 if __name__ in {"<run_path>", "__main__"}:
