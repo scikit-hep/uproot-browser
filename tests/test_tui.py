@@ -43,7 +43,10 @@ async def test_browse_plot() -> None:
     ).run_test() as pilot:
         await pilot.press("down", "down", "down", "enter")
         await pilot.pause()
-        assert isinstance(pilot.app.view_widget.item, Plotext)
+        item = pilot.app.view_widget.item
+        assert isinstance(item, Plotext)
+        # Dump & Quit source for the text mode rebuilds the histogram
+        assert item.dump_source().startswith('\nitem = uproot_file["')
 
 
 async def test_browse_empty() -> None:

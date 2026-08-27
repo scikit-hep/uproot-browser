@@ -3,7 +3,6 @@ from __future__ import annotations
 if not __package__:
     __package__ = "uproot_browser.tui"  # pylint: disable=redefined-builtin
 
-import contextlib
 import dataclasses
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -24,7 +23,7 @@ from .help import HelpScreen
 from .image_plot import MPLPlot
 from .jump import JumpScreen
 from .left_panel import UprootTree
-from .plot import Plotext, apply_selection, make_dump
+from .plot import Plotext, PlotItem
 from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND
 from .tools import Info, Tools
 from .viewer import ViewWidget
@@ -36,6 +35,8 @@ plt.add_theme(
 plt.add_theme("uproot_dark", canvas=DARK_BACKGROUND, text=(DARK_TEXT, DARK_BACKGROUND))
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from .messages import ErrorMessage, RequestPlot, UprootSelected
 
 
@@ -62,6 +63,10 @@ class Browser(textual.app.App[None]):
         self.path = path
         self.image = image
         self._image_rendered: tuple[Any, ...] | None = None
+        # One factory per rendering mode; a new mode only needs a new one here.
+        self._make_item: Callable[[Any, str], PlotItem] = (
+            self._make_image_item if image else self._make_text_item
+        )
         super().__init__(**kwargs)
 
         self.view_widget = ViewWidget(id="plot-view", image=image)
@@ -118,22 +123,13 @@ class Browser(textual.app.App[None]):
 
         msg = f'\nimport uproot\nuproot_file = uproot.open("{self.path}")'
 
-        items: list[Plotext | Error] = []
-        if isinstance(self.view_widget.item, Error):
-            items = [self.view_widget.item]
-        elif isinstance(self.view_widget.item, Plotext):
-            plotext = self.view_widget.item
-            msg += f'\nitem = uproot_file["{plotext.selection.lstrip("/")}"]'
-            *_, selected = apply_selection(plotext.upfile, plotext.selection.split(":"))
-            size = plotext.size or ()
-            with contextlib.suppress(RuntimeError):
-                msg += f"\n{make_dump(selected, *size, expr=plotext.expr)}"
-            items = [plotext]
-        elif isinstance(self.view_widget.item, MPLPlot):
-            mpl_item = self.view_widget.item
-            msg += f'\nitem = uproot_file["{mpl_item.selection.lstrip("/")}"]'
-            expr_arg = f", expr={mpl_item.expr!r}" if mpl_item.expr else ""
-            msg += f"\n\nimport matplotlib.pyplot as plt\nimport uproot_browser.plot_mpl\n\nuproot_browser.plot_mpl.plot(item{expr_arg})\nplt.show()"
+        item = self.view_widget.item
+        items: list[Any] = []
+        if isinstance(item, Error):
+            items = [item]
+        elif isinstance(item, PlotItem):
+            msg += item.dump_source()
+            items = list(item.dump_renderables())
 
         theme = "ansi_dark" if self.current_theme.dark else "ansi_light"
 
@@ -145,33 +141,29 @@ class Browser(textual.app.App[None]):
         self.exit(message=results)
 
     def watch_theme(self) -> None:
-        if isinstance(self.view_widget.item, Plotext):
-            theme = "uproot_dark" if self.current_theme.dark else "uproot_light"
-            # Reassign (rather than mutate) so that watchers fire and the
-            # cached canvas is invalidated.
-            self.view_widget.item = dataclasses.replace(
-                self.view_widget.item, theme=theme, previous=None
-            )
-        elif isinstance(self.view_widget.item, MPLPlot):
-            self.view_widget.item = dataclasses.replace(
-                self.view_widget.item, dark=self.current_theme.dark
-            )
+        item = self.view_widget.item
+        if isinstance(item, PlotItem):
+            # Reassign (rather than mutate) so that watchers fire and any
+            # cached rendering is invalidated.
+            self.view_widget.item = item.with_theme(dark=self.current_theme.dark)
+
+    def _make_text_item(self, upfile: Any, path: str) -> Plotext:
+        return Plotext(upfile, path, dark=self.current_theme.dark, app=self)
+
+    def _make_image_item(self, upfile: Any, path: str) -> MPLPlot:
+        return MPLPlot(
+            upfile,
+            path,
+            dark=self.current_theme.dark,
+            app=self,
+            scale=self.image_scale,
+        )
 
     def on_uproot_selected(self, message: UprootSelected) -> None:
         """A message sent by the tree when a file is clicked."""
 
         self.view_widget.plot_input.value = ""
-        if self.image:
-            self.view_widget.item = MPLPlot(
-                message.upfile,
-                message.path,
-                self.current_theme.dark,
-                self,
-                scale=self.image_scale,
-            )
-        else:
-            theme = "uproot_dark" if self.current_theme.dark else "uproot_light"
-            self.view_widget.item = Plotext(message.upfile, message.path, theme, self)
+        self.view_widget.item = self._make_item(message.upfile, message.path)
 
     def on_empty_message(self) -> None:
         self.view_widget.item = None

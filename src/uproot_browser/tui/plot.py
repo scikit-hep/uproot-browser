@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import sys
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
 import plotext as plt  # plots in text
 import rich.text
@@ -17,8 +18,45 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
     from .browser import Browser
+    from .viewer import ViewWidget
 
 T = TypeVar("T")
+
+
+@runtime_checkable
+class PlotItem(Protocol):
+    """The interface a ViewWidget rendering mode implements.
+
+    Both `Plotext` (text plots) and `MPLPlot` (image plots) satisfy this;
+    a new rendering mode only needs to provide these members plus a
+    factory in `Browser` and a window in `ViewWidget`.
+    """
+
+    expr: str
+
+    def display(self, view: ViewWidget) -> None:
+        """Show this item in the view and trigger its (threaded) render."""
+        ...
+
+    def handle_resize(self, view: ViewWidget) -> None:
+        """React to the view being resized (no-op if handled elsewhere)."""
+        ...
+
+    def with_theme(self, *, dark: bool) -> PlotItem:
+        """A copy of this item re-themed for a dark/light terminal."""
+        ...
+
+    def with_expr(self, expr: str) -> PlotItem:
+        """A copy of this item with a new slicing expression."""
+        ...
+
+    def dump_source(self) -> str:
+        """Python source for Dump & Quit (appended after `uproot_file = ...`)."""
+        ...
+
+    def dump_renderables(self) -> tuple[Any, ...]:
+        """Renderables to print above the source on Dump & Quit."""
+        ...
 
 
 def run_posting_errors(app: Browser, fn: Callable[[], T]) -> T | None:
@@ -67,12 +105,41 @@ def make_dump(item: Any, *size: int, expr: str = "") -> str:
 class Plotext:
     upfile: Any
     selection: str
-    theme: str
+    dark: bool
     app: Browser
     expr: str = ""
     size: tuple[int, int] | None = None
     previous: rich.text.Text | None = None
     old_expr: str = ""
+
+    @property
+    def theme(self) -> str:
+        return "uproot_dark" if self.dark else "uproot_light"
+
+    def display(self, view: ViewWidget) -> None:
+        view.plot_widget.update(self)
+        view.current = "plot-window"
+
+    def handle_resize(self, view: ViewWidget) -> None:
+        """No-op: the Static re-renders us, and __rich_console__ re-plots."""
+
+    def with_theme(self, *, dark: bool) -> Plotext:
+        # Drop the cached canvas so the plot re-renders in the new theme.
+        return dataclasses.replace(self, dark=dark, previous=None)
+
+    def with_expr(self, expr: str) -> Plotext:
+        return dataclasses.replace(self, expr=expr)
+
+    def dump_source(self) -> str:
+        msg = f'\nitem = uproot_file["{self.selection.lstrip("/")}"]'
+        *_, selected = apply_selection(self.upfile, self.selection.split(":"))
+        size = self.size or ()
+        with contextlib.suppress(RuntimeError):
+            msg += f"\n{make_dump(selected, *size, expr=self.expr)}"
+        return msg
+
+    def dump_renderables(self) -> tuple[Any, ...]:
+        return (self,)
 
     def make_plot(self) -> Plotext | None:
         size = self.size

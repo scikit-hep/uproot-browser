@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import dataclasses
 from typing import TYPE_CHECKING, Any
 
 import textual.app
@@ -16,10 +15,8 @@ if TYPE_CHECKING:
     import textual_image.widget
 
 from .error import Error
-from .image_plot import MPLPlot
 from .logo import LOGO_PANEL
-from .messages import RequestImage
-from .plot import Plotext
+from .plot import PlotItem
 
 
 class PlotButton(textual.widgets.Button):
@@ -30,7 +27,7 @@ class PlotButton(textual.widgets.Button):
 class PlotInput(textual.widgets.Input):
     def watch_value(self, value: str) -> None:
         plot = self.app.query_one("#plot-view", ViewWidget)
-        if isinstance(plot.item, (Plotext, MPLPlot)):
+        if isinstance(plot.item, PlotItem):
             self.set_class(value not in {"", plot.item.expr}, "-needs-update")
 
     def on_input_submitted(self) -> None:
@@ -38,16 +35,14 @@ class PlotInput(textual.widgets.Input):
 
     def apply_expression(self) -> None:
         plot = self.app.query_one("#plot-view", ViewWidget)
-        if isinstance(plot.item, (Plotext, MPLPlot)):
+        if isinstance(plot.item, PlotItem):
             # assigning item triggers watch_item, which updates the plot
-            plot.item = dataclasses.replace(plot.item, expr=self.value)
+            plot.item = plot.item.with_expr(self.value)
             self.set_class(False, "-needs-update")  # noqa: FBT003
 
 
 class ViewWidget(textual.widgets.ContentSwitcher):
-    item: textual.reactive.var[Error | Plotext | MPLPlot | None] = textual.reactive.var(
-        None
-    )
+    item: textual.reactive.var[Error | PlotItem | None] = textual.reactive.var(None)
 
     def __init__(self, *, image: bool = False, **kargs: Any):
         self.error_widget = textual.widgets.Static("", id="error")
@@ -77,7 +72,7 @@ class ViewWidget(textual.widgets.ContentSwitcher):
 
         self.image_widget: textual_image.widget.Image | None = None
         self._get_cell_size: Callable[[], Any] | None = None
-        self._resize_timer: textual.timer.Timer | None = None
+        self.resize_timer: textual.timer.Timer | None = None
         if image:
             # Deferred: importing textual_image queries the terminal, and the
             # matplotlib stack is only present with the [image] extra.
@@ -111,23 +106,14 @@ class ViewWidget(textual.widgets.ContentSwitcher):
         return (width * cell.width, height * cell.height)
 
     def on_resize(self, _event: textual.events.Resize) -> None:
-        # Debounce so a drag-resize only renders the settled size
-        if isinstance(self.item, MPLPlot):
-            if self._resize_timer is not None:
-                self._resize_timer.stop()
-            self._resize_timer = self.set_timer(
-                0.2, lambda: self.post_message(RequestImage())
-            )
+        if isinstance(self.item, PlotItem):
+            self.item.handle_resize(self)
 
-    def watch_item(self, value: Plotext | MPLPlot | Error | None) -> None:
-        if isinstance(value, Plotext):
-            self.plot_widget.update(value)
-            self.current = "plot-window"
-        elif isinstance(value, MPLPlot):
-            self.current = "image-window"
-            self.post_message(RequestImage())
+    def watch_item(self, value: PlotItem | Error | None) -> None:
+        if value is None:
+            self.current = "logo"
         elif isinstance(value, Error):
             self.error_widget.update(value)
             self.current = "error-scroll"
         else:
-            self.current = "logo"
+            value.display(self)
