@@ -17,6 +17,7 @@ from .plot import apply_selection, run_posting_errors
 from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND, as_hex
 
 if TYPE_CHECKING:
+    import hist
     import PIL.Image
 
     from .browser import Browser
@@ -27,13 +28,13 @@ DPI = 100
 
 def make_image(
     item: Any,
+    histogram: hist.Hist[Any],
     *,
     dark: bool,
     size: tuple[int, int] | None = None,
     scale: float = 1.0,
-    expr: str = "",
 ) -> PIL.Image.Image:
-    """Render the item with the plot_mpl dispatch into a PIL image.
+    """Draw an already-built histogram for ``item`` into a PIL image.
 
     ``size`` is the target size in pixels; the figure is built to match so the
     aspect ratio is right for the widget it will fill. ``scale`` renders the
@@ -70,7 +71,7 @@ def make_image(
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                uproot_browser.plot_mpl.plot(item, expr=expr)
+                uproot_browser.plot_mpl.draw_hist(item, histogram)
             buf = io.BytesIO()
             fig.savefig(buf, format="png")
         finally:
@@ -88,12 +89,23 @@ class MPLPlot:
     size: tuple[int, int] | None = None
     scale: float = 1.0
     expr: str = ""
+    # cache of the built histogram; carried across dataclasses.replace so
+    # theme/scale/resize re-renders only redraw instead of re-reading data
+    built: hist.Hist[Any] | None = None
+    built_expr: str = ""
 
     def make_image(self) -> PIL.Image.Image | None:
         def build() -> PIL.Image.Image:
+            import uproot_browser.plot_mpl
+
             *_, item = apply_selection(self.upfile, self.selection.split(":"))
+            histogram = self.built
+            if histogram is None or self.built_expr != self.expr:
+                histogram = uproot_browser.plot_mpl.build_hist(item, expr=self.expr)
+                self.built = histogram
+                self.built_expr = self.expr
             return make_image(
-                item, dark=self.dark, size=self.size, scale=self.scale, expr=self.expr
+                item, histogram, dark=self.dark, size=self.size, scale=self.scale
             )
 
         return run_posting_errors(self.app, build)

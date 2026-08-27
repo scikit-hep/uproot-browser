@@ -7,6 +7,7 @@ pytest.importorskip("matplotlib")
 import textual.widgets
 import uproot
 
+import uproot_browser.plot_mpl
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.image_plot import MPLPlot, make_image
 
@@ -14,7 +15,9 @@ from uproot_browser.tui.image_plot import MPLPlot, make_image
 def test_make_image_object_branch() -> None:
     """A branch holding TH1 objects (AsObjects) is summed and plotted."""
     with uproot.open(skhep_testdata.data_path("uproot-Event.root")) as f:
-        image = make_image(f["T"]["event"]["fH"], dark=True, size=(400, 300))
+        item = f["T"]["event"]["fH"]
+        histogram = uproot_browser.plot_mpl.build_hist(item)
+        image = make_image(item, histogram, dark=True, size=(400, 300))
     assert (image.width, image.height) == (400, 300)
 
 
@@ -71,6 +74,44 @@ async def test_image_expr() -> None:
         await pilot.pause()
         # still an image plot (the expression evaluated without error)
         assert isinstance(pilot.app.view_widget.item, MPLPlot)
+
+
+async def test_image_hist_cached_across_theme_change(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A theme change redraws the cached histogram without re-reading data."""
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root"), image=True
+    ).run_test() as pilot:
+        await pilot.press("down", "down", "down", "enter")
+        await pilot.pause()
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        item = pilot.app.view_widget.item
+        assert isinstance(item, MPLPlot)
+        built = item.built
+        assert built is not None
+
+        def fail(*_args: object, **_kwargs: object) -> None:
+            msg = "histogram was rebuilt"
+            raise AssertionError(msg)
+
+        monkeypatch.setattr(uproot_browser.plot_mpl, "build_hist", fail)
+
+        pilot.app.theme = "textual-light"
+        await pilot.pause()
+        item = pilot.app.view_widget.item
+        assert isinstance(item, MPLPlot)
+        assert not item.dark
+        assert item.built is built
+
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        # a rebuild would have raised, replacing the item with an Error
+        assert isinstance(pilot.app.view_widget.item, MPLPlot)
+        image_widget = pilot.app.view_widget.image_widget
+        assert image_widget is not None
+        assert image_widget.image is not None
 
 
 async def test_image_scale_tool() -> None:
