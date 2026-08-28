@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import contextlib
 import dataclasses
-import sys
+import functools
+import operator
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
 import plotext as plt  # plots in text
@@ -15,7 +16,7 @@ from .error import Error
 from .messages import EmptyMessage, ErrorMessage, RequestPlot
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Callable
 
     from .browser import Browser
     from .viewer import ViewWidget
@@ -60,20 +61,16 @@ def run_posting_errors(app: Browser, fn: Callable[[], T]) -> T | None:
     except EmptyTreeError:
         app.post_message(EmptyMessage())
         return None
-    except Exception:  # noqa: BLE001
-        exc = sys.exc_info()
-        assert exc[1]
-        app.post_message(ErrorMessage(Error(exc)))
+    except Exception as err:  # noqa: BLE001
+        app.post_message(ErrorMessage(Error(err)))
         return None
 
 
-def apply_selection(tree: Any, selection: Iterable[str]) -> Iterable[Any]:
+def resolve_selection(tree: Any, selection: str) -> Any:
     """
     Apply a colon-separated selection to an uproot tree. Slashes are handled by uproot.
     """
-    for sel in selection:
-        tree = tree[sel]
-        yield tree
+    return functools.reduce(operator.getitem, selection.split(":"), tree)
 
 
 def make_plot(item: Any, theme: str, *size: int, expr: str) -> Any:
@@ -126,7 +123,7 @@ class Plotext:
 
     def dump_source(self) -> str:
         msg = f'\nitem = uproot_file["{self.selection.lstrip("/")}"]'
-        *_, selected = apply_selection(self.upfile, self.selection.split(":"))
+        selected = resolve_selection(self.upfile, self.selection)
         size = self.size or ()
         with contextlib.suppress(RuntimeError):
             msg += f"\n{make_dump(selected, *size, expr=self.expr)}"
@@ -140,7 +137,7 @@ class Plotext:
         assert size
 
         def build() -> Plotext:
-            *_, item = apply_selection(self.upfile, self.selection.split(":"))
+            item = resolve_selection(self.upfile, self.selection)
             canvas = make_plot(item, self.theme, *size, expr=self.expr)
             return dataclasses.replace(self, previous=rich.text.Text.from_ansi(canvas))
 

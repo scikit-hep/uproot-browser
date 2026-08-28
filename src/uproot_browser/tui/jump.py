@@ -53,12 +53,7 @@ class JumpScreen(textual.screen.ModalScreen[str | None]):
             matcher = textual.fuzzy.Matcher(query)
             scored = [(matcher.match(c.name), c) for c in self.candidates]
             candidates = [
-                c
-                for _, c in sorted(
-                    ((s, c) for s, c in scored if s > 0),
-                    key=lambda sc: sc[0],
-                    reverse=True,
-                )
+                c for score, c in sorted(scored, key=lambda sc: -sc[0]) if score > 0
             ]
         else:
             candidates = self.candidates
@@ -70,7 +65,7 @@ class JumpScreen(textual.screen.ModalScreen[str | None]):
     @staticmethod
     def _label(candidate: Candidate) -> rich.text.Text:
         display = candidate.path.lstrip("/")
-        prefix = display[: len(display) - len(candidate.name)]
+        prefix = display.removesuffix(candidate.name)
         text = rich.text.Text(candidate.icon)
         text.append(prefix, style="dim")
         text.append(candidate.name, style="bold")

@@ -122,7 +122,7 @@ async def test_jump_opens_and_lists_all() -> None:
         # Grab the tree before opening the modal: older Textual scopes
         # app.query_one to the active screen, so #tree-view is unreachable
         # once the JumpScreen is on top.
-        expected = len(pilot.app.query_one("#tree-view", UprootTree).all_entries())
+        expected = len(pilot.app.query_one("#tree-view", UprootTree).all_entries)
         await pilot.press("/")
         assert isinstance(pilot.app.screen, JumpScreen)
         results = pilot.app.screen.query_one(

@@ -106,7 +106,7 @@ class Browser(textual.app.App[None]):
     def action_jump(self) -> None:
         """Open the fuzzy finder to jump to a branch/field."""
         tree = self.query_one("#tree-view", UprootTree)
-        self.push_screen(JumpScreen(tree.all_entries()), self._on_jumped)
+        self.push_screen(JumpScreen(tree.all_entries), self._on_jumped)
 
     def _on_jumped(self, path: str | None) -> None:
         if path is None:

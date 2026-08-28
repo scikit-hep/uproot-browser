@@ -7,6 +7,7 @@ from __future__ import annotations
 import functools
 import math
 import operator
+import textwrap
 from typing import Any
 
 import awkward as ak
@@ -163,21 +164,19 @@ def dump_branch(
     # RField has no `interpretation`; it is always read as an array.
     interpretation = getattr(tree, "interpretation", None)
     if isinstance(interpretation, uproot.interpretation.objects.AsObjects):
-        return (
-            "import functools\n"
-            "import operator\n"
-            'arr = item.array(library="np")\n'
-            "h = functools.reduce(operator.add, [x.to_hist() for x in arr])"
-        )
-    return (
-        "import awkward as ak\n"
-        "import hist\n"
-        "import numpy as np\n"
-        "array = item.array()\n"
-        "values = ak.flatten(array) if array.ndim > 1 else array\n"
-        "finite = values[np.isfinite(values)]\n"
-        f"h = hist.numpy.histogram(finite, bins={width}, histogram=hist.Hist)"
-    )
+        return textwrap.dedent("""\
+            import functools
+            import operator
+            arr = item.array(library="np")
+            h = functools.reduce(operator.add, [x.to_hist() for x in arr])""")
+    return textwrap.dedent(f"""\
+        import awkward as ak
+        import hist
+        import numpy as np
+        array = item.array()
+        values = ak.flatten(array) if array.ndim > 1 else array
+        finite = values[np.isfinite(values)]
+        h = hist.numpy.histogram(finite, bins={width}, histogram=hist.Hist)""")
 
 
 dump.register(uproot.models.RNTuple.RField)(dump_branch)  # type: ignore[no-untyped-call]
