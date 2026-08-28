@@ -5,18 +5,15 @@ This is the click-powered CLI.
 from __future__ import annotations
 
 import difflib
-import functools
 import os
+import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, NoReturn
 
 import click
 import uproot
 
 from ._version import version as __version__
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
 
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 
@@ -63,6 +60,11 @@ def get_testdata(filename: str | None, *, testdata: bool) -> str:
     return f"{data_name}:{sel}" if sel else data_name
 
 
+def image_extra_required(flag: str) -> NoReturn:
+    msg = f"Install the [image] extra to use {flag}"
+    raise click.ClickException(msg) from None
+
+
 @click.group(context_settings=CONTEXT_SETTINGS, cls=DefaultGroup, default="browse")
 @click.version_option(version=__version__)
 def main() -> None:
@@ -85,56 +87,69 @@ def tree(filename: str | None, *, testdata: bool) -> None:
     uproot_browser.tree.print_tree(get_testdata(filename, testdata=testdata))
 
 
-def intercept(func: Callable[..., Any], *names: str) -> Callable[..., Any]:
-    """
-    Intercept function arguments and remove them
-    """
-
-    @functools.wraps(func)
-    def new_func(*args: Any, **kwargs: Any) -> Any:
-        for name in names:
-            kwargs.pop(name)
-        return func(*args, **kwargs)
-
-    return new_func
-
-
 @main.command()
 @click.argument("filename", required=False)
 @click.option(
-    "--iterm", is_flag=True, help="Display an iTerm plot (requires [iterm] extra)."
+    "--image",
+    is_flag=True,
+    help="Plot with a real image (Sixel/TGP, works in iTerm2; requires [image] extra).",
+)
+@click.option(
+    "--save",
+    type=click.Path(dir_okay=False, writable=True),
+    help="Save the plot to a file instead (any matplotlib format, "
+    "transparent background where supported).",
 )
 @click.option(
     "--testdata", is_flag=True, help="Interpret the filename as a testdata file"
 )
-def plot(filename: str | None, *, iterm: bool, testdata: bool) -> None:
+def plot(
+    filename: str | None, *, image: bool, save: str | None, testdata: bool
+) -> None:
     """
     Display a plot.
     """
-    if iterm:
-        os.environ.setdefault("MPLBACKEND", r"module://itermplot")
+    if save or image:
+        os.environ.setdefault("MPLBACKEND", "agg")
 
-        import matplotlib.pyplot as plt
+    item = uproot.open(get_testdata(filename, testdata=testdata))
+
+    if save:
+        try:
+            import matplotlib.pyplot as plt
+
+            import uproot_browser.plot_mpl
+        except ModuleNotFoundError:
+            image_extra_required("--save")
+
+        uproot_browser.plot_mpl.plot(item)
+        plt.savefig(save, transparent=True)
+    elif image:
+        try:
+            # Importing textual_image queries the terminal for image support
+            import textual_image.renderable
+            from textual_image.widget import get_cell_size
+        except ModuleNotFoundError:
+            image_extra_required("--image")
+
+        import rich.console
 
         import uproot_browser.plot_mpl
+
+        cell = get_cell_size()
+        width = shutil.get_terminal_size().columns
+        pixel_width = width * cell.width
+        height = round(pixel_width * uproot_browser.plot_mpl.ASPECT_RATIO / cell.height)
+        pil_image = uproot_browser.plot_mpl.make_image(
+            item, size=(pixel_width, height * cell.height)
+        )
+        console = rich.console.Console()
+        console.print(textual_image.renderable.Image(pil_image, width, height))
     else:
         import plotext
 
         import uproot_browser.plot
 
-    item = uproot.open(get_testdata(filename, testdata=testdata))
-
-    if iterm:
-        uproot_browser.plot_mpl.plot(item)
-        if plt.get_backend() == r"module://itermplot":
-            fm = plt.get_current_fig_manager()
-            canvas = fm.canvas
-            canvas.__class__.print_figure = intercept(
-                canvas.__class__.print_figure, "facecolor", "edgecolor"
-            )
-
-        plt.show()
-    else:
         fig = plotext.figure
         fig.clear()
         uproot_browser.plot.plot(item, fig=fig)
@@ -160,8 +175,7 @@ def browse(filename: str | None, *, image: bool, testdata: bool) -> None:
             # The terminal graphics query must run before the app starts
             import textual_image.widget  # noqa: F401  # pylint: disable=unused-import
         except ModuleNotFoundError:
-            msg = "Install the [image] extra to use --image"
-            raise click.ClickException(msg) from None
+            image_extra_required("--image")
 
     import uproot_browser.tui.browser
 

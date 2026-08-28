@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+import pytest
 from click.testing import CliRunner
 
 from uproot_browser.__main__ import get_testdata, main
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_missing_local_file() -> None:
@@ -40,3 +46,31 @@ def test_missing_filename() -> None:
 def test_remote_url_not_checked_locally() -> None:
     url = "https://example.com/a.root:events"
     assert get_testdata(url, testdata=False) == url
+
+
+def test_plot_image() -> None:
+    pytest.importorskip("textual_image")
+    pytest.importorskip("matplotlib")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main, ["plot", "--image", "--testdata", "uproot-Event.root:hstat"]
+    )
+    assert result.exit_code == 0
+    # Non-tty falls back to the unicode renderer; just check something rendered
+    assert result.output.strip()
+
+
+def test_plot_save(tmp_path: Path) -> None:
+    pytest.importorskip("matplotlib")
+    pil_image = pytest.importorskip("PIL.Image")
+
+    out = tmp_path / "plot.png"
+    runner = CliRunner()
+    result = runner.invoke(
+        main, ["plot", "--save", str(out), "--testdata", "uproot-Event.root:hstat"]
+    )
+    assert result.exit_code == 0
+    with pil_image.open(out) as image:
+        assert image.mode == "RGBA"
+        assert image.getpixel((2, 2))[-1] == 0  # transparent background
