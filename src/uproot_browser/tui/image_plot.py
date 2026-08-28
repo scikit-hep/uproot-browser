@@ -9,7 +9,6 @@ when the [image] extra is not installed.
 from __future__ import annotations
 
 import dataclasses
-import io
 import warnings
 from typing import TYPE_CHECKING, Any
 
@@ -23,9 +22,6 @@ if TYPE_CHECKING:
 
     from .browser import Browser
     from .viewer import ViewWidget
-
-
-DPI = 100
 
 
 def make_image(
@@ -45,13 +41,9 @@ def make_image(
     import matplotlib as mpl
 
     mpl.use("agg")  # rendered to PNG off the main thread; never a GUI
-    import matplotlib.pyplot as plt
-    import PIL.Image
 
     import uproot_browser.plot_mpl
 
-    dpi = DPI * scale
-    figsize = (size[0] / dpi, size[1] / dpi) if size else (8.0, 5.0)
     background = as_hex(DARK_BACKGROUND if dark else LIGHT_BACKGROUND)
     overrides: dict[str, Any] = {
         "figure.facecolor": background,
@@ -68,18 +60,9 @@ def make_image(
             "ytick.color": text,
         }
     style = ["dark_background", overrides] if dark else ["default", overrides]
-    with plt.style.context(style):
-        fig = plt.figure(figsize=figsize, dpi=dpi)
-        try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                uproot_browser.plot_mpl.draw_hist(histogram, title)
-            buf = io.BytesIO()
-            fig.savefig(buf, format="png")
-        finally:
-            plt.close(fig)
-    buf.seek(0)
-    return PIL.Image.open(buf)
+    return uproot_browser.plot_mpl.render_image(
+        histogram, title, size=size, scale=scale, style=style
+    )
 
 
 @dataclasses.dataclass

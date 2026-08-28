@@ -72,27 +72,27 @@ uproot-browser plot --testdata uproot-Event.root:hstat
 ```
 
 <details>
-<summary>If you're on macOS and using iTerm2, click here:</summary><br>
+<summary>If your terminal supports images (Sixel or TGP, such as iTerm2), click here:</summary><br>
 
-You can get an iterm plot, the required dependencies can be installed via:
+You can get an image plot, the required dependencies can be installed via:
 
 ```bash
-python3 -m pip install uproot-browser[iterm]
+python3 -m pip install uproot-browser[image]
 ```
 
 Or can be run via `pipx` without installing:
 
 ```bash
-pipx run uproot-browser[iterm]
+pipx run uproot-browser[image]
 ```
 
-Adding the argument `--iterm` gives us the plot:
+Adding the argument `--image` gives us the plot:
 
 ```bash
-uproot-browser plot --testdata uproot-Event.root:hstat --iterm
+uproot-browser plot --testdata uproot-Event.root:hstat --image
 ```
 
-<img alt="iterm example" width="600px" src="https://raw.githubusercontent.com/scikit-hep/uproot-browser/main/docs/_images/iterm.png"/>
+<img alt="image example" width="600px" src="https://raw.githubusercontent.com/scikit-hep/uproot-browser/main/docs/_images/iterm.png"/>
 
 </details><br>
 

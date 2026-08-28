@@ -5,18 +5,15 @@ This is the click-powered CLI.
 from __future__ import annotations
 
 import difflib
-import functools
 import os
+import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import click
 import uproot
 
 from ._version import version as __version__
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
 
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 
@@ -85,56 +82,52 @@ def tree(filename: str | None, *, testdata: bool) -> None:
     uproot_browser.tree.print_tree(get_testdata(filename, testdata=testdata))
 
 
-def intercept(func: Callable[..., Any], *names: str) -> Callable[..., Any]:
-    """
-    Intercept function arguments and remove them
-    """
-
-    @functools.wraps(func)
-    def new_func(*args: Any, **kwargs: Any) -> Any:
-        for name in names:
-            kwargs.pop(name)
-        return func(*args, **kwargs)
-
-    return new_func
-
-
 @main.command()
 @click.argument("filename", required=False)
 @click.option(
-    "--iterm", is_flag=True, help="Display an iTerm plot (requires [iterm] extra)."
+    "--image",
+    is_flag=True,
+    help="Plot with a real image (Sixel/TGP, works in iTerm2; requires [image] extra).",
 )
 @click.option(
     "--testdata", is_flag=True, help="Interpret the filename as a testdata file"
 )
-def plot(filename: str | None, *, iterm: bool, testdata: bool) -> None:
+def plot(filename: str | None, *, image: bool, testdata: bool) -> None:
     """
     Display a plot.
     """
-    if iterm:
-        os.environ.setdefault("MPLBACKEND", r"module://itermplot")
+    if image:
+        os.environ.setdefault("MPLBACKEND", "agg")
+        try:
+            # Importing textual_image queries the terminal for image support
+            import textual_image.renderable
+            from textual_image._terminal import get_cell_size
+        except ModuleNotFoundError:
+            msg = "Install the [image] extra to use --image"
+            raise click.ClickException(msg) from None
 
-        import matplotlib.pyplot as plt
+        import rich.console
 
         import uproot_browser.plot_mpl
+
+        item = uproot.open(get_testdata(filename, testdata=testdata))
+
+        cell = get_cell_size()
+        term = shutil.get_terminal_size()
+        width = term.columns
+        height = round(width * cell.width * 5 / 8 / cell.height)
+        pil_image = uproot_browser.plot_mpl.make_image(
+            item, size=(width * cell.width, height * cell.height)
+        )
+        console = rich.console.Console()
+        console.print(textual_image.renderable.Image(pil_image, width, height))
     else:
         import plotext
 
         import uproot_browser.plot
 
-    item = uproot.open(get_testdata(filename, testdata=testdata))
+        item = uproot.open(get_testdata(filename, testdata=testdata))
 
-    if iterm:
-        uproot_browser.plot_mpl.plot(item)
-        if plt.get_backend() == r"module://itermplot":
-            fm = plt.get_current_fig_manager()
-            canvas = fm.canvas
-            canvas.__class__.print_figure = intercept(
-                canvas.__class__.print_figure, "facecolor", "edgecolor"
-            )
-
-        plt.show()
-    else:
         fig = plotext.figure
         fig.clear()
         uproot_browser.plot.plot(item, fig=fig)

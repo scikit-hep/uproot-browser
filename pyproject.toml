@@ -48,11 +48,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-iterm = [
-  "matplotlib",
-  "itermplot==0.5",
-  "mplhep",
-]
 image = [
   "matplotlib",
   "mplhep",

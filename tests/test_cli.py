@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from click.testing import CliRunner
 
 from uproot_browser.__main__ import get_testdata, main
@@ -40,3 +41,16 @@ def test_missing_filename() -> None:
 def test_remote_url_not_checked_locally() -> None:
     url = "https://example.com/a.root:events"
     assert get_testdata(url, testdata=False) == url
+
+
+def test_plot_image() -> None:
+    pytest.importorskip("textual_image")
+    pytest.importorskip("matplotlib")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main, ["plot", "--image", "--testdata", "uproot-Event.root:hstat"]
+    )
+    assert result.exit_code == 0
+    # Non-tty falls back to the unicode renderer; just check something rendered
+    assert result.output.strip()
