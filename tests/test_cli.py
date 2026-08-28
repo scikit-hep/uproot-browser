@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 from click.testing import CliRunner
 
 from uproot_browser.__main__ import get_testdata, main
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_missing_local_file() -> None:
@@ -56,13 +61,16 @@ def test_plot_image() -> None:
     assert result.output.strip()
 
 
-def test_plot_transparent() -> None:
-    pytest.importorskip("textual_image")
+def test_plot_save(tmp_path: Path) -> None:
     pytest.importorskip("matplotlib")
+    pil_image = pytest.importorskip("PIL.Image")
 
+    out = tmp_path / "plot.png"
     runner = CliRunner()
     result = runner.invoke(
-        main, ["plot", "--transparent", "--testdata", "uproot-Event.root:hstat"]
+        main, ["plot", "--save", str(out), "--testdata", "uproot-Event.root:hstat"]
     )
     assert result.exit_code == 0
-    assert result.output.strip()
+    with pil_image.open(out) as image:
+        assert image.mode == "RGBA"
+        assert image.getpixel((2, 2))[-1] == 0  # transparent background

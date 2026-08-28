@@ -7,6 +7,7 @@ from __future__ import annotations
 import difflib
 import os
 import shutil
+import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -82,67 +83,6 @@ def tree(filename: str | None, *, testdata: bool) -> None:
     uproot_browser.tree.print_tree(get_testdata(filename, testdata=testdata))
 
 
-def detect_background() -> tuple[float, float, float] | None:
-    """
-    Query the terminal background color (OSC 11). Returns (red, green, blue)
-    in 0-1, or None if the terminal did not answer.
-    """
-    import re
-    import sys
-
-    from textual_image._terminal import TerminalError, capture_terminal_response
-
-    if sys.__stdout__ is None or not sys.__stdout__.isatty():
-        return None
-    try:
-        with capture_terminal_response("\x1b]11;", "\x1b\\", 0.1) as response:
-            sys.__stdout__.write("\x1b]11;?\x1b\\")
-            sys.__stdout__.flush()
-    except (TerminalError, TimeoutError, OSError):
-        return None
-    sequence: str = response.sequence
-    match = re.search(r"rgb:([0-9a-fA-F]+)/([0-9a-fA-F]+)/([0-9a-fA-F]+)", sequence)
-    if match is None:
-        return None
-    red, green, blue = (int(c, 16) / (16 ** len(c) - 1) for c in match.groups())
-    return red, green, blue
-
-
-def transparent_style(*, alpha: bool) -> dict[str, str]:
-    """
-    A matplotlib style dict blending into the terminal, with text colored for
-    the detected terminal background (mid-gray if detection fails).
-
-    With ``alpha`` the background is truly transparent; otherwise the detected
-    terminal color is painted, which renders correctly even on terminals that
-    fill untouched Sixel pixels with a palette color.
-    """
-    background = detect_background()
-    if background is None:
-        text = "#808080"
-        face = "none"
-    else:
-        red, green, blue = background
-        dark = 0.2126 * red + 0.7152 * green + 0.0722 * blue < 0.5
-        text = "#e6e6e6" if dark else "#1a1a1a"
-        face = (
-            "none"
-            if alpha
-            else f"#{round(red * 255):02x}{round(green * 255):02x}{round(blue * 255):02x}"
-        )
-    return {
-        "figure.facecolor": face,
-        "axes.facecolor": face,
-        "savefig.facecolor": face,
-        "text.color": text,
-        "axes.labelcolor": text,
-        "axes.titlecolor": text,
-        "axes.edgecolor": text,
-        "xtick.color": text,
-        "ytick.color": text,
-    }
-
-
 @main.command()
 @click.argument("filename", required=False)
 @click.option(
@@ -151,20 +91,37 @@ def transparent_style(*, alpha: bool) -> dict[str, str]:
     help="Plot with a real image (Sixel/TGP, works in iTerm2; requires [image] extra).",
 )
 @click.option(
-    "--transparent",
-    is_flag=True,
-    help="Transparent plot background over the terminal (implies --image).",
+    "--save",
+    type=click.Path(dir_okay=False, writable=True),
+    help="Save the plot to a file instead (any matplotlib format, "
+    "transparent background where supported).",
 )
 @click.option(
     "--testdata", is_flag=True, help="Interpret the filename as a testdata file"
 )
 def plot(
-    filename: str | None, *, image: bool, transparent: bool, testdata: bool
+    filename: str | None, *, image: bool, save: str | None, testdata: bool
 ) -> None:
     """
     Display a plot.
     """
-    if image or transparent:
+    if save:
+        os.environ.setdefault("MPLBACKEND", "agg")
+        try:
+            import matplotlib.pyplot as plt
+
+            import uproot_browser.plot_mpl
+        except ModuleNotFoundError:
+            msg = "Install the [image] extra to use --save"
+            raise click.ClickException(msg) from None
+
+        item = uproot.open(get_testdata(filename, testdata=testdata))
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            uproot_browser.plot_mpl.plot(item)
+        plt.savefig(save, transparent=True)
+    elif image:
         os.environ.setdefault("MPLBACKEND", "agg")
         try:
             # Importing textual_image queries the terminal for image support
@@ -180,17 +137,12 @@ def plot(
 
         item = uproot.open(get_testdata(filename, testdata=testdata))
 
-        style: str | dict[str, str] = "default"
-        if transparent:
-            # Only TGP composites alpha reliably in every terminal
-            tgp = textual_image.renderable.Image.__module__.endswith(".tgp")
-            style = transparent_style(alpha=tgp)
         cell = get_cell_size()
         term = shutil.get_terminal_size()
         width = term.columns
         height = round(width * cell.width * 5 / 8 / cell.height)
         pil_image = uproot_browser.plot_mpl.make_image(
-            item, size=(width * cell.width, height * cell.height), style=style
+            item, size=(width * cell.width, height * cell.height)
         )
         console = rich.console.Console()
         console.print(textual_image.renderable.Image(pil_image, width, height))
