@@ -128,6 +128,11 @@ async def test_jump_opens_and_lists_all() -> None:
         results = pilot.app.screen.query_one(
             "#jump-results", textual.widgets.OptionList
         )
+        # on_mount population can lag on slow runners; let it settle
+        for _ in range(10):
+            if results.option_count:
+                break
+            await pilot.pause()
         assert results.option_count == expected
 
 

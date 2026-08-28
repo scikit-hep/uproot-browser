@@ -36,27 +36,21 @@ class PlotItem(Protocol):
 
     def display(self, view: ViewWidget) -> None:
         """Show this item in the view and trigger its (threaded) render."""
-        ...
 
     def handle_resize(self, view: ViewWidget) -> None:
         """React to the view being resized (no-op if handled elsewhere)."""
-        ...
 
     def with_theme(self, *, dark: bool) -> PlotItem:
         """A copy of this item re-themed for a dark/light terminal."""
-        ...
 
     def with_expr(self, expr: str) -> PlotItem:
         """A copy of this item with a new slicing expression."""
-        ...
 
     def dump_source(self) -> str:
         """Python source for Dump & Quit (appended after `uproot_file = ...`)."""
-        ...
 
     def dump_renderables(self) -> tuple[Any, ...]:
         """Renderables to print above the source on Dump & Quit."""
-        ...
 
 
 def run_posting_errors(app: Browser, fn: Callable[[], T]) -> T | None:
