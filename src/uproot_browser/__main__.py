@@ -82,10 +82,10 @@ def tree(filename: str | None, *, testdata: bool) -> None:
     uproot_browser.tree.print_tree(get_testdata(filename, testdata=testdata))
 
 
-def detect_dark_background() -> bool | None:
+def detect_background() -> tuple[float, float, float] | None:
     """
-    Query the terminal background color (OSC 11). Returns True if dark, False
-    if light, and None if the terminal did not answer.
+    Query the terminal background color (OSC 11). Returns (red, green, blue)
+    in 0-1, or None if the terminal did not answer.
     """
     import re
     import sys
@@ -105,20 +105,35 @@ def detect_dark_background() -> bool | None:
     if match is None:
         return None
     red, green, blue = (int(c, 16) / (16 ** len(c) - 1) for c in match.groups())
-    return bool(0.2126 * red + 0.7152 * green + 0.0722 * blue < 0.5)
+    return red, green, blue
 
 
-def transparent_style() -> dict[str, str]:
+def transparent_style(*, alpha: bool) -> dict[str, str]:
     """
-    A matplotlib style dict with no background, with text colored for the
-    detected terminal background (mid-gray if detection fails).
+    A matplotlib style dict blending into the terminal, with text colored for
+    the detected terminal background (mid-gray if detection fails).
+
+    With ``alpha`` the background is truly transparent; otherwise the detected
+    terminal color is painted, which renders correctly even on terminals that
+    fill untouched Sixel pixels with a palette color.
     """
-    dark = detect_dark_background()
-    text = "#808080" if dark is None else "#e6e6e6" if dark else "#1a1a1a"
+    background = detect_background()
+    if background is None:
+        text = "#808080"
+        face = "none"
+    else:
+        red, green, blue = background
+        dark = 0.2126 * red + 0.7152 * green + 0.0722 * blue < 0.5
+        text = "#e6e6e6" if dark else "#1a1a1a"
+        face = (
+            "none"
+            if alpha
+            else f"#{round(red * 255):02x}{round(green * 255):02x}{round(blue * 255):02x}"
+        )
     return {
-        "figure.facecolor": "none",
-        "axes.facecolor": "none",
-        "savefig.facecolor": "none",
+        "figure.facecolor": face,
+        "axes.facecolor": face,
+        "savefig.facecolor": face,
         "text.color": text,
         "axes.labelcolor": text,
         "axes.titlecolor": text,
@@ -165,7 +180,11 @@ def plot(
 
         item = uproot.open(get_testdata(filename, testdata=testdata))
 
-        style = transparent_style() if transparent else "default"
+        style: str | dict[str, str] = "default"
+        if transparent:
+            # Only TGP composites alpha reliably in every terminal
+            tgp = textual_image.renderable.Image.__module__.endswith(".tgp")
+            style = transparent_style(alpha=tgp)
         cell = get_cell_size()
         term = shutil.get_terminal_size()
         width = term.columns
