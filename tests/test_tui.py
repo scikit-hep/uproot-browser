@@ -43,7 +43,10 @@ async def test_browse_plot() -> None:
     ).run_test() as pilot:
         await pilot.press("down", "down", "down", "enter")
         await pilot.pause()
-        assert isinstance(pilot.app.view_widget.item, Plotext)
+        item = pilot.app.view_widget.item
+        assert isinstance(item, Plotext)
+        # Dump & Quit source for the text mode rebuilds the histogram
+        assert item.dump_source().startswith('\nitem = uproot_file["')
 
 
 async def test_browse_empty() -> None:
@@ -125,6 +128,11 @@ async def test_jump_opens_and_lists_all() -> None:
         results = pilot.app.screen.query_one(
             "#jump-results", textual.widgets.OptionList
         )
+        # on_mount population can lag on slow runners; let it settle
+        for _ in range(10):
+            if results.option_count:
+                break
+            await pilot.pause()
         assert results.option_count == expected
 
 

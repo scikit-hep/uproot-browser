@@ -13,6 +13,7 @@ import io
 import warnings
 from typing import TYPE_CHECKING, Any
 
+from .messages import RequestImage
 from .plot import apply_selection, run_posting_errors
 from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND, as_hex
 
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
     import PIL.Image
 
     from .browser import Browser
+    from .viewer import ViewWidget
 
 
 DPI = 100
@@ -104,6 +106,35 @@ class MPLPlot:
     expr: str = ""
     # theme/scale/expr/resize re-renders only redraw instead of re-reading data
     built: _HistCache = dataclasses.field(default_factory=_HistCache)
+
+    def display(self, view: ViewWidget) -> None:
+        view.current = "image-window"
+        view.post_message(RequestImage())
+
+    def handle_resize(self, view: ViewWidget) -> None:
+        # Debounce so a drag-resize only renders the settled size
+        if view.resize_timer is not None:
+            view.resize_timer.stop()
+        view.resize_timer = view.set_timer(
+            0.2, lambda: view.post_message(RequestImage())
+        )
+
+    def with_theme(self, *, dark: bool) -> MPLPlot:
+        return dataclasses.replace(self, dark=dark)
+
+    def with_expr(self, expr: str) -> MPLPlot:
+        return dataclasses.replace(self, expr=expr)
+
+    def dump_source(self) -> str:
+        msg = f'\nitem = uproot_file["{self.selection.lstrip("/")}"]'
+        expr_arg = f", expr={self.expr!r}" if self.expr else ""
+        return (
+            msg
+            + f"\n\nimport matplotlib.pyplot as plt\nimport uproot_browser.plot_mpl\n\nuproot_browser.plot_mpl.plot(item{expr_arg})\nplt.show()"
+        )
+
+    def dump_renderables(self) -> tuple[Any, ...]:
+        return ()
 
     def make_image(self) -> PIL.Image.Image | None:
         def build() -> PIL.Image.Image:

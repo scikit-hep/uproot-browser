@@ -85,6 +85,10 @@ async def test_image_expr() -> None:
         item = pilot.app.view_widget.item
         assert isinstance(item, MPLPlot)
         assert item.expr == "h[::2j]"
+        # Dump & Quit source for the image mode carries the expression
+        assert "uproot_browser.plot_mpl.plot(item, expr='h[::2j]')" in (
+            item.dump_source()
+        )
 
         await pilot.app.workers.wait_for_complete()
         await pilot.pause()
