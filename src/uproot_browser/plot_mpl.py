@@ -18,6 +18,7 @@ import uproot.behaviors.TH1
 import uproot_browser.plot
 
 DPI = 100
+ASPECT_RATIO = 5 / 8  # height / width of the default figure
 
 
 @functools.singledispatch
@@ -53,7 +54,9 @@ def draw_hist(histogram: hist.Hist[Any], title: str) -> None:
     """
     Draw an already-built histogram into the current matplotlib figure.
     """
-    histogram.plot()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        histogram.plot()
     plt.title(title)
 
 
@@ -82,13 +85,11 @@ def render_image(
     ``style`` is any matplotlib style context spec (name, dict, or list).
     """
     dpi = DPI * scale
-    figsize = (size[0] / dpi, size[1] / dpi) if size else (8.0, 5.0)
+    figsize = (size[0] / dpi, size[1] / dpi) if size else (8.0, 8.0 * ASPECT_RATIO)
     with plt.style.context(style):
         fig = plt.figure(figsize=figsize, dpi=dpi)
         try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                draw_hist(histogram, title)
+            draw_hist(histogram, title)
             buf = io.BytesIO()
             fig.savefig(buf, format="png")
         finally:

@@ -7,9 +7,8 @@ from __future__ import annotations
 import difflib
 import os
 import shutil
-import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NoReturn
 
 import click
 import uproot
@@ -61,6 +60,11 @@ def get_testdata(filename: str | None, *, testdata: bool) -> str:
     return f"{data_name}:{sel}" if sel else data_name
 
 
+def image_extra_required(flag: str) -> NoReturn:
+    msg = f"Install the [image] extra to use {flag}"
+    raise click.ClickException(msg) from None
+
+
 @click.group(context_settings=CONTEXT_SETTINGS, cls=DefaultGroup, default="browse")
 @click.version_option(version=__version__)
 def main() -> None:
@@ -105,44 +109,39 @@ def plot(
     """
     Display a plot.
     """
-    if save:
+    if save or image:
         os.environ.setdefault("MPLBACKEND", "agg")
+
+    item = uproot.open(get_testdata(filename, testdata=testdata))
+
+    if save:
         try:
             import matplotlib.pyplot as plt
 
             import uproot_browser.plot_mpl
         except ModuleNotFoundError:
-            msg = "Install the [image] extra to use --save"
-            raise click.ClickException(msg) from None
+            image_extra_required("--save")
 
-        item = uproot.open(get_testdata(filename, testdata=testdata))
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            uproot_browser.plot_mpl.plot(item)
+        uproot_browser.plot_mpl.plot(item)
         plt.savefig(save, transparent=True)
     elif image:
-        os.environ.setdefault("MPLBACKEND", "agg")
         try:
             # Importing textual_image queries the terminal for image support
             import textual_image.renderable
-            from textual_image._terminal import get_cell_size
+            from textual_image.widget import get_cell_size
         except ModuleNotFoundError:
-            msg = "Install the [image] extra to use --image"
-            raise click.ClickException(msg) from None
+            image_extra_required("--image")
 
         import rich.console
 
         import uproot_browser.plot_mpl
 
-        item = uproot.open(get_testdata(filename, testdata=testdata))
-
         cell = get_cell_size()
-        term = shutil.get_terminal_size()
-        width = term.columns
-        height = round(width * cell.width * 5 / 8 / cell.height)
+        width = shutil.get_terminal_size().columns
+        pixel_width = width * cell.width
+        height = round(pixel_width * uproot_browser.plot_mpl.ASPECT_RATIO / cell.height)
         pil_image = uproot_browser.plot_mpl.make_image(
-            item, size=(width * cell.width, height * cell.height)
+            item, size=(pixel_width, height * cell.height)
         )
         console = rich.console.Console()
         console.print(textual_image.renderable.Image(pil_image, width, height))
@@ -150,8 +149,6 @@ def plot(
         import plotext
 
         import uproot_browser.plot
-
-        item = uproot.open(get_testdata(filename, testdata=testdata))
 
         fig = plotext.figure
         fig.clear()
@@ -178,8 +175,7 @@ def browse(filename: str | None, *, image: bool, testdata: bool) -> None:
             # The terminal graphics query must run before the app starts
             import textual_image.widget  # noqa: F401  # pylint: disable=unused-import
         except ModuleNotFoundError:
-            msg = "Install the [image] extra to use --image"
-            raise click.ClickException(msg) from None
+            image_extra_required("--image")
 
     import uproot_browser.tui.browser
 
