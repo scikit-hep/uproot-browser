@@ -103,6 +103,7 @@ def make_image(
     expr: str = "",
     size: tuple[int, int] | None = None,
     scale: float = 1.0,
+    style: Any = "default",
 ) -> PIL.Image.Image:
     """
     Build and render to a PIL image in one step.
@@ -113,4 +114,5 @@ def make_image(
         uproot_browser.plot.make_hist_title(tree, histogram),
         size=size,
         scale=scale,
+        style=style,
     )

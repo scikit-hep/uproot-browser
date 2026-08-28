@@ -92,6 +92,8 @@ Adding the argument `--image` gives us the plot:
 uproot-browser plot --testdata uproot-Event.root:hstat --image
 ```
 
+Add `--transparent` to blend the plot with your terminal background.
+
 <img alt="image example" width="600px" src="https://raw.githubusercontent.com/scikit-hep/uproot-browser/main/docs/_images/iterm.png"/>
 
 </details><br>

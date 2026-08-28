@@ -82,6 +82,52 @@ def tree(filename: str | None, *, testdata: bool) -> None:
     uproot_browser.tree.print_tree(get_testdata(filename, testdata=testdata))
 
 
+def detect_dark_background() -> bool | None:
+    """
+    Query the terminal background color (OSC 11). Returns True if dark, False
+    if light, and None if the terminal did not answer.
+    """
+    import re
+    import sys
+
+    from textual_image._terminal import TerminalError, capture_terminal_response
+
+    if sys.__stdout__ is None or not sys.__stdout__.isatty():
+        return None
+    try:
+        with capture_terminal_response("\x1b]11;", "\x1b\\", 0.1) as response:
+            sys.__stdout__.write("\x1b]11;?\x1b\\")
+            sys.__stdout__.flush()
+    except (TerminalError, TimeoutError, OSError):
+        return None
+    sequence: str = response.sequence
+    match = re.search(r"rgb:([0-9a-fA-F]+)/([0-9a-fA-F]+)/([0-9a-fA-F]+)", sequence)
+    if match is None:
+        return None
+    red, green, blue = (int(c, 16) / (16 ** len(c) - 1) for c in match.groups())
+    return bool(0.2126 * red + 0.7152 * green + 0.0722 * blue < 0.5)
+
+
+def transparent_style() -> dict[str, str]:
+    """
+    A matplotlib style dict with no background, with text colored for the
+    detected terminal background (mid-gray if detection fails).
+    """
+    dark = detect_dark_background()
+    text = "#808080" if dark is None else "#e6e6e6" if dark else "#1a1a1a"
+    return {
+        "figure.facecolor": "none",
+        "axes.facecolor": "none",
+        "savefig.facecolor": "none",
+        "text.color": text,
+        "axes.labelcolor": text,
+        "axes.titlecolor": text,
+        "axes.edgecolor": text,
+        "xtick.color": text,
+        "ytick.color": text,
+    }
+
+
 @main.command()
 @click.argument("filename", required=False)
 @click.option(
@@ -90,13 +136,20 @@ def tree(filename: str | None, *, testdata: bool) -> None:
     help="Plot with a real image (Sixel/TGP, works in iTerm2; requires [image] extra).",
 )
 @click.option(
+    "--transparent",
+    is_flag=True,
+    help="Transparent plot background over the terminal (implies --image).",
+)
+@click.option(
     "--testdata", is_flag=True, help="Interpret the filename as a testdata file"
 )
-def plot(filename: str | None, *, image: bool, testdata: bool) -> None:
+def plot(
+    filename: str | None, *, image: bool, transparent: bool, testdata: bool
+) -> None:
     """
     Display a plot.
     """
-    if image:
+    if image or transparent:
         os.environ.setdefault("MPLBACKEND", "agg")
         try:
             # Importing textual_image queries the terminal for image support
@@ -112,12 +165,13 @@ def plot(filename: str | None, *, image: bool, testdata: bool) -> None:
 
         item = uproot.open(get_testdata(filename, testdata=testdata))
 
+        style = transparent_style() if transparent else "default"
         cell = get_cell_size()
         term = shutil.get_terminal_size()
         width = term.columns
         height = round(width * cell.width * 5 / 8 / cell.height)
         pil_image = uproot_browser.plot_mpl.make_image(
-            item, size=(width * cell.width, height * cell.height)
+            item, size=(width * cell.width, height * cell.height), style=style
         )
         console = rich.console.Console()
         console.print(textual_image.renderable.Image(pil_image, width, height))

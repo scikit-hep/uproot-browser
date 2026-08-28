@@ -54,3 +54,15 @@ def test_plot_image() -> None:
     assert result.exit_code == 0
     # Non-tty falls back to the unicode renderer; just check something rendered
     assert result.output.strip()
+
+
+def test_plot_transparent() -> None:
+    pytest.importorskip("textual_image")
+    pytest.importorskip("matplotlib")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main, ["plot", "--transparent", "--testdata", "uproot-Event.root:hstat"]
+    )
+    assert result.exit_code == 0
+    assert result.output.strip()
