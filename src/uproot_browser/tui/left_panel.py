@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import contextlib
-from pathlib import Path
+import functools
+from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import rich.panel
@@ -40,24 +41,22 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         self.upfile = uproot.open(path)
         file_path = Path(self.upfile.file_path)
         data = UprootEntry("/", self.upfile)
-        self._candidates: list[Candidate] | None = None
         self._count = ""
         super().__init__(name=str(file_path), data=data, label=file_path.stem, **args)
 
+    @functools.cached_property
     def all_entries(self) -> list[Candidate]:
         """All jump targets in the file, built once and cached."""
-        if self._candidates is None:
-            root = UprootEntry("/", self.upfile)
-            self._candidates = [
-                Candidate(
-                    path=entry.path,
-                    name=entry.path.rstrip("/").rsplit("/", 1)[-1],
-                    icon=entry.meta()["label_icon"],
-                    is_dir=entry.is_dir,
-                )
-                for entry in root.walk()
-            ]
-        return self._candidates
+        root = UprootEntry("/", self.upfile)
+        return [
+            Candidate(
+                path=entry.path,
+                name=PurePosixPath(entry.path).name,
+                icon=entry.meta()["label_icon"],
+                is_dir=entry.is_dir,
+            )
+            for entry in root.walk()
+        ]
 
     def select_path(self, target: str) -> None:
         """Navigate to (and reveal) the node at ``target``, plotting leaves."""

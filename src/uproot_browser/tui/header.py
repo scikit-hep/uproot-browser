@@ -5,7 +5,6 @@ from typing import Any
 
 import rich.text
 import textual.app
-import textual.reactive
 import textual.widget
 import textual.widgets
 
@@ -25,11 +24,8 @@ class HeaderHelpIcon(textual.widgets.Button):
         self.app.action_help()
 
 
-class HeaderTitle(textual.widget.Widget):
-    text = textual.reactive.Reactive("")
-
-    def render(self) -> textual.app.RenderResult:
-        return rich.text.Text(self.text, no_wrap=True, overflow="ellipsis")
+class HeaderTitle(textual.widgets.Static):
+    pass
 
 
 class Header(textual.widget.Widget):
@@ -41,8 +37,5 @@ class Header(textual.widget.Widget):
 
     def compose(self) -> textual.app.ComposeResult:
         yield HeaderCloseIcon("❌", tooltip="Close")
-        yield HeaderTitle()
+        yield HeaderTitle(rich.text.Text(self.title, no_wrap=True, overflow="ellipsis"))
         yield HeaderHelpIcon("❓", tooltip="Help")
-
-    def on_mount(self) -> None:
-        self.query_one(HeaderTitle).text = self.title

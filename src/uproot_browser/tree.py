@@ -77,7 +77,7 @@ def _(
 
 
 def get_children(item: SupportsRecursiveKeys) -> set[str]:
-    return {key.split(";")[0] for key in item.keys(recursive=False)}
+    return {key.partition(";")[0] for key in item.keys(recursive=False)}
 
 
 @dataclasses.dataclass

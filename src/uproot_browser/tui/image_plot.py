@@ -14,7 +14,7 @@ import warnings
 from typing import TYPE_CHECKING, Any
 
 from .messages import RequestImage
-from .plot import apply_selection, run_posting_errors
+from .plot import resolve_selection, run_posting_errors
 from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND, as_hex
 
 if TYPE_CHECKING:
@@ -143,7 +143,7 @@ class MPLPlot:
 
             item = self.built.item
             if item is None:
-                *_, item = apply_selection(self.upfile, self.selection.split(":"))
+                item = resolve_selection(self.upfile, self.selection)
                 self.built.item = item
             histogram = self.built.hist
             if histogram is None:
