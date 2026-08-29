@@ -6,7 +6,6 @@ if not __package__:
 import dataclasses
 from typing import TYPE_CHECKING, Any, ClassVar
 
-import plotext as plt
 import rich.syntax
 import textual.app
 import textual.binding
@@ -17,6 +16,7 @@ import textual.widgets
 import textual.worker
 from textual.reactive import var
 
+from ..plotext_compat import add_theme
 from .error import Error
 from .header import Header
 from .help import HelpScreen
@@ -29,10 +29,8 @@ from .tools import Info, Tools
 from .viewer import ViewWidget
 
 # Registered under our own names to avoid overriding plotext's built-in themes
-plt.add_theme(
-    "uproot_light", canvas=LIGHT_BACKGROUND, text=((0, 0, 0), LIGHT_BACKGROUND)
-)
-plt.add_theme("uproot_dark", canvas=DARK_BACKGROUND, text=(DARK_TEXT, DARK_BACKGROUND))
+add_theme("uproot_light", canvas=LIGHT_BACKGROUND, text=((0, 0, 0), LIGHT_BACKGROUND))
+add_theme("uproot_dark", canvas=DARK_BACKGROUND, text=(DARK_TEXT, DARK_BACKGROUND))
 
 if TYPE_CHECKING:
     from collections.abc import Callable

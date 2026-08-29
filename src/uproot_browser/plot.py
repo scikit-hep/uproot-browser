@@ -19,6 +19,7 @@ import uproot.interpretation.objects
 import uproot.models.RNTuple
 
 from uproot_browser.exceptions import EmptyTreeError
+from uproot_browser.plotext_compat import PlotextFigure
 
 
 def make_hist_title(item: Any, histogram: hist.Hist[Any]) -> str:
@@ -79,28 +80,28 @@ def _bin_ticks(axis: Any, count: int = 5) -> tuple[list[int], list[str]]:
     return positions.tolist(), [f"{axis.centers[i]:g}" for i in positions]
 
 
-def _draw_hist_2d(fig: Any, tree: Any, histogram: hist.Hist[Any]) -> None:
+def _draw_hist_2d(fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any]) -> None:
     xaxis, yaxis = histogram.axes
     values = histogram.values().astype(float)
     # heatmap rows draw top-to-bottom; flip so y increases upward
-    fig.draw(fig.heatmap(values.T[::-1].tolist(), map="viridis", fill=True))
-    fig.ruler("x").ticks(*_bin_ticks(xaxis))
-    fig.ruler("y").ticks(*_bin_ticks(yaxis))
-    fig.label(xaxis.name, axis="x")
-    fig.label(yaxis.name, axis="y")
+    fig.heatmap(values.T[::-1].tolist())
+    fig.xticks(*_bin_ticks(xaxis))
+    fig.yticks(*_bin_ticks(yaxis))
+    fig.xlabel(xaxis.name)
+    fig.ylabel(yaxis.name)
     fig.title(make_hist_title(tree, histogram))
 
 
-def _draw_hist_1d(fig: Any, tree: Any, histogram: hist.Hist[Any]) -> None:
+def _draw_hist_1d(fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any]) -> None:
     axis = histogram.axes[0]
-    fig.draw(fig.bar(axis.centers, histogram.values().astype(float)))
-    fig.ruler("y").lim(lower=0)
-    fig.ruler("x").ticks(np.linspace(axis.edges[0], axis.edges[-1], 5))
-    fig.label(axis.name, axis="x")
+    fig.bar(axis.centers, histogram.values().astype(float))
+    fig.ylim(lower=0)
+    fig.xticks(np.linspace(axis.edges[0], axis.edges[-1], 5))
+    fig.xlabel(axis.name)
     fig.title(make_hist_title(tree, histogram))
 
 
-def _draw_hist(fig: Any, tree: Any, histogram: hist.Hist[Any]) -> None:
+def _draw_hist(fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any]) -> None:
     match len(histogram.axes):
         case 1:
             _draw_hist_1d(fig, tree, histogram)
@@ -112,7 +113,7 @@ def _draw_hist(fig: Any, tree: Any, histogram: hist.Hist[Any]) -> None:
 
 
 @functools.singledispatch
-def plot(tree: Any, *, fig: Any, width: int = 100, expr: str = "") -> None:  # noqa: ARG001
+def plot(tree: Any, *, fig: PlotextFigure, width: int = 100, expr: str = "") -> None:  # noqa: ARG001
     """
     Plot ``tree`` into the given plotext figure.
     Implement this for each type of plottable.
@@ -126,7 +127,7 @@ def plot(tree: Any, *, fig: Any, width: int = 100, expr: str = "") -> None:  # n
 def plot_branch(
     tree: uproot.TBranch | uproot.models.RNTuple.RField,
     *,
-    fig: Any,
+    fig: PlotextFigure,
     width: int = 100,
     expr: str = "",
 ) -> None:
@@ -198,7 +199,7 @@ def dump_hist(
 def plot_hist(
     tree: uproot.behaviors.TH1.Histogram,
     *,
-    fig: Any,
+    fig: PlotextFigure,
     width: int = 100,  # noqa: ARG001
     expr: str = "",
 ) -> None:

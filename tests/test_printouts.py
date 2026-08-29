@@ -4,13 +4,13 @@ import functools
 import sys
 
 import hist
-import plotext
 import pytest
 import rich.console
 import uproot
 from skhep_testdata import data_path
 
 import uproot_browser.plot
+import uproot_browser.plotext_compat
 import uproot_browser.tree
 import uproot_browser.tui.plot
 from uproot_browser.tree import print_tree
@@ -188,19 +188,36 @@ def test_dump_is_runnable(filename: str, selection: str, expr: str) -> None:
     assert isinstance(namespace["h"], hist.Hist)
 
 
+@pytest.mark.skipif(
+    not uproot_browser.plotext_compat.PLOTEXT_6, reason="heatmaps require plotext 6"
+)
 def test_plot_2d() -> None:
     """A TH2 renders as a heatmap with both axes labeled (issue #175)."""
     item = uproot.open(data_path("uproot-hepdata-example.root"))["hpxpy"]
 
-    fig = plotext.figure
+    fig = uproot_browser.plotext_compat.make_figure()
     fig.clear()
     fig.plot_size(80, 25)
     uproot_browser.plot.plot(item, fig=fig)
-    out = str(fig.build())
+    out = fig.build()
 
     assert "hpxpy" in out
     assert "xaxis" in out
     assert "yaxis" in out
+
+
+@pytest.mark.skipif(
+    uproot_browser.plotext_compat.PLOTEXT_6, reason="plotext 6 supports heatmaps"
+)
+def test_plot_2d_errors_on_plotext_5() -> None:
+    """On plotext 5, a TH2 gives a clear upgrade message instead of a crash."""
+    item = uproot.open(data_path("uproot-hepdata-example.root"))["hpxpy"]
+
+    fig = uproot_browser.plotext_compat.make_figure()
+    fig.clear()
+    fig.plot_size(80, 25)
+    with pytest.raises(RuntimeError, match="require plotext 6"):
+        uproot_browser.plot.plot(item, fig=fig)
 
 
 def test_plot_3d_errors() -> None:
@@ -209,7 +226,7 @@ def test_plot_3d_errors() -> None:
     # the expr namespace only holds ``h``, so reach hist.Hist through it
     expr = "h.__class__.new.Reg(4, 0, 4).Reg(3, 0, 3).Reg(2, 0, 2).Double()"
 
-    fig = plotext.figure
+    fig = uproot_browser.plotext_compat.make_figure()
     fig.clear()
     fig.plot_size(80, 25)
     with pytest.raises(RuntimeError, match="3 dimensions"):
