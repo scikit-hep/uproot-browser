@@ -150,7 +150,7 @@ def add_theme(
     if PLOTEXT_6:
         plt.add_theme(name, canvas=canvas, text=text)
     else:
-        from plotext import _dict
+        from plotext import _dict  # noqa: PLC0415  # only importable on plotext 5
 
         # [canvas, axes, ticks color, ticks style, color sequence]
         sequence = list(_dict.themes["default"][4])
