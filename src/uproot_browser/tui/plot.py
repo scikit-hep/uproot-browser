@@ -1,5 +1,18 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "contextlib",
+    "functools",
+    "operator",
+    "rich",
+    "rich.text",
+    "uproot_browser.exceptions",
+    "uproot_browser.plot",
+    "uproot_browser.plotext_compat",
+    f"{__spec__.parent}.error",
+    f"{__spec__.parent}.messages",
+}
+
 import contextlib
 import dataclasses
 import functools

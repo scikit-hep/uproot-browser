@@ -4,6 +4,15 @@ Display tools for TTrees.
 
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "pathlib",
+    "rich",
+    "rich.markup",
+    "rich.text",
+    "rich.tree",
+    "uproot.reading",
+}
+
 import dataclasses
 import functools
 from pathlib import Path

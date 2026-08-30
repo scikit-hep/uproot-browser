@@ -1,5 +1,25 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "dataclasses",
+    "rich",
+    "rich.syntax",
+    "textual.containers",
+    "textual.events",
+    "textual.lazy",
+    "textual.widgets",
+    "textual.worker",
+    f"{__spec__.parent}.error",
+    f"{__spec__.parent}.header",
+    f"{__spec__.parent}.help",
+    f"{__spec__.parent}.image_plot",
+    f"{__spec__.parent}.jump",
+    f"{__spec__.parent}.left_panel",
+    f"{__spec__.parent}.plot",
+    f"{__spec__.parent}.tools",
+    f"{__spec__.parent}.viewer",
+}
+
 if not __package__:
     __package__ = "uproot_browser.tui"  # pylint: disable=redefined-builtin
 

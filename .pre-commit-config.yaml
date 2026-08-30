@@ -20,14 +20,14 @@ repos:
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
   # Held at v0.15.15; v0.16 adds new rules that current sources fail.
-  rev: "0671d8ab202c4ac093b78433ae5baf74f3fc7246"  # frozen: v0.15.15
+  rev: "1f1e8bf348ff38fc88619a38d3ca4d9c56abea49"  # frozen: v0.16.5
   hooks:
     - id: ruff-check
       args: ["--fix", "--show-fixes"]
     - id: ruff-format
 
 - repo: https://github.com/pre-commit/mirrors-mypy
-  rev: 41e691678310dfd3833f7ab4e180ddb014310356  # frozen: v2.3.0
+  rev: 7ff8d35ae36a7d2b968f2f90b4c723e292e594ee  # frozen: v2.3.1
   hooks:
   - id: mypy
     files: src
@@ -51,6 +51,13 @@ repos:
   - id: zizmor
     files: "^\\.github"
     args: [--persona=pedantic]
+
+- repo: https://github.com/henryiii/flake8-lazy
+  rev: 3b5e52593dfaec56e6e4a48f237bafcf3d0b83ea  # frozen: v0.9.0
+  hooks:
+  - id: flake8-lazy
+    args: ["--apply=set"]
+    files: '^src'
 
 - repo: local
   hooks:

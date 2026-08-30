@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "importlib",
+    "importlib.resources",
+    "textual.app",
+    "textual.containers",
+    "textual.widgets",
+}
+
 import typing
 from importlib.resources import files
 from typing import ClassVar

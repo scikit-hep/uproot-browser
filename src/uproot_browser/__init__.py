@@ -5,6 +5,8 @@ interface is provided currently.
 
 from __future__ import annotations
 
+__lazy_modules__ = {f"{__spec__.parent}._version"}
+
 from ._version import version as __version__
 
 __all__ = ("__version__",)

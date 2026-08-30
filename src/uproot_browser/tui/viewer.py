@@ -1,5 +1,15 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "textual.app",
+    "textual.containers",
+    "textual.events",
+    "textual.timer",
+    f"{__spec__.parent}.error",
+    f"{__spec__.parent}.logo",
+    f"{__spec__.parent}.plot",
+}
+
 from typing import TYPE_CHECKING, Any
 
 import textual.app

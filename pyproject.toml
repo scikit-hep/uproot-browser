@@ -148,6 +148,7 @@ ignore = [
   "PLR2004", # Magic value used in comparison
   "S",       # Some subset is okay
   "TID252",  # Relative imports are fine
+  "CPY001",  # Copyright notices in every file
 ]
 allowed-confusables = ["×"]
 flake8-annotations.mypy-init-return = true

@@ -1,5 +1,16 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "rich",
+    "rich.text",
+    "textual.app",
+    "textual.containers",
+    "textual.fuzzy",
+    "textual.widgets",
+    "textual.widgets.option_list",
+    "typing",
+}
+
 import dataclasses
 from typing import ClassVar
 

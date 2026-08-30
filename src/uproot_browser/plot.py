@@ -4,6 +4,21 @@ Display tools for making plots via plotext.
 
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "awkward",
+    "hist",
+    "math",
+    "numpy",
+    "operator",
+    "textwrap",
+    "uproot.interpretation",
+    "uproot.interpretation.jagged",
+    "uproot.interpretation.numerical",
+    "uproot.interpretation.objects",
+    "uproot.model",
+    "uproot_browser.exceptions",
+}
+
 import functools
 import math
 import operator

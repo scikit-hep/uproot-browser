@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__lazy_modules__ = {"importlib", "importlib.metadata", "textual.app"}
+
 import importlib.metadata
 from typing import TYPE_CHECKING, cast
 
