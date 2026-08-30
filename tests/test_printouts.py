@@ -246,3 +246,22 @@ def test_plot_3d_errors() -> None:
     fig.plot_size(80, 25)
     with pytest.raises(RuntimeError, match="3 dimensions"):
         uproot_browser.plot.plot(item, fig=fig, expr=expr)
+
+
+@pytest.mark.parametrize(
+    ("selection", "expected"),
+    [
+        ("hstat", True),  # TH1F
+        ("ProcessID0", False),  # TProcessID
+        ("T/event/fNtrack", True),  # numeric
+        ("T/event/fTracks/fTracks.fPx", True),  # jagged numeric
+        ("T/event/fH", True),  # AsObjects(Model_TH1F)
+        ("T/event/fLastTrack", False),  # AsStridedObjects(Model_TRef)
+        ("T/event/fEventName", False),  # strings
+        ("T/event/fTriggerBits", False),  # non-histogram objects
+    ],
+)
+def test_plottable(selection: str, expected: bool) -> None:  # noqa: FBT001
+    """Plottability is decided from the interpretation, without reading data."""
+    with uproot.open(data_path("uproot-Event.root")) as upfile:
+        assert uproot_browser.plot.plottable(upfile[selection]) is expected

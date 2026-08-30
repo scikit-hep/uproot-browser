@@ -15,6 +15,8 @@ import textual.widgets
 import textual.widgets.tree
 import uproot
 
+import uproot_browser.plot
+
 from ..tree import UprootEntry
 from .jump import Candidate
 from .messages import UprootSelected
@@ -54,6 +56,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
                 name=PurePosixPath(entry.path).name,
                 icon=entry.meta()["label_icon"],
                 is_dir=entry.is_dir,
+                plottable=uproot_browser.plot.plottable(entry.item),
             )
             for entry in root.walk()
         ]
@@ -143,6 +146,8 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
 
         label = rich.text.Text.assemble(label_icon, meta["label_text"])
         label.stylize(style)
+        if not node.data.is_dir and not uproot_browser.plot.plottable(node.data.item):
+            label.stylize("dim")
         return label
 
     def on_mount(self) -> None:

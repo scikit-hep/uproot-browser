@@ -15,7 +15,10 @@ import hist
 import numpy as np
 import uproot
 import uproot.behaviors.TH1
+import uproot.interpretation.jagged
+import uproot.interpretation.numerical
 import uproot.interpretation.objects
+import uproot.model
 import uproot.models.RNTuple
 
 from uproot_browser.exceptions import EmptyTreeError
@@ -139,6 +142,48 @@ def plot_branch(
 
 
 plot.register(uproot.models.RNTuple.RField)(plot_branch)  # type: ignore[no-untyped-call]
+
+
+def _model_is_histogram(model: Any) -> bool:
+    if not isinstance(model, type):
+        return False
+    if issubclass(model, uproot.behaviors.TH1.Histogram):
+        return True
+    if issubclass(model, uproot.model.DispatchByVersion):
+        versions: dict[int, type] = getattr(model, "known_versions", {})
+        return any(
+            issubclass(v, uproot.behaviors.TH1.Histogram) for v in versions.values()
+        )
+    return False
+
+
+def _branch_plottable(branch: uproot.TBranch) -> bool:
+    interpretation = branch.interpretation
+    if isinstance(interpretation, uproot.interpretation.jagged.AsJagged):
+        interpretation = interpretation.content
+    match interpretation:
+        case uproot.interpretation.objects.AsObjects(model=model):
+            return _model_is_histogram(model)
+        # AsStridedObjects is a Numerical, but yields records np.isfinite rejects
+        case uproot.interpretation.objects.AsStridedObjects():
+            return False
+        case uproot.interpretation.numerical.Numerical():
+            return True
+        case _:
+            return False
+
+
+def plottable(item: Any) -> bool:
+    """
+    True if :func:`plot` has an implementation for this object that can
+    succeed. Some failures (like an empty branch) are only found by reading
+    the data, so this is a necessary but not sufficient check.
+    """
+    if isinstance(item, uproot.behaviors.TH1.Histogram):
+        return len(item.axes) <= 2
+    if isinstance(item, uproot.TBranch):
+        return _branch_plottable(item)
+    return plot.dispatch(type(item)) is not plot.dispatch(object)
 
 
 @functools.singledispatch

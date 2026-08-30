@@ -21,6 +21,7 @@ class Candidate:
     name: str  # final path segment, what the fuzzy query matches against
     icon: str
     is_dir: bool
+    plottable: bool = True
 
 
 class JumpScreen(textual.screen.ModalScreen[str | None]):
@@ -69,6 +70,8 @@ class JumpScreen(textual.screen.ModalScreen[str | None]):
         text = rich.text.Text(candidate.icon)
         text.append(prefix, style="dim")
         text.append(candidate.name, style="bold")
+        if not candidate.is_dir and not candidate.plottable:
+            text.stylize("dim")
         return text
 
     def on_input_changed(self, event: textual.widgets.Input.Changed) -> None:

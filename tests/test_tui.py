@@ -1,10 +1,12 @@
 from collections.abc import Callable
 
+import rich.style
 import skhep_testdata
 import textual.pilot
 import textual.widgets
 
 from uproot_browser.tui.browser import Browser
+from uproot_browser.tui.error import Error
 from uproot_browser.tui.jump import JumpScreen
 from uproot_browser.tui.left_panel import SCROLLOFF, UprootTree
 from uproot_browser.tui.plot import Plotext
@@ -69,6 +71,28 @@ async def test_browse_empty_vim() -> None:
         await pilot.app.workers.wait_for_complete()  # block on the thread
         await pilot.pause()  # drain the EmptyMessage the worker posted
         assert pilot.app.view_widget.item is None
+
+
+async def test_nonplottable_grayed_but_errors() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        await pilot.press("down")  # ProcessID0: a TProcessID, not plottable
+        node = tree.cursor_node
+        assert node is not None
+        assert node.data is not None
+        assert node.data.path == "//ProcessID0"
+
+        label = tree.render_label(node, rich.style.Style(), rich.style.Style())
+        assert any(span.style == "dim" for span in label.spans)
+
+        # selecting still tries to plot, showing the error in the plot window
+        await pilot.press("enter")
+        await pilot.pause()  # process RequestPlot → spawn the render worker
+        await pilot.app.workers.wait_for_complete()  # block on the thread
+        await pilot.pause()  # drain the ErrorMessage the worker posted
+        assert isinstance(pilot.app.view_widget.item, Error)
 
 
 async def test_theme_switch_updates_plot() -> None:
