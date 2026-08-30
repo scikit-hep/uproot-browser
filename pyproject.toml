@@ -114,6 +114,7 @@ py-version = "3.10"
 jobs = "1"
 reports.output-format = "colorized"
 basic.good-names = ["bar"]  # bar charts, not a placeholder name
+variables.allowed-redefined-builtins = ["map"]  # plotext's heatmap colormap kwarg
 similarities.ignore-imports = "yes"
 messages_control.enable = [
   "useless-suppression",

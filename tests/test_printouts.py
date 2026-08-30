@@ -199,7 +199,7 @@ def test_plot_2d() -> None:
     fig.clear()
     fig.plot_size(80, 25)
     uproot_browser.plot.plot(item, fig=fig)
-    out = fig.build()
+    out = str(fig.build())
 
     assert "hpxpy" in out
     assert "xaxis" in out

@@ -2,8 +2,10 @@
 Compatibility layer supporting both plotext 5.2.8+ (module-level API) and
 plotext 6+ (figure-object API).
 
-The rest of the codebase draws only through the small ``PlotextFigure``
-protocol; ``make_figure`` picks the implementation for the installed plotext.
+The rest of the codebase draws only through the ``PlotextFigure`` protocol,
+which is the subset of the native plotext 6 figure API that uproot-browser
+uses. On plotext 6, ``make_figure`` returns the native figure directly; on
+plotext 5, it returns an adaptor over the module-level functions.
 """
 
 # The plotext 5 branch uses names that don't exist in the installed plotext 6
@@ -12,7 +14,7 @@ protocol; ``make_figure`` picks the implementation for the installed plotext.
 from __future__ import annotations
 
 import importlib.metadata
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 import plotext as plt
 
@@ -26,72 +28,49 @@ def __dir__() -> list[str]:
     return __all__
 
 
+class PlotextRuler(Protocol):
+    """One axis of a figure (the plotext 6 ``ruler`` object)."""
+
+    def ticks(self, positions: Any = None, labels: list[str] | None = None) -> Any: ...
+    def lim(self, lower: float | None = None, upper: float | None = None) -> Any: ...
+
+
 class PlotextFigure(Protocol):
-    """The subset of plotting operations used by uproot-browser."""
+    """The subset of the plotext 6 figure API used by uproot-browser."""
 
-    def clear(self) -> None: ...
-    def theme(self, name: str) -> None: ...
-    def plot_size(self, width: int, height: int) -> None: ...
-    def bar(self, x: Any, y: Any) -> None: ...
-    def heatmap(self, data: list[list[float]]) -> None: ...
-    def ylim(self, lower: float | None = None, upper: float | None = None) -> None: ...
-    def xticks(self, positions: Any, labels: list[str] | None = None) -> None: ...
-    def yticks(self, positions: Any, labels: list[str] | None = None) -> None: ...
-    def xlabel(self, label: str) -> None: ...
-    def ylabel(self, label: str) -> None: ...
-    def title(self, label: str) -> None: ...
-    def build(self) -> str: ...
-    def show(self) -> None: ...
+    def clear(self) -> Any: ...
+    def theme(self, name: str) -> Any: ...
+    def plot_size(self, width: int, height: int) -> Any: ...
+    def bar(self, x: Any, y: Any) -> Any: ...
+    def heatmap(self, data: Any, *, map: str = "gray", fill: bool = False) -> Any: ...  # noqa: A002
+    def ruler(self, axis: str) -> PlotextRuler: ...
+    def label(self, label: str, axis: str) -> Any: ...
+    def title(self, label: str) -> Any: ...
+    def build(self) -> Any: ...
+    def show(self) -> Any: ...
 
 
-class _Figure6:
-    """Wraps the plotext 6 figure-object API."""
+class _Ruler5:
+    """Maps the plotext 6 ruler methods onto the plotext 5 axis functions."""
 
-    def __init__(self) -> None:
-        self._fig = plt.figure
+    def __init__(self, axis: str) -> None:
+        self._axis = axis
 
-    def clear(self) -> None:
-        self._fig.clear()
+    def ticks(self, positions: Any = None, labels: list[str] | None = None) -> None:
+        if self._axis == "x":
+            plt.xticks(positions, labels)
+        else:
+            plt.yticks(positions, labels)
 
-    def theme(self, name: str) -> None:
-        self._fig.theme(name)
-
-    def plot_size(self, width: int, height: int) -> None:
-        self._fig.plot_size(width, height)
-
-    def bar(self, x: Any, y: Any) -> None:
-        self._fig.draw(self._fig.bar(x, y))
-
-    def heatmap(self, data: list[list[float]]) -> None:
-        self._fig.draw(self._fig.heatmap(data, map="viridis", fill=True))
-
-    def ylim(self, lower: float | None = None, upper: float | None = None) -> None:
-        self._fig.ruler("y").lim(lower=lower, upper=upper)
-
-    def xticks(self, positions: Any, labels: list[str] | None = None) -> None:
-        self._fig.ruler("x").ticks(positions, labels)
-
-    def yticks(self, positions: Any, labels: list[str] | None = None) -> None:
-        self._fig.ruler("y").ticks(positions, labels)
-
-    def xlabel(self, label: str) -> None:
-        self._fig.label(label, axis="x")
-
-    def ylabel(self, label: str) -> None:
-        self._fig.label(label, axis="y")
-
-    def title(self, label: str) -> None:
-        self._fig.title(label)
-
-    def build(self) -> str:
-        return str(self._fig.build())
-
-    def show(self) -> None:
-        self._fig.show()
+    def lim(self, lower: float | None = None, upper: float | None = None) -> None:
+        if self._axis == "x":
+            plt.xlim(lower, upper)
+        else:
+            plt.ylim(lower, upper)
 
 
 class _Figure5:
-    """Wraps the plotext 5 module-level API."""
+    """Presents the plotext 5 module-level API with the figure-object shape."""
 
     def clear(self) -> None:
         plt.clf()
@@ -105,25 +84,19 @@ class _Figure5:
     def bar(self, x: Any, y: Any) -> None:
         plt.bar(x, y)
 
-    def heatmap(self, data: list[list[float]]) -> None:  # noqa: ARG002
+    def heatmap(self, data: Any, *, map: str = "gray", fill: bool = False) -> None:  # noqa: A002, ARG002
         version = importlib.metadata.version("plotext")
         msg = f"2D histograms require plotext 6 or newer (you have plotext {version})"
         raise RuntimeError(msg)
 
-    def ylim(self, lower: float | None = None, upper: float | None = None) -> None:
-        plt.ylim(lower, upper)
+    def ruler(self, axis: str) -> PlotextRuler:
+        return _Ruler5(axis)
 
-    def xticks(self, positions: Any, labels: list[str] | None = None) -> None:
-        plt.xticks(positions, labels)
-
-    def yticks(self, positions: Any, labels: list[str] | None = None) -> None:
-        plt.yticks(positions, labels)
-
-    def xlabel(self, label: str) -> None:
-        plt.xlabel(label)
-
-    def ylabel(self, label: str) -> None:
-        plt.ylabel(label)
+    def label(self, label: str, axis: str) -> None:
+        if axis == "x":
+            plt.xlabel(label)
+        else:
+            plt.ylabel(label)
 
     def title(self, label: str) -> None:
         plt.title(label)
@@ -137,7 +110,9 @@ class _Figure5:
 
 def make_figure() -> PlotextFigure:
     """The figure for the installed plotext version (a shared global in both)."""
-    return _Figure6() if PLOTEXT_6 else _Figure5()
+    if PLOTEXT_6:
+        return cast("PlotextFigure", plt.figure)
+    return _Figure5()
 
 
 def add_theme(

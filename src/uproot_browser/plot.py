@@ -84,20 +84,20 @@ def _draw_hist_2d(fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any]) -> N
     xaxis, yaxis = histogram.axes
     values = histogram.values().astype(float)
     # heatmap rows draw top-to-bottom; flip so y increases upward
-    fig.heatmap(values.T[::-1].tolist())
-    fig.xticks(*_bin_ticks(xaxis))
-    fig.yticks(*_bin_ticks(yaxis))
-    fig.xlabel(xaxis.name)
-    fig.ylabel(yaxis.name)
+    fig.heatmap(values.T[::-1].tolist(), map="viridis", fill=True)
+    fig.ruler("x").ticks(*_bin_ticks(xaxis))
+    fig.ruler("y").ticks(*_bin_ticks(yaxis))
+    fig.label(xaxis.name, axis="x")
+    fig.label(yaxis.name, axis="y")
     fig.title(make_hist_title(tree, histogram))
 
 
 def _draw_hist_1d(fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any]) -> None:
     axis = histogram.axes[0]
     fig.bar(axis.centers, histogram.values().astype(float))
-    fig.ylim(lower=0)
-    fig.xticks(np.linspace(axis.edges[0], axis.edges[-1], 5))
-    fig.xlabel(axis.name)
+    fig.ruler("y").lim(lower=0)
+    fig.ruler("x").ticks(np.linspace(axis.edges[0], axis.edges[-1], 5))
+    fig.label(axis.name, axis="x")
     fig.title(make_hist_title(tree, histogram))
 
 
