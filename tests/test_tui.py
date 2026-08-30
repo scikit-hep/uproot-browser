@@ -5,6 +5,7 @@ import textual.pilot
 import textual.widgets
 
 from uproot_browser.tui.browser import Browser
+from uproot_browser.tui.error import Error
 from uproot_browser.tui.jump import JumpScreen
 from uproot_browser.tui.left_panel import SCROLLOFF, UprootTree
 from uproot_browser.tui.plot import Plotext
@@ -266,3 +267,19 @@ async def test_help_focus() -> None:
         focus_chain = [widget.id for widget in pilot.app.screen.focus_chain]
         assert len(focus_chain) == 3
         assert focus_chain[-1] == "help-done"
+
+
+async def test_dump_error_shows_branch() -> None:
+    """Dump & Quit names the branch that produced the traceback."""
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        await pilot.press("down", "enter")  # ProcessID0 is not plottable
+        await pilot.pause()
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()  # drain the ErrorMessage the worker posted
+        item = pilot.app.view_widget.item
+        assert isinstance(item, Error)
+        msg, items = pilot.app.dump_source()
+        assert items == [item]
+        assert 'item = uproot_file["ProcessID0"]' in msg
