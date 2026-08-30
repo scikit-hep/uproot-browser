@@ -202,6 +202,20 @@ def test_plot_1d_draws_bars() -> None:
     assert "█" in out
 
 
+def test_plot_narrow_range_branch() -> None:
+    """A branch whose range is tiny next to its magnitude still plots (float32 rescale)."""
+    item = uproot.open(data_path("uproot-Event.root"))["T/event/TObject/fBits"]
+
+    fig = uproot_browser.plotext_compat.make_figure()
+    fig.clear()
+    fig.plot_size(80, 25)
+    uproot_browser.plot.plot(item, fig=fig, width=50)
+    out = str(fig.build())
+
+    assert "fBits" in out
+    assert "\u2588" in out
+
+
 @pytest.mark.skipif(
     not uproot_browser.plotext_compat.PLOTEXT_6, reason="heatmaps require plotext 6"
 )
