@@ -48,6 +48,16 @@ def test_remote_url_not_checked_locally() -> None:
     assert get_testdata(url, testdata=False) == url
 
 
+def test_plot_text() -> None:
+    """The default text plot writes bars through Python stdout (not the plotext
+    kernel's wcout, which truncates and is invisible to CliRunner)."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["plot", "--testdata", "uproot-Event.root:hstat"])
+    assert result.exit_code == 0
+    assert "hstat" in result.output
+    assert "█" in result.output
+
+
 def test_plot_image() -> None:
     pytest.importorskip("textual_image")
     pytest.importorskip("matplotlib")

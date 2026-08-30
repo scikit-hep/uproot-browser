@@ -36,18 +36,24 @@ class PlotextRuler(Protocol):
 
 
 class PlotextFigure(Protocol):
-    """The subset of the plotext 6 figure API used by uproot-browser."""
+    """The subset of the plotext 6 figure API used by uproot-browser.
+
+    Following plotext 6 semantics, ``bar`` and ``heatmap`` only build a signal,
+    which must be passed to ``draw`` to render. There is no ``show``: print
+    ``str(build())`` instead (the plotext 6 kernel prints through ``wcout``,
+    which silently truncates at the first non-ASCII glyph in a "C" locale).
+    """
 
     def clear(self) -> Any: ...
     def theme(self, name: str) -> Any: ...
     def plot_size(self, width: int, height: int) -> Any: ...
+    def draw(self, signal: Any) -> Any: ...
     def bar(self, x: Any, y: Any) -> Any: ...
     def heatmap(self, data: Any, *, map: str = "gray", fill: bool = False) -> Any: ...  # noqa: A002
     def ruler(self, axis: str) -> PlotextRuler: ...
     def label(self, label: str, axis: str) -> Any: ...
     def title(self, label: str) -> Any: ...
     def build(self) -> Any: ...
-    def show(self) -> Any: ...
 
 
 class _Ruler5:
@@ -81,6 +87,9 @@ class _Figure5:
     def plot_size(self, width: int, height: int) -> None:
         plt.plotsize(width, height)
 
+    def draw(self, signal: Any) -> None:
+        """No-op: the plotext 5 module-level calls draw immediately."""
+
     def bar(self, x: Any, y: Any) -> None:
         plt.bar(x, y)
 
@@ -103,9 +112,6 @@ class _Figure5:
 
     def build(self) -> str:
         return str(plt.build())
-
-    def show(self) -> None:
-        plt.show()
 
 
 def make_figure() -> PlotextFigure:
