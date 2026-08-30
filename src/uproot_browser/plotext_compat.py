@@ -121,18 +121,30 @@ def make_figure() -> PlotextFigure:
     return _Figure5()
 
 
+# The start of plotext's default palette (bright blue, green, red, cyan,
+# magenta, yellow); plotext 6 completes a partial sequence with the rest.
+DEFAULT_SEQUENCE = [12, 10, 9, 14, 13, 11]
+
+
 def add_theme(
     name: str,
     *,
     canvas: tuple[int, int, int],
     text: tuple[tuple[int, int, int], tuple[int, int, int]],
+    sequence: list[int] | None = None,
 ) -> None:
-    """Register a plotext theme with a canvas color and (fg, bg) text colors."""
+    """Register a plotext theme with a canvas color and (fg, bg) text colors.
+
+    ``sequence`` gives the signal colors as 256-color codes; without it,
+    plotext 6 would make the theme's signals colorless, so default to the
+    standard palette (which plotext 5 themes keep on their own).
+    """
+    if sequence is None:
+        sequence = DEFAULT_SEQUENCE
     if PLOTEXT_6:
-        plt.add_theme(name, canvas=canvas, text=text)
+        plt.add_theme(name, canvas=canvas, text=text, sequence=sequence)
     else:
         from plotext import _dict  # noqa: PLC0415  # only importable on plotext 5
 
         # [canvas, axes, ticks color, ticks style, color sequence]
-        sequence = list(_dict.themes["default"][4])
-        _dict.themes[name] = [canvas, canvas, text[0], "default", sequence]
+        _dict.themes[name] = [canvas, canvas, text[0], "default", list(sequence)]

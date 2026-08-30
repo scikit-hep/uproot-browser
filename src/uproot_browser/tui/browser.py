@@ -28,8 +28,14 @@ from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND
 from .tools import Info, Tools
 from .viewer import ViewWidget
 
-# Registered under our own names to avoid overriding plotext's built-in themes
-add_theme("uproot_light", canvas=LIGHT_BACKGROUND, text=((0, 0, 0), LIGHT_BACKGROUND))
+# Registered under our own names to avoid overriding plotext's built-in themes.
+# The light theme uses the dark color variants, which read better on white.
+add_theme(
+    "uproot_light",
+    canvas=LIGHT_BACKGROUND,
+    text=((0, 0, 0), LIGHT_BACKGROUND),
+    sequence=[4, 2, 1, 6, 5, 3],
+)
 add_theme("uproot_dark", canvas=DARK_BACKGROUND, text=(DARK_TEXT, DARK_BACKGROUND))
 
 if TYPE_CHECKING:
