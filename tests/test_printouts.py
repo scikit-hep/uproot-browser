@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import re
 import sys
 
 import hist
@@ -233,6 +234,29 @@ def test_plot_2d_errors_on_plotext_5() -> None:
     fig.plot_size(80, 25)
     with pytest.raises(RuntimeError, match="require plotext 6"):
         uproot_browser.plot.plot(item, fig=fig)
+
+
+def test_custom_theme_keeps_signal_colors() -> None:
+    """Signals on a custom theme keep their palette colors.
+
+    plotext 6's ``add_theme`` without a ``sequence`` makes every signal
+    colorless, so they all render in the theme's text color.
+    """
+    item = uproot.open(data_path("uproot-Event.root"))["hstat"]
+
+    uproot_browser.plotext_compat.add_theme(
+        "test_signal_colors", canvas=(20, 20, 20), text=((255, 166, 43), (20, 20, 20))
+    )
+    fig = uproot_browser.plotext_compat.make_figure()
+    fig.clear()
+    fig.theme("test_signal_colors")
+    fig.plot_size(80, 25)
+    uproot_browser.plot.plot(item, fig=fig)
+    out = str(fig.build())
+
+    foregrounds = set(re.findall(r"38;(?:5;\d+|2;\d+;\d+;\d+)", out))
+    # the signal color plus the text color
+    assert len(foregrounds) >= 2
 
 
 def test_plot_3d_errors() -> None:
