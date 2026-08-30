@@ -85,7 +85,9 @@ def branch_hist(
 to_histogram.register(uproot.models.RNTuple.RField)(branch_hist)  # type: ignore[no-untyped-call]
 
 
-@to_histogram.register
+# Explicit type: inferring it evaluates the hist.Hist[Any] annotation at
+# runtime, which the minimum hist version cannot subscript.
+@to_histogram.register(uproot.behaviors.TH1.Histogram)
 def _hist_to_histogram(
     tree: uproot.behaviors.TH1.Histogram,
     *,
