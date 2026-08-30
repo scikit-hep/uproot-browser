@@ -95,11 +95,25 @@ def _draw_hist_2d(fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any]) -> N
     fig.title(make_hist_title(tree, histogram))
 
 
+def _collapses_in_float32(lower: float, upper: float) -> bool:
+    """Is the range too narrow to survive plotext's internal float32 rescale?"""
+    with np.errstate(over="ignore"):
+        low32, high32 = np.float32(lower), np.float32(upper)
+    return bool(low32 == high32 or not np.isfinite(low32) or not np.isfinite(high32))
+
+
 def _draw_hist_1d(fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any]) -> None:
     axis = histogram.axes[0]
-    fig.draw(fig.bar(axis.centers, histogram.values().astype(float)))
+    values = histogram.values().astype(float)
+    if _collapses_in_float32(axis.edges[0], axis.edges[-1]):
+        # Positions rescale to NaN in float32; draw against bin indices instead
+        # and put the real values in the tick labels.
+        fig.draw(fig.bar(np.arange(len(axis)).tolist(), values))
+        fig.ruler("x").ticks(*_bin_ticks(axis))
+    else:
+        fig.draw(fig.bar(axis.centers, values))
+        fig.ruler("x").ticks(np.linspace(axis.edges[0], axis.edges[-1], 5))
     fig.ruler("y").lim(lower=0)
-    fig.ruler("x").ticks(np.linspace(axis.edges[0], axis.edges[-1], 5))
     fig.label(axis.name, axis="x")
     fig.title(make_hist_title(tree, histogram))
 
