@@ -15,7 +15,7 @@ uproot-browser is a [plotext](https://github.com/piccolomo/plotext) based comman
 
 ## Installation
 
-You can install this library from [PyPI](https://pypi.org/project/uproot-browser/) with `pip`:
+You can install this library from [PyPI](https://pypi.org/project/uproot-browser/) with `pip` or `uv`:
 
 ```bash
 python3 -m pip install uproot-browser
@@ -71,8 +71,9 @@ uproot-browser plot --testdata uproot-Event.root:hstat
                                [x] xaxis
 ```
 
-<details>
-<summary>If your terminal supports images (Sixel or TGP, such as iTerm2), click here:</summary><br>
+## Image support
+
+If your terminal supports images (Sixel or TGP, such as iTerm2), you can use `--image` mode.
 
 You can get an image plot, the required dependencies can be installed via:
 
@@ -80,10 +81,10 @@ You can get an image plot, the required dependencies can be installed via:
 python3 -m pip install uproot-browser[image]
 ```
 
-Or can be run via `pipx` without installing:
+Or can be run via `pipx` or `uvx` without installing:
 
 ```bash
-pipx run uproot-browser[image]
+uvx uproot-browser[image] ...
 ```
 
 Adding the argument `--image` gives us the plot:
@@ -95,9 +96,7 @@ uproot-browser plot --testdata uproot-Event.root:hstat --image
 Use `--save myplot.png` to save the plot to a file instead (transparent
 background where the format supports it).
 
-<img alt="image example" width="600px" src="https://raw.githubusercontent.com/scikit-hep/uproot-browser/main/docs/_images/iterm.png"/>
-
-</details><br>
+<img alt="image example" width="600px" src="https://raw.githubusercontent.com/scikit-hep/uproot-browser/main/docs/_images/image.png"/>
 
 **`tree` command:**
 
