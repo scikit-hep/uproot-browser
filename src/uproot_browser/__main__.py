@@ -4,6 +4,8 @@ This is the click-powered CLI.
 
 from __future__ import annotations
 
+__lazy_modules__ = {"difflib", "pathlib", "shutil", "uproot"}
+
 import difflib
 import os
 import shutil

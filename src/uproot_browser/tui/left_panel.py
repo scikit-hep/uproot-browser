@@ -1,5 +1,22 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "contextlib",
+    "pathlib",
+    "rich",
+    "rich.panel",
+    "rich.text",
+    "textual.css",
+    "textual.css.query",
+    "textual.events",
+    "textual.widget",
+    "textual.widgets.tree",
+    "uproot",
+    "uproot_browser.plot",
+    f"{__spec__.parent}.jump",
+    f"{__spec__.parent}.messages",
+}
+
 import contextlib
 import functools
 from pathlib import Path, PurePosixPath

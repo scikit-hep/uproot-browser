@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__lazy_modules__ = {"rich", "rich.text", "textual.app"}
+
 import typing
 from typing import Any
 

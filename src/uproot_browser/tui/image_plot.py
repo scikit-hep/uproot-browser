@@ -8,6 +8,13 @@ when the [image] extra is not installed.
 
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "warnings",
+    f"{__spec__.parent}.messages",
+    f"{__spec__.parent}.plot",
+    f"{__spec__.parent}.theme",
+}
+
 import dataclasses
 import warnings
 from typing import TYPE_CHECKING, Any

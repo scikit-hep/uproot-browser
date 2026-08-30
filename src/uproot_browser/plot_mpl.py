@@ -4,6 +4,16 @@ Display tools for making plots via matplotlib.
 
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "PIL",
+    "PIL.Image",
+    "io",
+    "matplotlib",
+    "matplotlib.pyplot",
+    "uproot_browser.plot",
+    "warnings",
+}
+
 import io
 import warnings
 from typing import TYPE_CHECKING, Any
