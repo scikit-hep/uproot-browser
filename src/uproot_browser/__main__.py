@@ -146,11 +146,10 @@ def plot(
         console = rich.console.Console()
         console.print(textual_image.renderable.Image(pil_image, width, height))
     else:
-        import plotext
-
         import uproot_browser.plot
+        import uproot_browser.plotext_compat
 
-        fig = plotext.figure
+        fig = uproot_browser.plotext_compat.make_figure()
         fig.clear()
         uproot_browser.plot.plot(item, fig=fig)
         fig.show()

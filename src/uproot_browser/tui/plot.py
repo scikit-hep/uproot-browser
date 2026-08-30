@@ -6,10 +6,10 @@ import functools
 import operator
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
-import plotext as plt  # plots in text
 import rich.text
 
 import uproot_browser.plot
+import uproot_browser.plotext_compat
 from uproot_browser.exceptions import EmptyTreeError
 
 from .error import Error
@@ -74,7 +74,7 @@ def resolve_selection(tree: Any, selection: str) -> Any:
 
 
 def make_plot(item: Any, theme: str, *size: int, expr: str) -> Any:
-    fig = plt.figure
+    fig = uproot_browser.plotext_compat.make_figure()
     fig.clear()
     fig.theme(theme)
     fig.plot_size(*size)
