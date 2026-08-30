@@ -8,7 +8,7 @@ import functools
 import math
 import operator
 import textwrap
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import awkward as ak
 import hist
@@ -22,7 +22,9 @@ import uproot.model
 import uproot.models.RNTuple
 
 from uproot_browser.exceptions import EmptyTreeError
-from uproot_browser.plotext_compat import PlotextFigure
+
+if TYPE_CHECKING:
+    from uproot_browser.plotext_compat import PlotextFigure
 
 
 def make_hist_title(item: Any, histogram: hist.Hist[Any]) -> str:
@@ -35,8 +37,20 @@ def make_hist_title(item: Any, histogram: hist.Hist[Any]) -> str:
     return f"{item.name} -- Entries: {inner_sum:g} ({full_sum:g} with flow)"
 
 
+@functools.singledispatch
+def to_histogram(tree: Any, *, bins: int = 50) -> hist.Hist[Any]:  # noqa: ARG001
+    """
+    Build the histogram that :func:`plot` draws for this object.
+    Implement this for each type of plottable.
+    """
+    msg = f"This object ({type(tree)}) is not plottable yet"
+    raise RuntimeError(msg)
+
+
+# Simpler in Python 3.11+
+@to_histogram.register(uproot.TBranch)
 def branch_hist(
-    tree: uproot.TBranch | uproot.models.RNTuple.RField, *, bins: int
+    tree: uproot.TBranch | uproot.models.RNTuple.RField, *, bins: int = 50
 ) -> hist.Hist[Any]:
     """
     Build a histogram from a branch/field. Branches holding TH1 objects are
@@ -66,6 +80,18 @@ def branch_hist(
         finite, bins=bins, histogram=hist.Hist
     )
     return filled
+
+
+to_histogram.register(uproot.models.RNTuple.RField)(branch_hist)  # type: ignore[no-untyped-call]
+
+
+@to_histogram.register
+def _hist_to_histogram(
+    tree: uproot.behaviors.TH1.Histogram,
+    *,
+    bins: int = 50,  # noqa: ARG001
+) -> hist.Hist[Any]:
+    return hist.Hist(tree.to_hist())
 
 
 def apply_expr(histogram: hist.Hist[Any], expr: str) -> hist.Hist[Any]:
@@ -129,33 +155,13 @@ def _draw_hist(fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any]) -> None
             raise RuntimeError(msg)
 
 
-@functools.singledispatch
-def plot(tree: Any, *, fig: PlotextFigure, width: int = 100, expr: str = "") -> None:  # noqa: ARG001
+def plot(tree: Any, *, fig: PlotextFigure, width: int = 100, expr: str = "") -> None:
     """
     Plot ``tree`` into the given plotext figure.
-    Implement this for each type of plottable.
+    Support new types by registering a :func:`to_histogram` overload.
     """
-    msg = f"This object ({type(tree)}) is not plottable yet"
-    raise RuntimeError(msg)
-
-
-# Simpler in Python 3.11+
-@plot.register(uproot.TBranch)
-def plot_branch(
-    tree: uproot.TBranch | uproot.models.RNTuple.RField,
-    *,
-    fig: PlotextFigure,
-    width: int = 100,
-    expr: str = "",
-) -> None:
-    """
-    Plot a single tree branch.
-    """
-    histogram = branch_hist(tree, bins=width)
+    histogram = to_histogram(tree, bins=width)
     _draw_hist(fig, tree, apply_expr(histogram, expr))
-
-
-plot.register(uproot.models.RNTuple.RField)(plot_branch)  # type: ignore[no-untyped-call]
 
 
 def _model_is_histogram(model: Any) -> bool:
@@ -197,7 +203,7 @@ def plottable(item: Any) -> bool:
         return len(item.axes) <= 2
     if isinstance(item, uproot.TBranch):
         return _branch_plottable(item)
-    return plot.dispatch(type(item)) is not plot.dispatch(object)
+    return to_histogram.dispatch(type(item)) is not to_histogram.dispatch(object)
 
 
 @functools.singledispatch
@@ -252,17 +258,3 @@ def dump_hist(
     Source for rebuilding a 1-D histogram.
     """
     return "import hist\nh = hist.Hist(item.to_hist())"
-
-
-@plot.register
-def plot_hist(
-    tree: uproot.behaviors.TH1.Histogram,
-    *,
-    fig: PlotextFigure,
-    width: int = 100,  # noqa: ARG001
-    expr: str = "",
-) -> None:
-    """
-    Plot a 1-D Histogram.
-    """
-    _draw_hist(fig, tree, apply_expr(hist.Hist(tree.to_hist()), expr))

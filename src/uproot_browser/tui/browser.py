@@ -39,8 +39,6 @@ add_theme(
 add_theme("uproot_dark", canvas=DARK_BACKGROUND, text=(DARK_TEXT, DARK_BACKGROUND))
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from .messages import ErrorMessage, RequestPlot, UprootSelected
 
 
@@ -67,10 +65,6 @@ class Browser(textual.app.App[None]):
         self.path = path
         self.image = image
         self._image_rendered: tuple[Any, ...] | None = None
-        # One factory per rendering mode; a new mode only needs a new one here.
-        self._make_item: Callable[[Any, str], PlotItem] = (
-            self._make_image_item if image else self._make_text_item
-        )
         super().__init__(**kwargs)
 
         self.view_widget = ViewWidget(id="plot-view", image=image)
@@ -161,23 +155,22 @@ class Browser(textual.app.App[None]):
             # cached rendering is invalidated.
             self.view_widget.item = item.with_theme(dark=self.current_theme.dark)
 
-    def _make_text_item(self, upfile: Any, path: str) -> Plotext:
-        return Plotext(upfile, path, dark=self.current_theme.dark, app=self)
-
-    def _make_image_item(self, upfile: Any, path: str) -> MPLPlot:
-        return MPLPlot(
-            upfile,
-            path,
-            dark=self.current_theme.dark,
-            app=self,
-            scale=self.image_scale,
-        )
-
     def on_uproot_selected(self, message: UprootSelected) -> None:
         """A message sent by the tree when a file is clicked."""
 
         self.view_widget.plot_input.value = ""
-        self.view_widget.item = self._make_item(message.upfile, message.path)
+        dark = self.current_theme.dark
+        self.view_widget.item = (
+            MPLPlot(
+                message.upfile,
+                message.path,
+                dark=dark,
+                app=self,
+                scale=self.image_scale,
+            )
+            if self.image
+            else Plotext(message.upfile, message.path, dark=dark, app=self)
+        )
 
     def on_empty_message(self) -> None:
         self.view_widget.item = None

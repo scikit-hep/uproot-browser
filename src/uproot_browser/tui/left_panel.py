@@ -65,12 +65,13 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         """Navigate to (and reveal) the node at ``target``, plotting leaves."""
         node = self.root
         self.load_directory(node)
-        while node.data is not None and node.data.path != target:
+        assert node.data
+        while node.data.path != target:
             child = next(
                 (
                     c
                     for c in node.children
-                    if c.data is not None
+                    if c.data
                     and (c.data.path == target or target.startswith(c.data.path + "/"))
                 ),
                 None,
@@ -78,11 +79,13 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
             if child is None:
                 return
             self.load_directory(child)
-            if child.data is not None and child.data.path != target:
-                child.expand()
             node = child
+            assert node.data
+            if node.data.path != target:
+                node.expand()
 
         target_node = node
+        assert target_node.data
 
         def reveal() -> None:
             self.move_cursor(target_node)
@@ -90,11 +93,10 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
 
         self.call_after_refresh(reveal)
 
-        if target_node.data is not None:
-            if target_node.data.is_dir:
-                target_node.expand()
-            else:
-                self.post_message(UprootSelected(self.upfile, target_node.data.path))
+        if target_node.data.is_dir:
+            target_node.expand()
+        else:
+            self.post_message(UprootSelected(self.upfile, target_node.data.path))
 
     def scroll_to_line(self, line: int, animate: bool = True) -> None:  # noqa: FBT001, FBT002
         """Scroll to a line, keeping ``SCROLLOFF`` lines visible on both sides."""

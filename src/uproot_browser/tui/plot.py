@@ -83,7 +83,8 @@ def resolve_selection(tree: Any, selection: str) -> Any:
     return functools.reduce(operator.getitem, selection.split(":"), tree)
 
 
-def make_plot(item: Any, theme: str, *size: int, expr: str) -> Any:
+def render_canvas(item: Any, theme: str, *size: int, expr: str) -> str:
+    """Build the plotext canvas string for an item."""
     fig = uproot_browser.plotext_compat.make_figure()
     fig.clear()
     fig.theme(theme)
@@ -148,7 +149,7 @@ class Plotext:
 
         def build() -> Plotext:
             item = resolve_selection(self.upfile, self.selection)
-            canvas = make_plot(item, self.theme, *size, expr=self.expr)
+            canvas = render_canvas(item, self.theme, *size, expr=self.expr)
             return dataclasses.replace(self, previous=rich.text.Text.from_ansi(canvas))
 
         return run_posting_errors(self.app, build, self.selection)

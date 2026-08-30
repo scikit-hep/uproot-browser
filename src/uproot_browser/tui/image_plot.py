@@ -122,7 +122,6 @@ class MPLPlot:
     def make_image(self) -> PIL.Image.Image | None:
         def build() -> PIL.Image.Image:
             import uproot_browser.plot
-            import uproot_browser.plot_mpl
 
             item = self.built.item
             if item is None:
@@ -132,7 +131,7 @@ class MPLPlot:
             if histogram is None:
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
-                    histogram = uproot_browser.plot_mpl.build_hist(item)
+                    histogram = uproot_browser.plot.to_histogram(item)
                 self.built.hist = histogram
             if self.expr:
                 # copy so an in-place expr cannot corrupt the cache
