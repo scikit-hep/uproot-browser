@@ -13,7 +13,7 @@ import warnings
 from typing import TYPE_CHECKING, Any
 
 from .messages import RequestImage
-from .plot import resolve_selection, run_posting_errors
+from .plot import resolve_selection, run_posting_errors, selection_source
 from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND, as_hex
 
 if TYPE_CHECKING:
@@ -109,7 +109,7 @@ class MPLPlot:
         return dataclasses.replace(self, expr=expr)
 
     def dump_source(self) -> str:
-        msg = f'\nitem = uproot_file["{self.selection.lstrip("/")}"]'
+        msg = selection_source(self.selection)
         expr_arg = f", expr={self.expr!r}" if self.expr else ""
         return (
             msg
@@ -145,4 +145,4 @@ class MPLPlot:
                 scale=self.scale,
             )
 
-        return run_posting_errors(self.app, build)
+        return run_posting_errors(self.app, build, self.selection)

@@ -23,7 +23,7 @@ from .help import HelpScreen
 from .image_plot import MPLPlot
 from .jump import JumpScreen
 from .left_panel import UprootTree
-from .plot import Plotext, PlotItem
+from .plot import Plotext, PlotItem, selection_source
 from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND
 from .tools import Info, Tools
 from .viewer import ViewWidget
@@ -122,8 +122,8 @@ class Browser(textual.app.App[None]):
         """Called in response to key binding."""
         self.show_tree = not self.show_tree
 
-    def action_quit_with_dump(self) -> None:
-        """Dump the current state of the application."""
+    def dump_source(self) -> tuple[str, list[Any]]:
+        """The Dump & Quit source, and the renderables to show above it."""
 
         msg = f'\nimport uproot\nuproot_file = uproot.open("{self.path}")'
 
@@ -131,9 +131,19 @@ class Browser(textual.app.App[None]):
         items: list[Any] = []
         if isinstance(item, Error):
             items = [item]
+            if item.selection:
+                # Show which branch produced the traceback
+                msg += selection_source(item.selection)
         elif isinstance(item, PlotItem):
             msg += item.dump_source()
             items = list(item.dump_renderables())
+
+        return msg, items
+
+    def action_quit_with_dump(self) -> None:
+        """Dump the current state of the application."""
+
+        msg, items = self.dump_source()
 
         theme = "ansi_dark" if self.current_theme.dark else "ansi_light"
 

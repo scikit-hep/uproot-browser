@@ -54,16 +54,26 @@ class PlotItem(Protocol):
         """Renderables to print above the source on Dump & Quit."""
 
 
-def run_posting_errors(app: Browser, fn: Callable[[], T]) -> T | None:
-    """Run ``fn``, posting an Empty/Error message to the app on failure."""
+def run_posting_errors(
+    app: Browser, fn: Callable[[], T], selection: str = ""
+) -> T | None:
+    """Run ``fn``, posting an Empty/Error message to the app on failure.
+
+    ``selection`` travels with the error so Dump & Quit can show the branch.
+    """
     try:
         return fn()
     except EmptyTreeError:
         app.post_message(EmptyMessage())
         return None
     except Exception as err:  # noqa: BLE001
-        app.post_message(ErrorMessage(Error(err)))
+        app.post_message(ErrorMessage(Error(err, selection)))
         return None
+
+
+def selection_source(selection: str) -> str:
+    """The ``item = ...`` line naming the selected branch."""
+    return f'\nitem = uproot_file["{selection.lstrip("/")}"]'
 
 
 def resolve_selection(tree: Any, selection: str) -> Any:
@@ -122,7 +132,7 @@ class Plotext:
         return dataclasses.replace(self, expr=expr)
 
     def dump_source(self) -> str:
-        msg = f'\nitem = uproot_file["{self.selection.lstrip("/")}"]'
+        msg = selection_source(self.selection)
         selected = resolve_selection(self.upfile, self.selection)
         size = self.size or ()
         with contextlib.suppress(RuntimeError):
@@ -141,7 +151,7 @@ class Plotext:
             canvas = make_plot(item, self.theme, *size, expr=self.expr)
             return dataclasses.replace(self, previous=rich.text.Text.from_ansi(canvas))
 
-        return run_posting_errors(self.app, build)
+        return run_posting_errors(self.app, build, self.selection)
 
     def __rich_console__(
         self, console: rich.console.Console, options: rich.console.ConsoleOptions

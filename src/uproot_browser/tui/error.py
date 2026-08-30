@@ -9,6 +9,7 @@ import rich.traceback
 @dataclasses.dataclass
 class Error:
     exc: BaseException
+    selection: str = ""
 
     def __rich_console__(
         self, console: rich.console.Console, options: rich.console.ConsoleOptions
