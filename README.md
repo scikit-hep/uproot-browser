@@ -90,11 +90,15 @@ uvx uproot-browser[image] ...
 Adding the argument `--image` gives us the plot:
 
 ```bash
-uproot-browser plot --testdata uproot-Event.root:hstat --image
+uproot-browser plot --testdata uproot-Event.root:T/fTracks.fPz --image
 ```
 
-Use `--save myplot.png` to save the plot to a file instead (transparent
-background where the format supports it).
+Use `--save` to write the plot to a file instead (any matplotlib format,
+with a transparent background where the format supports it):
+
+```bash
+uproot-browser plot --testdata uproot-Event.root:T/fTracks.fPz --save myplot.png
+```
 
 <img alt="image example" width="600px" src="https://raw.githubusercontent.com/scikit-hep/uproot-browser/main/docs/_images/image.png"/>
 
