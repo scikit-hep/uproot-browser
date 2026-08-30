@@ -188,6 +188,20 @@ def test_dump_is_runnable(filename: str, selection: str, expr: str) -> None:
     assert isinstance(namespace["h"], hist.Hist)
 
 
+def test_plot_1d_draws_bars() -> None:
+    """A TH1 renders actual bars, not an empty frame (plotext 6 regression)."""
+    item = uproot.open(data_path("uproot-Event.root"))["hstat"]
+
+    fig = uproot_browser.plotext_compat.make_figure()
+    fig.clear()
+    fig.plot_size(80, 25)
+    uproot_browser.plot.plot(item, fig=fig)
+    out = str(fig.build())
+
+    assert "hstat" in out
+    assert "█" in out
+
+
 @pytest.mark.skipif(
     not uproot_browser.plotext_compat.PLOTEXT_6, reason="heatmaps require plotext 6"
 )
@@ -204,6 +218,7 @@ def test_plot_2d() -> None:
     assert "hpxpy" in out
     assert "xaxis" in out
     assert "yaxis" in out
+    assert "█" in out
 
 
 @pytest.mark.skipif(

@@ -152,7 +152,9 @@ def plot(
         fig = uproot_browser.plotext_compat.make_figure()
         fig.clear()
         uproot_browser.plot.plot(item, fig=fig)
-        fig.show()
+        # Not fig.show(): the plotext 6 kernel prints via wcout, which silently
+        # truncates at the first non-ASCII glyph in a "C" locale
+        click.echo(str(fig.build()))
 
 
 @main.command()
