@@ -1,3 +1,5 @@
+import functools
+
 import pytest
 import skhep_testdata
 
@@ -8,7 +10,7 @@ import textual.pilot
 import textual.widgets
 import uproot
 
-import uproot_browser.plot_mpl
+import uproot_browser.plot
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.image_plot import MPLPlot, make_image
 
@@ -16,11 +18,13 @@ from uproot_browser.tui.image_plot import MPLPlot, make_image
 def test_make_image_object_branch() -> None:
     """A branch holding TH1 objects (AsObjects) is summed and plotted."""
     with uproot.open(skhep_testdata.data_path("uproot-Event.root")) as f:
-        histogram = uproot_browser.plot_mpl.build_hist(f["T"]["event"]["fH"])
+        histogram = uproot_browser.plot.to_histogram(f["T"]["event"]["fH"])
     image = make_image(histogram, title="fH", dark=True, size=(400, 300))
     assert (image.width, image.height) == (400, 300)
 
 
+# singledispatch so plottable()'s to_histogram.dispatch probe still works
+@functools.singledispatch
 def _fail_build(*_args: object, **_kwargs: object) -> None:
     msg = "histogram was rebuilt"
     raise AssertionError(msg)
@@ -105,7 +109,7 @@ async def test_image_hist_cached_across_expr_change(
     ).run_test() as pilot:
         built = (await _open_settled_plot(pilot)).built.hist
         assert built is not None
-        monkeypatch.setattr(uproot_browser.plot_mpl, "build_hist", _fail_build)
+        monkeypatch.setattr(uproot_browser.plot, "to_histogram", _fail_build)
 
         pilot.app.view_widget.plot_input.value = "h[::2j]"
         pilot.app.view_widget.plot_input.apply_expression()
@@ -129,7 +133,7 @@ async def test_image_hist_cached_across_theme_change(
     ).run_test() as pilot:
         built = (await _open_settled_plot(pilot)).built.hist
         assert built is not None
-        monkeypatch.setattr(uproot_browser.plot_mpl, "build_hist", _fail_build)
+        monkeypatch.setattr(uproot_browser.plot, "to_histogram", _fail_build)
 
         pilot.app.theme = "textual-light"
         await pilot.pause()
