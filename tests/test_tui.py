@@ -1,5 +1,7 @@
+import io
 from collections.abc import Callable
 
+import rich.console
 import rich.style
 import skhep_testdata
 import textual.pilot
@@ -306,3 +308,23 @@ async def test_dump_error_shows_branch() -> None:
         msg, items = pilot.app.dump_source()
         assert items == [item]
         assert 'item = uproot_file["ProcessID0"]' in msg
+
+
+async def test_dump_plot_renders_canvas() -> None:
+    """Dump & Quit prints the plot, not the "... plotting ..." placeholder."""
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        await pilot.press("down", "down", "down", "enter")
+        await pilot.pause()
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        _, items = pilot.app.dump_source()
+        console = rich.console.Console(
+            width=40, file=io.StringIO(), force_terminal=True
+        )
+        with console.capture() as capture:
+            console.print(*items)
+        out = capture.get()
+        assert "plotting" not in out
+        assert "┌" in out or "┐" in out

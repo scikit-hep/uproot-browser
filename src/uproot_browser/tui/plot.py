@@ -154,7 +154,13 @@ class Plotext:
         return msg
 
     def dump_renderables(self) -> tuple[Any, ...]:
-        return (self,)
+        # Render synchronously: the item only holds the placeholder (the worker
+        # hands the finished canvas to the widget), and the exit console has a
+        # different size than the widget anyway.
+        size = self.size or (100, 30)
+        selected = resolve_selection(self.upfile, self.selection)
+        canvas = render_canvas(selected, self.theme, *size, expr=self.expr)
+        return (rich.text.Text.from_ansi(canvas),)
 
     def make_plot(self) -> Plotext | None:
         size = self.size
