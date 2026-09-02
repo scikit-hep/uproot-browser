@@ -79,7 +79,6 @@ dev = [
 
 [tool.uv]
 exclude-newer = "7 days"
-exclude-newer-package = { plotext = "2026-08-24T00:00:00Z", cramjam = "2026-08-23T00:00:00Z" }  # plotext 6 is newer than 7 days; remove after 2026-08-30. cramjam 2.12 has the first 3.15 wheels; remove after 2026-08-31
 
 [tool.hatch]
 version.source = "vcs"
