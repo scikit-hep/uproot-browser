@@ -40,7 +40,6 @@ dependencies = [
   'click >=8',
   'click-default-group >=1.2',
   'hist >=2.6',
-  'lz4>=2',
   'numpy >=1.18',
   'plotext >=5.2.8',
   'rich >=13.3.3',

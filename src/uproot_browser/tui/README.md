@@ -27,7 +27,8 @@ options like changing the theme, writing out an SVG, or quitting the program.
 Histograms, rectangular simple data (e.g. TTree's), and jagged arrays can
 be plotted. Click on an item or press `enter` to plot. If something can't
 be plotted, you'll see a scrollable error traceback. If you think it should
-be plottable, feel free to open an issue. 2D plots are not yet supported.
+be plottable, feel free to open an issue. 2D histograms draw as heatmaps
+(text mode needs plotext 6 or newer; `--image` mode always supports them).
 
 ## Tools
 

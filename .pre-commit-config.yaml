@@ -19,7 +19,6 @@ repos:
   - id: trailing-whitespace
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  # Held at v0.15.15; v0.16 adds new rules that current sources fail.
   rev: "1f1e8bf348ff38fc88619a38d3ca4d9c56abea49"  # frozen: v0.16.5
   hooks:
     - id: ruff-check

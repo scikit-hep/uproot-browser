@@ -48,6 +48,15 @@ def test_remote_url_not_checked_locally() -> None:
     assert get_testdata(url, testdata=False) == url
 
 
+def test_tree_lz4_compressed_file() -> None:
+    """Guards LZ4 decompression, which uproot handles itself via cramjam and
+    xxhash (lz4 is not a dependency of this package)."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["tree", "--testdata", "uproot-Zmumu-lz4.root"])
+    assert result.exit_code == 0
+    assert "px1" in result.output
+
+
 def test_plot_text() -> None:
     """The default text plot writes bars through Python stdout (not the plotext
     kernel's wcout, which truncates and is invisible to CliRunner)."""
