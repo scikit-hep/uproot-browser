@@ -72,7 +72,7 @@ def make_image(
     )
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class _HistCache:
     """One-slot cache for the resolved item and its pre-expr histogram.
 

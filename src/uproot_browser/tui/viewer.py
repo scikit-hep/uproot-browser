@@ -63,13 +63,13 @@ class ViewWidget(textual.widgets.ContentSwitcher):
             tooltip="The histogram is 'h', you can slice it. Experimental.",
         )
         # The entry box goes into whichever window the active mode uses
-        input_container = textual.containers.Container(
+        self.input_container = textual.containers.Container(
             PlotButton("Plot", id="plot-button"),
             self.plot_input,
             id="plot-input-container",
         )
         self.plot_window = textual.containers.Container(
-            *([] if image else [input_container]),
+            *([] if image else [self.input_container]),
             self.plot_widget,
             id="plot-window",
         )
@@ -92,7 +92,7 @@ class ViewWidget(textual.widgets.ContentSwitcher):
             self.image_widget = textual_image.widget.Image(id="image-view")
             children.append(
                 textual.containers.Container(
-                    input_container, self.image_widget, id="image-window"
+                    self.input_container, self.image_widget, id="image-window"
                 )
             )
 
@@ -107,10 +107,19 @@ class ViewWidget(textual.widgets.ContentSwitcher):
     def image_pixel_size(self) -> tuple[int, int] | None:
         """Content size of the image pane in terminal pixels, if known."""
         assert self._get_cell_size is not None
+        assert self.image_widget is not None
         cell = self._get_cell_size()
-        # subtract the #image-window padding (1 cell on each side)
-        width = self.container_size.width - 2
-        height = self.container_size.height - 2
+        content = self.image_widget.content_size
+        width, height = content.width, content.height
+        if not width or not height:
+            # The first display switches window and requests an image at once,
+            # so the widget can have no layout yet: compute the area it gets.
+            # Subtract the #image-window padding (1 cell on each side).
+            width = self.container_size.width - 2
+            height = self.container_size.height - 2
+            if self.input_container.display:
+                # the entry box docks at the bottom of the image window
+                height -= self.input_container.outer_size.height
         if width <= 0 or height <= 0:
             return None
         return (width * cell.width, height * cell.height)
