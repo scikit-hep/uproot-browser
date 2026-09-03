@@ -51,8 +51,8 @@ class PlotItem(Protocol):
     def display(self, view: ViewWidget) -> None:
         """Show this item in the view and trigger its (threaded) render."""
 
-    def handle_resize(self, view: ViewWidget) -> None:
-        """React to the view being resized (no-op if handled elsewhere)."""
+    def request_render(self, view: ViewWidget) -> None:
+        """Ask the app to render this item at the current size of the view."""
 
     def with_theme(self, *, dark: bool) -> PlotItem:
         """A copy of this item re-themed for a dark/light terminal."""
@@ -115,7 +115,7 @@ def make_dump(item: Any, *size: int, expr: str = "") -> str:
     return code
 
 
-# wrapper for plotext into a textual widget
+# What to plot with plotext, and the size the view gives it
 @dataclasses.dataclass
 class Plotext:
     upfile: Any
@@ -124,23 +124,21 @@ class Plotext:
     app: Browser
     expr: str = ""
     size: tuple[int, int] | None = None
-    previous: rich.text.Text | None = None
-    old_expr: str = ""
 
     @property
     def theme(self) -> str:
         return "uproot_dark" if self.dark else "uproot_light"
 
     def display(self, view: ViewWidget) -> None:
-        view.plot_widget.update(self)
         view.current = "plot-window"
+        # After the refresh, so the request measures the widget that is laid out
+        view.call_after_refresh(self.request_render, view)
 
-    def handle_resize(self, view: ViewWidget) -> None:
-        """No-op: the Static re-renders us, and __rich_console__ re-plots."""
+    def request_render(self, view: ViewWidget) -> None:
+        view.post_message(RequestPlot())
 
     def with_theme(self, *, dark: bool) -> Plotext:
-        # Drop the cached canvas so the plot re-renders in the new theme.
-        return dataclasses.replace(self, dark=dark, previous=None)
+        return dataclasses.replace(self, dark=dark)
 
     def with_expr(self, expr: str) -> Plotext:
         return dataclasses.replace(self, expr=expr)
@@ -154,9 +152,8 @@ class Plotext:
         return msg
 
     def dump_renderables(self) -> tuple[Any, ...]:
-        # Render synchronously: the item only holds the placeholder (the worker
-        # hands the finished canvas to the widget), and the exit console has a
-        # different size than the widget anyway.
+        # Render synchronously: the worker hands the finished canvas to the
+        # widget, and the exit console has a different size than the widget.
         size = self.size or (100, 30)
         try:
             selected = resolve_selection(self.upfile, self.selection)
@@ -167,34 +164,13 @@ class Plotext:
             return ()
         return (rich.text.Text.from_ansi(canvas),)
 
-    def make_plot(self) -> Plotext | None:
+    def make_plot(self) -> rich.text.Text | None:
         size = self.size
         assert size
 
-        def build() -> Plotext:
+        def build() -> rich.text.Text:
             item = resolve_selection(self.upfile, self.selection)
             canvas = render_canvas(item, self.theme, *size, expr=self.expr)
-            return dataclasses.replace(self, previous=rich.text.Text.from_ansi(canvas))
+            return rich.text.Text.from_ansi(canvas)
 
         return run_posting_errors(self.app, build, self.selection)
-
-    def __rich_console__(
-        self, console: rich.console.Console, options: rich.console.ConsoleOptions
-    ) -> rich.console.RenderResult:
-        width = options.max_width or console.width
-        height = options.height or console.height
-
-        if (
-            self.size
-            and (width, height) == self.size
-            and self.previous is not None
-            and self.old_expr == self.expr
-        ):
-            yield self.previous
-
-        else:
-            self.size = (width, height)
-            self.previous = rich.text.Text("... plotting ...")
-            self.old_expr = self.expr
-            yield self.previous
-            self.app.post_message(RequestPlot(self))

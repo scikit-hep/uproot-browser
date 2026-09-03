@@ -124,9 +124,16 @@ class ViewWidget(textual.widgets.ContentSwitcher):
             return None
         return (width * cell.width, height * cell.height)
 
-    def on_resize(self, _event: textual.events.Resize) -> None:
+    def request_render(self) -> None:
+        """Ask the current item to render at the size the view gives it now."""
         if isinstance(self.item, PlotItem):
-            self.item.handle_resize(self)
+            self.item.request_render(self)
+
+    def on_resize(self, _event: textual.events.Resize) -> None:
+        # Debounce so a drag-resize only renders the settled size
+        if self.resize_timer is not None:
+            self.resize_timer.stop()
+        self.resize_timer = self.set_timer(0.2, self.request_render)
 
     def watch_item(self, value: PlotItem | Error | None) -> None:
         if value is None:

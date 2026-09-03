@@ -4,6 +4,7 @@ __lazy_modules__ = {
     "dataclasses",
     "rich",
     "rich.syntax",
+    "rich.text",
     "textual.containers",
     "textual.events",
     "textual.lazy",
@@ -27,6 +28,7 @@ import dataclasses
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import rich.syntax
+import rich.text
 import textual.app
 import textual.binding
 import textual.containers
@@ -59,7 +61,7 @@ add_theme(
 add_theme("uproot_dark", canvas=DARK_BACKGROUND, text=(DARK_TEXT, DARK_BACKGROUND))
 
 if TYPE_CHECKING:
-    from .messages import ErrorMessage, RequestPlot, UprootSelected
+    from .messages import ErrorMessage, UprootSelected
 
 
 class Browser(textual.app.App[None]):
@@ -84,6 +86,7 @@ class Browser(textual.app.App[None]):
     ) -> None:
         self.path = path
         self.image = image
+        self._plot_rendered: tuple[Any, ...] | None = None
         self._image_rendered: tuple[Any, ...] | None = None
         super().__init__(**kwargs)
 
@@ -198,8 +201,21 @@ class Browser(textual.app.App[None]):
     def on_error_message(self, message: ErrorMessage) -> None:
         self.view_widget.item = message.err
 
-    def on_request_plot(self, message: RequestPlot) -> None:
-        self.render_plot(message.plot)
+    def on_request_plot(self) -> None:
+        """Single render trigger: assigning a Plotext (or a resize) lands here."""
+        item = self.view_widget.item
+        if not isinstance(item, Plotext):
+            return
+        # The Static has a 1 cell padding, which content_size takes off already
+        size = self.view_widget.plot_widget.content_size
+        if not size.width or not size.height:
+            return
+        item.size = (size.width, size.height)
+        key = (item.selection, item.expr, item.dark, item.size)
+        if key != self._plot_rendered:
+            self._plot_rendered = key
+            self.view_widget.plot_widget.update(rich.text.Text("... plotting ..."))
+            self.render_plot(item)
 
     def watch_image_scale(self, scale: float) -> None:
         item = self.view_widget.item
@@ -224,9 +240,14 @@ class Browser(textual.app.App[None]):
     @textual.work(exclusive=True, thread=True)
     def render_plot(self, plot: Plotext) -> None:
         worker = textual.worker.get_current_worker()
-        new_plot = plot.make_plot()
-        if new_plot and not worker.is_cancelled:
-            self.call_from_thread(self.view_widget.plot_widget.update, new_plot)
+        canvas = plot.make_plot()
+        if worker.is_cancelled:
+            return
+        if canvas is None:
+            # failed (empty/error message posted); allow a retry next request
+            self._plot_rendered = None
+            return
+        self.call_from_thread(self.view_widget.plot_widget.update, canvas)
 
     @textual.work(exclusive=True, thread=True)
     def render_image(self, plot: MPLPlot) -> None:

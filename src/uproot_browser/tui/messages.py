@@ -7,7 +7,6 @@ import textual.message
 
 if TYPE_CHECKING:
     from .error import Error
-    from .plot import Plotext
 
 
 @rich.repr.auto
@@ -32,9 +31,7 @@ class ErrorMessage(textual.message.Message, bubble=True):
 
 @rich.repr.auto
 class RequestPlot(textual.message.Message, bubble=True):
-    def __init__(self, plot: Plotext) -> None:
-        self.plot = plot
-        super().__init__()
+    """Ask the app to re-render the current text plot (e.g. after a resize)."""
 
 
 @rich.repr.auto

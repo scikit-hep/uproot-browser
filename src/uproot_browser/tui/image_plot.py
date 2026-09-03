@@ -95,15 +95,10 @@ class MPLPlot:
 
     def display(self, view: ViewWidget) -> None:
         view.current = "image-window"
-        view.post_message(RequestImage())
+        self.request_render(view)
 
-    def handle_resize(self, view: ViewWidget) -> None:
-        # Debounce so a drag-resize only renders the settled size
-        if view.resize_timer is not None:
-            view.resize_timer.stop()
-        view.resize_timer = view.set_timer(
-            0.2, lambda: view.post_message(RequestImage())
-        )
+    def request_render(self, view: ViewWidget) -> None:
+        view.post_message(RequestImage())
 
     def with_theme(self, *, dark: bool) -> MPLPlot:
         return dataclasses.replace(self, dark=dark)
