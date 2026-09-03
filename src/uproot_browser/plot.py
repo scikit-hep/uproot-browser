@@ -23,7 +23,7 @@ import functools
 import math
 import operator
 import textwrap
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import awkward as ak
 import hist
@@ -43,8 +43,14 @@ if TYPE_CHECKING:
 
 
 def make_hist_title(item: Any, histogram: hist.Hist[Any]) -> str:
-    inner_sum = float(np.sum(histogram.values()))
-    full_sum = float(np.sum(histogram.values(flow=True)))
+    # A Mean-storage histogram (TProfile) holds a per-bin mean in `values()`;
+    # `counts()` gives the entry count that belongs in the title instead.
+    if histogram.kind == "MEAN":
+        inner_sum = float(np.sum(histogram.counts()))
+        full_sum = float(np.sum(histogram.counts(flow=True)))
+    else:
+        inner_sum = float(np.sum(histogram.values()))
+        full_sum = float(np.sum(histogram.values(flow=True)))
 
     if math.isclose(inner_sum, full_sum):
         return f"{item.name} -- Entries: {inner_sum:g}"
@@ -86,7 +92,7 @@ def branch_hist(
         )
         return histogram
     array = tree.array()
-    values = ak.flatten(array) if array.ndim > 1 else array
+    values = ak.ravel(array)
     finite = values[np.isfinite(values)]
     if len(finite) < 1:
         msg = f"Branch {tree.name} is empty."
@@ -108,7 +114,8 @@ def _hist_to_histogram(
     *,
     bins: int = 50,  # noqa: ARG001
 ) -> hist.Hist[Any]:
-    return hist.Hist(tree.to_hist())
+    # to_hist() is already a hist.Hist; uproot's untyped stub loses that for mypy.
+    return cast("hist.Hist[Any]", tree.to_hist())
 
 
 def apply_expr(histogram: hist.Hist[Any], expr: str) -> hist.Hist[Any]:
@@ -257,7 +264,7 @@ def dump_branch(
         import hist
         import numpy as np
         array = item.array()
-        values = ak.flatten(array) if array.ndim > 1 else array
+        values = ak.ravel(array)
         finite = values[np.isfinite(values)]
         h = hist.numpy.histogram(finite, bins={width}, histogram=hist.Hist)""")
 
@@ -274,4 +281,4 @@ def dump_hist(
     """
     Source for rebuilding a 1-D histogram.
     """
-    return "import hist\nh = hist.Hist(item.to_hist())"
+    return "h = item.to_hist()"

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import functools
+import math
 import re
 import sys
 
 import hist
+import numpy as np
 import pytest
 import rich.console
 import uproot
@@ -187,6 +189,33 @@ def test_dump_is_runnable(filename: str, selection: str, expr: str) -> None:
     exec(code, namespace)
 
     assert isinstance(namespace["h"], hist.Hist)
+
+
+def test_make_hist_title_counts_profile_entries() -> None:
+    """A TProfile title counts entries, not the sum of per-bin means (issue #282)."""
+    item = uproot.open(data_path("uproot-hepdata-example.root"))["hprof"]
+    h = uproot_browser.plot.to_histogram(item)
+
+    inner_sum = float(np.sum(h.counts()))
+    full_sum = float(np.sum(h.counts(flow=True)))
+    title = uproot_browser.plot.make_hist_title(item, h)
+
+    assert f"Entries: {inner_sum:g}" in title
+    assert f"{full_sum:g} with flow" in title
+
+
+def test_make_hist_title_th1_unchanged() -> None:
+    """An ordinary TH1 title still sums bin values, unaffected by the TProfile fix."""
+    item = uproot.open(data_path("uproot-Event.root"))["hstat"]
+    h = uproot_browser.plot.to_histogram(item)
+
+    inner_sum = float(np.sum(h.values()))
+    full_sum = float(np.sum(h.values(flow=True)))
+    title = uproot_browser.plot.make_hist_title(item, h)
+
+    assert f"Entries: {inner_sum:g}" in title
+    assert "with flow" not in title
+    assert math.isclose(inner_sum, full_sum)
 
 
 def test_plot_1d_draws_bars() -> None:
