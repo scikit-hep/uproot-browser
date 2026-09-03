@@ -6,12 +6,15 @@ import skhep_testdata
 pytest.importorskip("textual_image")
 pytest.importorskip("matplotlib")
 
+import hist
+import matplotlib.pyplot as plt
 import textual.pilot
 import textual.widgets
 import textual_image.widget
 import uproot
 
 import uproot_browser.plot
+import uproot_browser.plot_mpl
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.image_plot import MPLPlot, make_image
 from uproot_browser.tui.messages import RequestImage
@@ -23,6 +26,33 @@ def test_make_image_object_branch() -> None:
         histogram = uproot_browser.plot.to_histogram(f["T"]["event"]["fH"])
     image = make_image(histogram, title="fH", dark=True, size=(400, 300))
     assert (image.width, image.height) == (400, 300)
+
+
+def test_render_image_touches_no_pyplot_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Rendering builds its own Figure, so it is safe on a worker thread."""
+
+    def no_pyplot(*_args: object, **_kwargs: object) -> None:
+        msg = "render_image used pyplot"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr(plt, "figure", no_pyplot)
+    monkeypatch.setattr(plt, "gca", no_pyplot)
+    with uproot.open(skhep_testdata.data_path("uproot-Event.root")) as f:
+        histogram = uproot_browser.plot.to_histogram(f["hstat"])
+    figures = plt.get_fignums()
+    image = uproot_browser.plot_mpl.render_image(histogram, "t", size=(200, 100))
+    assert (image.width, image.height) == (200, 100)
+    assert plt.get_fignums() == figures
+
+
+def test_render_image_2d() -> None:
+    """The colorbar stays inside the image, and pyplot keeps no figure."""
+    histogram = hist.Hist.new.Reg(4, 0, 1).Reg(4, 0, 1).Double()
+    histogram.fill([0.1, 0.6], [0.2, 0.7])
+    figures = plt.get_fignums()
+    image = uproot_browser.plot_mpl.render_image(histogram, "t", size=(200, 100))
+    assert (image.width, image.height) == (200, 100)
+    assert plt.get_fignums() == figures
 
 
 # singledispatch so plottable()'s to_histogram.dispatch probe still works

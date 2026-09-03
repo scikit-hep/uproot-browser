@@ -9,7 +9,12 @@ __lazy_modules__ = {
     "PIL.Image",
     "io",
     "matplotlib",
+    "matplotlib.axes",
+    "matplotlib.backends",
+    "matplotlib.backends.backend_agg",
+    "matplotlib.figure",
     "matplotlib.pyplot",
+    "matplotlib.style",
     "uproot_browser.plot",
     "warnings",
 }
@@ -18,8 +23,12 @@ import io
 import warnings
 from typing import TYPE_CHECKING, Any
 
+import matplotlib.axes
+import matplotlib.figure
 import matplotlib.pyplot as plt
+import matplotlib.style
 import PIL.Image
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 import uproot_browser.plot
 
@@ -30,14 +39,27 @@ DPI = 100
 ASPECT_RATIO = 5 / 8  # height / width of the default figure
 
 
-def draw_hist(histogram: hist.Hist[Any], title: str) -> None:
+def _draw_on(ax: matplotlib.axes.Axes, histogram: hist.Hist[Any], title: str) -> None:
     """
-    Draw an already-built histogram into the current matplotlib figure.
+    Draw an already-built histogram into the given axes.
     """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        histogram.plot()
-    plt.title(title)
+        if len(histogram.axes) == 2:
+            # hist makes its colorbar with pyplot, and grows the figure to
+            # hold it, which changes the image size. Make it here instead.
+            mesh = histogram.plot2d(ax=ax, cbar=False)[0]
+            ax.figure.colorbar(mesh, ax=ax)
+        else:
+            histogram.plot(ax=ax)
+    ax.set_title(title)
+
+
+def draw_hist(histogram: hist.Hist[Any], title: str) -> None:
+    """
+    Draw an already-built histogram into the current matplotlib axes.
+    """
+    _draw_on(plt.gca(), histogram, title)
 
 
 def plot(tree: Any, *, expr: str = "") -> None:
@@ -68,14 +90,17 @@ def render_image(
     """
     dpi = DPI * scale
     figsize = (size[0] / dpi, size[1] / dpi) if size else (8.0, 8.0 * ASPECT_RATIO)
-    with plt.style.context(style):
-        fig = plt.figure(figsize=figsize, dpi=dpi)
+    with matplotlib.style.context(style):
+        fig = matplotlib.figure.Figure(figsize=figsize, dpi=dpi)
+        # hist sets the pyplot current axes for a 2D plot. Attach an Agg canvas
+        # first, or pyplot attaches a GUI one, which a worker thread cannot do.
+        FigureCanvasAgg.new_manager(fig, 0)
         try:
-            draw_hist(histogram, title)
+            _draw_on(fig.subplots(), histogram, title)
             buf = io.BytesIO()
             fig.savefig(buf, format="png")
         finally:
-            plt.close(fig)
+            plt.close(fig)  # release the figure if hist registered it
     buf.seek(0)
     return PIL.Image.open(buf)
 
