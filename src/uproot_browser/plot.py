@@ -93,6 +93,7 @@ def branch_hist(
         return histogram
     array = tree.array()
     values = ak.ravel(array)
+    # pylint: disable-next=unsubscriptable-object  # ak.ravel return is opaque to pylint
     finite = values[np.isfinite(values)]
     if len(finite) < 1:
         msg = f"Branch {tree.name} is empty."
