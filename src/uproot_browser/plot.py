@@ -100,7 +100,18 @@ def branch_hist(
     return filled
 
 
-to_histogram.register(uproot.models.RNTuple.RField)(branch_hist)  # type: ignore[no-untyped-call]
+def field_hist(tree: uproot.models.RNTuple.RField, *, bins: int = 50) -> hist.Hist[Any]:
+    """
+    Build a histogram from an RNTuple field. Only numeric values can be filled.
+    """
+    if not _field_plottable(tree):
+        msg = f"Field {tree.name} ({tree.typename}) contains values that cannot be plotted"
+        raise TypeError(msg)
+    filled: hist.Hist[Any] = branch_hist(tree, bins=bins)
+    return filled
+
+
+to_histogram.register(uproot.models.RNTuple.RField)(field_hist)  # type: ignore[no-untyped-call]
 
 
 # Explicit type: inferring it evaluates the hist.Hist[Any] annotation at
@@ -214,6 +225,41 @@ def _branch_plottable(branch: uproot.TBranch) -> bool:
             return False
 
 
+_TEXT_ARRAYS = frozenset({"string", "bytestring"})
+
+
+def _unwrap_lists(form: Any) -> Any:
+    """The content inside any number of lists, or None if the lists hold text."""
+    while form.is_list:
+        if form.parameter("__array__") in _TEXT_ARRAYS:
+            return None
+        form = form.content
+    return form
+
+
+def _field_leaf_form(field: uproot.models.RNTuple.RField) -> Any:
+    """The form of the values that ``field.array()`` gives, or None."""
+    akform = field.to_akform()
+    # uproot 5.7+ gives (form, path); older versions give only the form, whose
+    # single top-level field names the path.
+    form, path = akform if isinstance(akform, tuple) else (akform, None)
+    for name in form.fields if path is None else path:
+        form = _unwrap_lists(form)
+        if form is None or not form.is_record or name not in form.fields:
+            return None
+        form = form.content(name)
+    return _unwrap_lists(form)
+
+
+def _field_plottable(field: uproot.models.RNTuple.RField) -> bool:
+    leaf = _field_leaf_form(field)
+    if leaf is None or not leaf.is_numpy or leaf.parameter("__array__") is not None:
+        return False
+    # bool, integer and float values can go into a histogram; text, records,
+    # unions and datetimes cannot.
+    return np.dtype(leaf.primitive).kind in "biuf"
+
+
 def plottable(item: Any) -> bool:
     """
     True if :func:`plot` has an implementation for this object that can
@@ -224,6 +270,8 @@ def plottable(item: Any) -> bool:
         return len(item.axes) <= 2
     if isinstance(item, uproot.TBranch):
         return _branch_plottable(item)
+    if isinstance(item, uproot.models.RNTuple.RField):
+        return _field_plottable(item)
     return to_histogram.dispatch(type(item)) is not to_histogram.dispatch(object)
 
 

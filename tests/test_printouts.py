@@ -364,3 +364,27 @@ def test_plottable(selection: str, expected: bool) -> None:  # noqa: FBT001
     """Plottability is decided from the interpretation, without reading data."""
     with uproot.open(data_path("uproot-Event.root")) as upfile:
         assert uproot_browser.plot.plottable(upfile[selection]) is expected
+
+
+@pytest.mark.parametrize(
+    ("filename", "selection", "expected"),
+    [
+        ("ntpl001_staff_rntuple_v1-0-0-0.root", "Staff/Age", True),  # numeric
+        ("ntpl001_staff_rntuple_v1-0-0-0.root", "Staff/Division", False),  # strings
+        # jagged numeric
+        ("test_1jag_int_float_rntuple_v1-0-0-0.root", "ntuple/one_v_integers", True),
+    ],
+)
+def test_plottable_rfield(filename: str, selection: str, expected: bool) -> None:  # noqa: FBT001
+    """Plottability of an RNTuple field comes from its form, not from the data."""
+    with uproot.open(data_path(filename)) as upfile:
+        item = functools.reduce(lambda obj, key: obj[key], selection.split("/"), upfile)
+        assert uproot_browser.plot.plottable(item) is expected
+
+
+def test_to_histogram_rejects_string_field() -> None:
+    """A string field gives a clear error, not a numpy one."""
+    with uproot.open(data_path("ntpl001_staff_rntuple_v1-0-0-0.root")) as upfile:
+        item = upfile["Staff"]["Division"]
+        with pytest.raises(TypeError, match="Division"):
+            uproot_browser.plot.to_histogram(item)
