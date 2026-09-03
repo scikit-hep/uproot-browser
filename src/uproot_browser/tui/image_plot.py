@@ -45,10 +45,6 @@ def make_image(
     aspect ratio is right for the widget it will fill. ``scale`` renders the
     same pixels at a higher dpi, making text and lines proportionally larger.
     """
-    import matplotlib as mpl
-
-    mpl.use("agg")  # rendered to PNG off the main thread; never a GUI
-
     import uproot_browser.plot_mpl
 
     background = as_hex(DARK_BACKGROUND if dark else LIGHT_BACKGROUND)

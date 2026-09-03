@@ -111,12 +111,11 @@ def plot(
     """
     Display a plot.
     """
-    if save or image:
-        os.environ.setdefault("MPLBACKEND", "agg")
-
     item = uproot.open(get_testdata(filename, testdata=testdata))
 
     if save:
+        # Set before pyplot is imported: this path must not open a window
+        os.environ.setdefault("MPLBACKEND", "agg")
         try:
             import matplotlib.pyplot as plt
 
