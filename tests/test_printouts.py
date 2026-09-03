@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import functools
 import re
+import shutil
 import sys
+from typing import TYPE_CHECKING
 
 import hist
 import pytest
@@ -14,7 +16,10 @@ import uproot_browser.plot
 import uproot_browser.plotext_compat
 import uproot_browser.tree
 import uproot_browser.tui.plot
-from uproot_browser.tree import print_tree
+from uproot_browser.tree import UprootEntry, print_tree, process_item
+
+if TYPE_CHECKING:
+    import pathlib
 
 OUT1 = """\
 📁 uproot-Event.root
@@ -159,6 +164,33 @@ def test_tree_with_unreadable_item(monkeypatch: pytest.MonkeyPatch) -> None:
         # a failed entry is a leaf and the whole tree still renders
         assert not children["hstat"].is_dir
         uproot_browser.tree.make_tree(entry)
+
+
+def test_tree_nested_directory_label() -> None:
+    """A nested TDirectory is labeled by its own name, not the root one (issue #282)."""
+    with uproot.open(data_path("uproot-nesteddirs.root")) as upfile:
+        entry = UprootEntry("/", upfile)
+        (nested,) = (e for e in entry.walk() if e.path == "//one/two")
+
+        label_text = nested.meta()["label_text"]
+        assert label_text.plain == "two"
+        assert label_text.style.link is not None
+        assert label_text.style.link.endswith("one/two")
+
+
+def test_tree_bracket_path_link(tmp_path: pathlib.Path) -> None:
+    """A file path containing brackets does not corrupt the rendered link (issue #282)."""
+    src = data_path("uproot-Event.root")
+    dest_dir = tmp_path / "a[1]"
+    dest_dir.mkdir()
+    dest = dest_dir / "uproot-Event.root"
+    shutil.copy(src, dest)
+
+    with uproot.open(dest) as upfile:
+        meta = process_item(upfile)
+        assert meta["label_text"].plain == "uproot-Event.root"
+        assert meta["label_text"].style.link is not None
+        assert meta["label_text"].style.link.startswith("file://")
 
 
 @pytest.mark.parametrize(

@@ -7,7 +7,7 @@ from __future__ import annotations
 __lazy_modules__ = {
     "pathlib",
     "rich",
-    "rich.markup",
+    "rich.style",
     "rich.text",
     "rich.tree",
     "uproot.reading",
@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict
 import uproot
 import uproot.reading
 from rich.console import Console
-from rich.markup import escape
+from rich.style import Style
 from rich.text import Text
 from rich.tree import Tree
 
@@ -58,7 +58,7 @@ class MetaDict(MetaDictRequired, total=False):
     guide_style: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True, slots=True)
 class FailedEntry:
     """A key whose object could not be read (e.g. unsupported RooFit classes)."""
 
@@ -171,14 +171,14 @@ def _process_item_tfile(
 
     if uproot_object.path:
         # path is to a TDirectory on tree
-        path_name = escape(uproot_object.path[0])
-        link_text = f"file://{path}:/{path_name}"
+        path_name = uproot_object.path[-1]
+        link_text = f"file://{path}:/{'/'.join(uproot_object.path)}"
     else:
         # path is the top of the tree: the file
-        path_name = escape(path.name)
+        path_name = path.name
         link_text = f"file://{path}"
 
-    label_text = Text.from_markup(f"[link {link_text}]{path_name}")
+    label_text = Text(path_name, style=Style(link=link_text))
 
     return MetaDict(
         label_icon="📁 ",
@@ -227,7 +227,7 @@ def _process_item_rntuple(
 
 @process_item.register
 def _process_item_tbranch(uproot_object: uproot.TBranch) -> MetaDict:
-    if len(uproot_object.branches):
+    if uproot_object.branches:
         icon = "🌿 "
     elif isinstance(
         uproot_object.interpretation, uproot.interpretation.jagged.AsJagged
