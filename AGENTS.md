@@ -39,7 +39,7 @@ Communication is **message-driven** (`messages.py` defines `UprootSelected`, `Em
 1. `left_panel.py:UprootTree` posts `UprootSelected` on node selection.
 2. `Browser.on_uproot_selected` creates a `Plotext` (`tui/plot.py`) and assigns it to `view_widget.item`.
 3. `ViewWidget` (a `ContentSwitcher` in `viewer.py`) switches between the logo, an error traceback, or the plot window based on `item`'s type.
-4. `Plotext.__rich_console__` renders a placeholder and posts `RequestPlot`; `Browser.render_plot` is a **threaded Textual worker** that builds the actual plotext canvas off the UI thread and calls back via `call_from_thread`. This threading matters — plot generation must not block the event loop.
+4. `Plotext.display` switches to the plot window and, after the refresh, posts `RequestPlot`; a resize does the same through `ViewWidget.on_resize` (debounced). `Browser.on_request_plot` measures `plot_widget.content_size`, stores it on the item, shows a placeholder and starts `render_plot`, which is a **threaded Textual worker** that builds the plotext canvas off the UI thread and updates the widget via `call_from_thread`. This threading matters — plot generation must not block the event loop. `MPLPlot` (image mode) follows the same flow with `RequestImage`.
 
 Plotext theme dictionaries are registered through `add_theme` (`plotext_compat.py`), called at import time in `browser.py`, to match light/dark terminal backgrounds. `d` ("Dump & Quit") exits printing equivalent Python uproot code to reproduce the current plot. Press `/` to open a fuzzy finder over tree nodes (`tui/jump.py`).
 

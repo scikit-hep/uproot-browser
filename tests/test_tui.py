@@ -5,6 +5,7 @@ import pytest
 import rich.console
 import rich.style
 import skhep_testdata
+import textual.geometry
 import textual.pilot
 import textual.widgets
 
@@ -23,16 +24,52 @@ async def wait_until(
     predicate: Callable[[], bool],
     *,
     tries: int = 100,
+    delay: float | None = None,
 ) -> None:
     """Pump the event loop until predicate holds (or give up after `tries`).
 
     Lazy-mounted widgets can take a variable number of message cycles to settle,
     especially on slower CI runners, so poll instead of guessing a pause count.
+    Give a `delay` to wait for something on a timer, which needs real time.
     """
     for _ in range(tries):
         if predicate():
             return
-        await pilot.pause()
+        await pilot.pause(delay)
+
+
+def plot_text(app: Browser) -> str:
+    """The text the plot widget paints at the moment."""
+    widget = app.view_widget.plot_widget
+    region = textual.geometry.Region(0, 0, *widget.container_size)
+    return "\n".join(strip.text for strip in widget.render_lines(region))
+
+
+async def settle_render(pilot: textual.pilot.Pilot[None]) -> None:
+    """Let a request reach the render worker, then wait for the canvas."""
+    await pilot.pause()  # the request is posted after a refresh
+    await pilot.pause()  # process RequestPlot → spawn the render worker
+    await pilot.app.workers.wait_for_complete()  # block on the thread
+    await pilot.pause()  # drain the update the worker posted
+
+
+async def settled_plot(pilot: textual.pilot.Pilot[None]) -> Plotext:
+    """Select the first plottable branch and wait for the render to settle."""
+    await pilot.press("down", "down", "down", "enter")
+    await settle_render(pilot)
+    item = pilot.app.view_widget.item
+    assert isinstance(item, Plotext)
+    return item
+
+
+def assert_canvas(app: Browser, item: Plotext) -> str:
+    """The plot widget shows a canvas built for its own size."""
+    content = app.view_widget.plot_widget.content_size
+    assert item.size == (content.width, content.height)
+    text = plot_text(app)
+    assert "plotting" not in text
+    assert "┌" in text or "┐" in text
+    return text
 
 
 async def test_browse_logo() -> None:
@@ -52,6 +89,52 @@ async def test_browse_plot() -> None:
         assert isinstance(item, Plotext)
         # Dump & Quit source for the text mode rebuilds the histogram
         assert item.dump_source().startswith('\nitem = uproot_file["')
+
+
+async def test_plot_canvas_matches_widget_size() -> None:
+    """The finished canvas replaces the placeholder, built for the plot pane."""
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        assert_canvas(pilot.app, await settled_plot(pilot))
+
+
+async def test_resize_replots_at_the_new_size() -> None:
+    async with Browser(skhep_testdata.data_path("uproot-Event.root")).run_test(
+        size=(80, 24)
+    ) as pilot:
+        item = await settled_plot(pilot)
+        before_size = item.size
+        before_text = assert_canvas(pilot.app, item)
+
+        await pilot.resize_terminal(100, 40)
+        # the resize render is debounced, so it needs some real time
+        await wait_until(pilot, lambda: item.size != before_size, delay=0.05)
+        await settle_render(pilot)
+
+        assert assert_canvas(pilot.app, item) != before_text
+
+
+async def test_expr_replots_and_clears_flag() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        before_text = assert_canvas(pilot.app, await settled_plot(pilot))
+
+        plot_input = pilot.app.view_widget.plot_input
+        plot_input.value = "h[::2j]"
+        await pilot.pause()
+        assert plot_input.has_class("-needs-update")
+
+        plot_input.apply_expression()
+        await settle_render(pilot)
+        item = pilot.app.view_widget.item
+        assert isinstance(item, Plotext)
+        assert item.expr == "h[::2j]"
+        assert not plot_input.has_class("-needs-update")
+        await wait_until(pilot, lambda: plot_text(pilot.app) != before_text, delay=0.05)
+
+        assert assert_canvas(pilot.app, item) != before_text
 
 
 async def test_browse_empty() -> None:

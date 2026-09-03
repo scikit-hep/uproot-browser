@@ -57,6 +57,9 @@ class Tools(textual.containers.Container):
         self.app.query_one("#plot-input-container").set_class(
             event.value, "-show-container"
         )
+        # The entry box takes space from the plot, so plot again at the new size
+        view = cast("Browser", self.app).view_widget
+        view.call_after_refresh(view.request_render)
 
     @textual.on(textual.widgets.Select.Changed, "#theme-select")
     def theme_changed(self, event: textual.widgets.Select.Changed) -> None:
