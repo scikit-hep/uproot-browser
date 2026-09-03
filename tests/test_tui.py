@@ -1,6 +1,7 @@
 import io
 from collections.abc import Callable
 
+import pytest
 import rich.console
 import rich.style
 import skhep_testdata
@@ -328,3 +329,22 @@ async def test_dump_plot_renders_canvas() -> None:
         out = capture.get()
         assert "plotting" not in out
         assert "┌" in out or "┐" in out
+
+
+async def test_dump_survives_render_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Dump & Quit stays alive if the plot cannot be rendered."""
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        await pilot.press("down", "down", "down", "enter")
+        await pilot.pause()
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+
+        def raise_error(*_args: object, **_kwargs: object) -> str:
+            msg = "render failed"
+            raise ValueError(msg)
+
+        monkeypatch.setattr("uproot_browser.tui.plot.render_canvas", raise_error)
+        _, items = pilot.app.dump_source()
+        assert items == []

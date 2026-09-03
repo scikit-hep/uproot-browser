@@ -8,11 +8,13 @@ pytest.importorskip("matplotlib")
 
 import textual.pilot
 import textual.widgets
+import textual_image.widget
 import uproot
 
 import uproot_browser.plot
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.image_plot import MPLPlot, make_image
+from uproot_browser.tui.messages import RequestImage
 
 
 def test_make_image_object_branch() -> None:
@@ -60,6 +62,30 @@ async def test_browse_image_plot() -> None:
         # the figure is built at the widget's pixel size, so the aspect is right
         assert item.size is not None
         assert (image_widget.image.width, image_widget.image.height) == item.size
+
+
+async def test_image_size_matches_visible_area() -> None:
+    """The image is requested at the size of the pane the entry box leaves."""
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root"), image=True
+    ).run_test(size=(120, 40)) as pilot:
+        await _open_settled_plot(pilot)
+
+        # the entry box docks inside the image window and makes the pane shorter
+        pilot.app.query_one("#plot-input-container").add_class("-show-container")
+        await pilot.pause()
+        pilot.app.view_widget.post_message(RequestImage())
+        await pilot.pause()
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+
+        item = pilot.app.view_widget.item
+        assert isinstance(item, MPLPlot)
+        image_widget = pilot.app.view_widget.image_widget
+        assert image_widget is not None
+        cell = textual_image.widget.get_cell_size()
+        content = image_widget.content_size
+        assert item.size == (content.width * cell.width, content.height * cell.height)
 
 
 async def test_browse_image_empty() -> None:

@@ -158,8 +158,13 @@ class Plotext:
         # hands the finished canvas to the widget), and the exit console has a
         # different size than the widget anyway.
         size = self.size or (100, 30)
-        selected = resolve_selection(self.upfile, self.selection)
-        canvas = render_canvas(selected, self.theme, *size, expr=self.expr)
+        try:
+            selected = resolve_selection(self.upfile, self.selection)
+            canvas = render_canvas(selected, self.theme, *size, expr=self.expr)
+        except Exception:  # noqa: BLE001
+            # The render worker can still be in flight, so this item can be one
+            # that fails. Quit with the source only instead of crashing.
+            return ()
         return (rich.text.Text.from_ansi(canvas),)
 
     def make_plot(self) -> Plotext | None:

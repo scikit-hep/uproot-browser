@@ -24,7 +24,7 @@ import textual.widgets
 from textual.widgets.option_list import Option
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True, slots=True)
 class Candidate:
     """A jump target: a node's full path plus how to display it."""
 
@@ -63,10 +63,12 @@ class JumpScreen(textual.screen.ModalScreen[str | None]):
 
         if query:
             matcher = textual.fuzzy.Matcher(query)
-            scored = [(matcher.match(c.name), c) for c in self.candidates]
-            candidates = [
-                c for score, c in sorted(scored, key=lambda sc: -sc[0]) if score > 0
+            scored = [
+                (score, c)
+                for c in self.candidates
+                if (score := matcher.match(c.name)) > 0
             ]
+            candidates = [c for _, c in sorted(scored, key=lambda sc: -sc[0])]
         else:
             candidates = self.candidates
 
