@@ -43,14 +43,10 @@ if TYPE_CHECKING:
 
 
 def make_hist_title(item: Any, histogram: hist.Hist[Any]) -> str:
-    # A Mean-storage histogram (TProfile) holds a per-bin mean in `values()`;
-    # `counts()` gives the entry count that belongs in the title instead.
-    if histogram.kind == "MEAN":
-        inner_sum = float(np.sum(histogram.counts()))
-        full_sum = float(np.sum(histogram.counts(flow=True)))
-    else:
-        inner_sum = float(np.sum(histogram.values()))
-        full_sum = float(np.sum(histogram.values(flow=True)))
+    # counts() equals values() for plain storage, but gives the entry count for
+    # Mean storage (TProfile) and the effective entries for Weight storage.
+    inner_sum = float(np.sum(histogram.counts()))
+    full_sum = float(np.sum(histogram.counts(flow=True)))
 
     if math.isclose(inner_sum, full_sum):
         return f"{item.name} -- Entries: {inner_sum:g}"
