@@ -127,11 +127,29 @@ def _hist_to_histogram(
     return cast("hist.Hist[Any]", tree.to_hist())
 
 
-def apply_expr(histogram: hist.Hist[Any], expr: str) -> hist.Hist[Any]:
-    """Evaluate the slice expression with the histogram bound to ``h``."""
+def expr_namespace(histogram: hist.Hist[Any], tree: Any = None) -> dict[str, Any]:
+    """The names an ``expr`` string can use: ``h``, ``t``, and the usual modules."""
+    return {
+        "h": histogram,
+        "t": tree,
+        "ak": ak,
+        "hist": hist,
+        "np": np,
+        "uproot": uproot,
+    }
+
+
+def apply_expr(
+    histogram: hist.Hist[Any], expr: str, tree: Any = None
+) -> hist.Hist[Any]:
+    """
+    Evaluate the expression with the histogram bound to ``h`` and the source
+    object bound to ``t``, so a user can build a histogram from the data with
+    ``hist`` instead of slicing the default one.
+    """
     if expr:
         # pylint: disable-next=eval-used
-        histogram = eval(expr, {"h": histogram})
+        histogram = eval(expr, expr_namespace(histogram, tree))
     return histogram
 
 
@@ -235,7 +253,7 @@ def plot(
     Support new types by registering a :func:`to_histogram` overload.
     """
     histogram = to_histogram(tree, bins=width)
-    _draw_hist(fig, tree, apply_expr(histogram, expr), limits=limits)
+    _draw_hist(fig, tree, apply_expr(histogram, expr, tree), limits=limits)
 
 
 def _model_is_histogram(model: Any) -> bool:
