@@ -125,7 +125,16 @@ def make_dump(
     width = size[0] - 5 if size else 100
     code = uproot_browser.plot.dump(item, width=width)
     if expr:
-        code += f"\nh = {expr}"
+        # the same names the plot input offers, so any expression still runs
+        code += textwrap.dedent(f"""
+
+            import awkward as ak
+            import hist
+            import numpy as np
+            import uproot
+
+            t = item
+            h = {expr}""")
     if limits != NO_LIMITS:
         code += textwrap.dedent(f"""
 
