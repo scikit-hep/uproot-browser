@@ -133,7 +133,9 @@ class MPLPlot:
                 self.built.hist = histogram
             if self.expr:
                 # copy so an in-place expr cannot corrupt the cache
-                histogram = uproot_browser.plot.apply_expr(histogram.copy(), self.expr)
+                histogram = uproot_browser.plot.apply_expr(
+                    histogram.copy(), self.expr, item
+                )
             return make_image(
                 histogram,
                 title=uproot_browser.plot.make_hist_title(item, histogram),

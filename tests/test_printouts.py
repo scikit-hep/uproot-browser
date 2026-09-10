@@ -204,6 +204,12 @@ def test_tree_bracket_path_link(tmp_path: pathlib.Path) -> None:
         ("uproot-Event.root", "T/event/fH", "h[::2j]"),
         ("uproot-hepdata-example.root", "hpxpy", ""),
         ("ntpl001_staff_rntuple_v1-0-0-0.root", "Staff/Age", "h[::2j]"),
+        # `t` is the selected object, for building a histogram from the data
+        (
+            "uproot-Event.root",
+            "T/event/fNtrack",
+            "hist.Hist.new.Reg(10, 0, 100).Double().fill(t.array())",
+        ),
     ],
 )
 def test_dump_is_runnable(filename: str, selection: str, expr: str) -> None:
@@ -388,3 +394,16 @@ def test_to_histogram_rejects_string_field() -> None:
         item = upfile["Staff"]["Division"]
         with pytest.raises(TypeError, match="Division"):
             uproot_browser.plot.to_histogram(item)
+
+
+def test_apply_expr_binds_tree() -> None:
+    """``t`` is the plotted object, so an expression can build its own histogram."""
+    item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
+    default = uproot_browser.plot.to_histogram(item)
+
+    result = uproot_browser.plot.apply_expr(
+        default, "hist.Hist.new.Reg(7, 0, 1000).Double().fill(t.array())", item
+    )
+
+    assert result.axes[0].size == 7
+    assert result.sum() > 0
