@@ -60,7 +60,10 @@ class ViewWidget(textual.widgets.ContentSwitcher):
         self.plot_input = PlotInput(
             id="plot-input",
             placeholder="h[:]",
-            tooltip="The histogram is 'h', you can slice it. Experimental.",
+            tooltip=(
+                "The histogram is 'h' and the selected object is 't'; "
+                "slice 'h' or build a new histogram from 't'. Experimental."
+            ),
         )
         # The entry box goes into whichever window the active mode uses
         self.input_container = textual.containers.Container(

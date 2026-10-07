@@ -6,6 +6,7 @@ __lazy_modules__ = {
     "operator",
     "rich",
     "rich.text",
+    "textwrap",
     "uproot_browser.exceptions",
     "uproot_browser.plot",
     "uproot_browser.plotext_compat",
@@ -17,6 +18,7 @@ import contextlib
 import dataclasses
 import functools
 import operator
+import textwrap
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
 import rich.text
@@ -111,7 +113,16 @@ def make_dump(item: Any, *size: int, expr: str = "") -> str:
     width = size[0] - 5 if size else 100
     code = uproot_browser.plot.dump(item, width=width)
     if expr:
-        code += f"\nh = {expr}"
+        # the same names the plot input offers, so any expression still runs
+        code += textwrap.dedent(f"""
+
+            import awkward as ak
+            import hist
+            import numpy as np
+            import uproot
+
+            t = item
+            h = {expr}""")
     return code
 
 
