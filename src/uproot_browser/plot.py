@@ -152,16 +152,15 @@ def _field_tree(item: uproot.behaviors.RNTuple.HasFields) -> Any:
 
 def apply_expr(histogram: hist.Hist[Any], expr: str, item: Any) -> hist.Hist[Any]:
     """
-    Evaluate with ``h`` as the histogram, ``t`` as the selected uproot object,
-    and ``tree`` as its containing TTree/RNTuple. Both objects retain uproot's
-    API, e.g. ``tree["fPx"].array()[tree["fPy"].array() < 0]``. An array result
-    is histogrammed with the bin count of ``h``.
+    Evaluate with ``h`` as the histogram and ``tree`` as the containing
+    TTree/RNTuple, using uproot's normal API, e.g.
+    ``tree["fPx"].array()[tree["fPy"].array() < 0]``. An array result is
+    histogrammed with the bin count of ``h``.
     """
     if not expr:
         return histogram
     namespace = {
         "h": histogram,
-        "t": item,
         "tree": containing_tree(item),
         "ak": ak,
         "hist": hist,
