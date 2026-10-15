@@ -61,8 +61,6 @@ The existing image render scale control is also located in this panel when using
 b  Navbar       r  Right Panel       q  Quit       d  Dump & Quit
 ```
 
-The `p` key is an additional alias for toggling the right panel.
-
 **`plot` command:**
 
 ```bash

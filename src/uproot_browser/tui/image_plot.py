@@ -19,9 +19,10 @@ import dataclasses
 import warnings
 from typing import TYPE_CHECKING, Any
 
+from uproot_browser.axis import NO_LIMITS, AxisLimits
+
 from .messages import RequestImage
 from .plot import resolve_selection, run_posting_errors, selection_source
-from .right.axis import AxisLimits
 from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND, as_hex
 
 if TYPE_CHECKING:
@@ -39,7 +40,7 @@ def make_image(
     dark: bool,
     size: tuple[int, int] | None = None,
     scale: float = 1.0,
-    limits: AxisLimits | None = None,
+    limits: AxisLimits = NO_LIMITS,
 ) -> PIL.Image.Image:
     """Draw an already-built histogram into a PIL image.
 
@@ -71,8 +72,7 @@ def make_image(
         size=size,
         scale=scale,
         style=style,
-        xlim=limits.x if limits else (None, None),
-        ylim=limits.y if limits else (None, None),
+        limits=limits,
     )
 
 
@@ -98,7 +98,7 @@ class MPLPlot:
     size: tuple[int, int] | None = None
     scale: float = 1.0
     expr: str = ""
-    axis_limits: AxisLimits = dataclasses.field(default_factory=AxisLimits)
+    axis_limits: AxisLimits = NO_LIMITS
     # theme/scale/expr/resize re-renders only redraw instead of re-reading data
     built: _HistCache = dataclasses.field(default_factory=_HistCache)
 

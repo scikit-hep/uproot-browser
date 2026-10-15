@@ -11,7 +11,6 @@ __lazy_modules__ = {
     "uproot_browser.plotext_compat",
     f"{__spec__.parent}.error",
     f"{__spec__.parent}.messages",
-    f"{__spec__.parent}.right.axis",
 }
 
 import contextlib
@@ -24,11 +23,11 @@ import rich.text
 
 import uproot_browser.plot
 import uproot_browser.plotext_compat
+from uproot_browser.axis import NO_LIMITS, AxisLimits
 from uproot_browser.exceptions import EmptyTreeError
 
 from .error import Error
 from .messages import EmptyMessage, ErrorMessage, RequestPlot
-from .right.axis import AxisLimits
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -62,7 +61,7 @@ class PlotItem(Protocol):
     def with_expr(self, expr: str) -> PlotItem:
         """A copy of this item with a new slicing expression."""
 
-    def with_axis_limits(self, limits: Any) -> PlotItem:
+    def with_axis_limits(self, limits: AxisLimits) -> PlotItem:
         """A copy of this item with typed display limits."""
 
     def dump_source(self) -> str:
@@ -101,16 +100,15 @@ def resolve_selection(tree: Any, selection: str) -> Any:
     return functools.reduce(operator.getitem, selection.split(":"), tree)
 
 
-def render_canvas(item: Any, theme: str, *size: int, expr: str, limits: Any) -> str:
+def render_canvas(
+    item: Any, theme: str, *size: int, expr: str, limits: AxisLimits
+) -> str:
     """Build the plotext canvas string for an item."""
-    limits = limits or AxisLimits()
     fig = uproot_browser.plotext_compat.make_figure()
     fig.clear()
     fig.theme(theme)
     fig.plot_size(*size)
-    uproot_browser.plot.plot(
-        item, fig=fig, width=size[0] - 5, expr=expr, xlim=limits.x, ylim=limits.y
-    )
+    uproot_browser.plot.plot(item, fig=fig, width=size[0] - 5, expr=expr, limits=limits)
     return str(fig.build())
 
 
@@ -132,7 +130,7 @@ class Plotext:
     app: Browser
     expr: str = ""
     size: tuple[int, int] | None = None
-    axis_limits: Any = None
+    axis_limits: AxisLimits = NO_LIMITS
 
     @property
     def theme(self) -> str:
@@ -152,7 +150,7 @@ class Plotext:
     def with_expr(self, expr: str) -> Plotext:
         return dataclasses.replace(self, expr=expr)
 
-    def with_axis_limits(self, limits: Any) -> Plotext:
+    def with_axis_limits(self, limits: AxisLimits) -> Plotext:
         return dataclasses.replace(self, axis_limits=limits)
 
     def dump_source(self) -> str:

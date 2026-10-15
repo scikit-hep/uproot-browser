@@ -36,6 +36,7 @@ import uproot.interpretation.objects
 import uproot.model
 import uproot.models.RNTuple
 
+from uproot_browser.axis import NO_LIMITS, AxisLimits, AxisRange
 from uproot_browser.exceptions import EmptyTreeError
 
 if TYPE_CHECKING:
@@ -141,14 +142,7 @@ def _bin_ticks(axis: Any, count: int = 5) -> tuple[list[int], list[str]]:
     return positions.tolist(), [f"{axis.centers[i]:g}" for i in positions]
 
 
-def _draw_hist_2d(
-    fig: PlotextFigure,
-    tree: Any,
-    histogram: hist.Hist[Any],
-    *,
-    xlim: tuple[float | None, float | None],
-    ylim: tuple[float | None, float | None],
-) -> None:
+def _draw_hist_2d(fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any]) -> None:
     xaxis, yaxis = histogram.axes
     values = histogram.values().astype(float)
     # heatmap rows draw top-to-bottom; flip so y increases upward
@@ -158,10 +152,6 @@ def _draw_hist_2d(
     fig.label(xaxis.name, axis="x")
     fig.label(yaxis.name, axis="y")
     fig.title(make_hist_title(tree, histogram))
-    if any(value is not None for value in xlim):
-        fig.ruler("x").lim(*xlim)
-    if any(value is not None for value in ylim):
-        fig.ruler("y").lim(*ylim)
 
 
 def _collapses_in_float32(lower: float, upper: float) -> bool:
@@ -171,10 +161,7 @@ def _collapses_in_float32(lower: float, upper: float) -> bool:
     return bool(low32 == high32 or not np.isfinite(low32) or not np.isfinite(high32))
 
 
-def _visible_values(
-    values: np.ndarray,
-    ylim: tuple[float | None, float | None],
-) -> np.ndarray:
+def _visible_values(values: np.ndarray, ylim: AxisRange) -> np.ndarray:
     """Hide 1D bars whose heights fall outside an explicitly typed Y range."""
     lower, upper = ylim
     if lower is None and upper is None:
@@ -188,12 +175,7 @@ def _visible_values(
 
 
 def _draw_hist_1d(
-    fig: PlotextFigure,
-    tree: Any,
-    histogram: hist.Hist[Any],
-    *,
-    xlim: tuple[float | None, float | None],
-    ylim: tuple[float | None, float | None],
+    fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any], *, ylim: AxisRange
 ) -> None:
     axis = histogram.axes[0]
     values = _visible_values(histogram.values().astype(float), ylim)
@@ -208,25 +190,16 @@ def _draw_hist_1d(
     fig.ruler("y").lim(lower=0)
     fig.label(axis.name, axis="x")
     fig.title(make_hist_title(tree, histogram))
-    if any(value is not None for value in xlim):
-        fig.ruler("x").lim(*xlim)
-    if any(value is not None for value in ylim):
-        fig.ruler("y").lim(*ylim)
 
 
 def _draw_hist(
-    fig: PlotextFigure,
-    tree: Any,
-    histogram: hist.Hist[Any],
-    *,
-    xlim: tuple[float | None, float | None],
-    ylim: tuple[float | None, float | None],
+    fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any], *, ylim: AxisRange
 ) -> None:
     match len(histogram.axes):
         case 1:
-            _draw_hist_1d(fig, tree, histogram, xlim=xlim, ylim=ylim)
+            _draw_hist_1d(fig, tree, histogram, ylim=ylim)
         case 2:
-            _draw_hist_2d(fig, tree, histogram, xlim=xlim, ylim=ylim)
+            _draw_hist_2d(fig, tree, histogram)
         case ndim:
             msg = f"Histograms with {ndim} dimensions are not plottable; reduce to 1 or 2 first"
             raise RuntimeError(msg)
@@ -238,15 +211,18 @@ def plot(
     fig: PlotextFigure,
     width: int = 100,
     expr: str = "",
-    xlim: tuple[float | None, float | None] = (None, None),
-    ylim: tuple[float | None, float | None] = (None, None),
+    limits: AxisLimits = NO_LIMITS,
 ) -> None:
     """
     Plot ``tree`` into the given plotext figure.
     Support new types by registering a :func:`to_histogram` overload.
     """
     histogram = to_histogram(tree, bins=width)
-    _draw_hist(fig, tree, apply_expr(histogram, expr), xlim=xlim, ylim=ylim)
+    _draw_hist(fig, tree, apply_expr(histogram, expr), ylim=limits.y)
+    # lim(None, None) would undo the 1D lower=0, so only set typed limits
+    for axis, lim in (("x", limits.x), ("y", limits.y)):
+        if lim != (None, None):
+            fig.ruler(axis).lim(*lim)
 
 
 def _model_is_histogram(model: Any) -> bool:
