@@ -70,10 +70,16 @@ test = [
   "pytest-asyncio >=0.24",
   "scikit-hep-testdata >=0.5.0",
 ]
+image = [
+  "matplotlib",
+  "mplhep",
+  "textual-image >=0.8",
+]
 dev = [
   "ipython >=6",
   "textual-dev",
   {include-group = "test"},
+  {include-group = "image"},
 ]
 
 [tool.uv]

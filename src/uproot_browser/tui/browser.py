@@ -10,6 +10,7 @@ __lazy_modules__ = {
     "textual.lazy",
     "textual.widgets",
     "textual.worker",
+    "uproot_browser.exceptions",
     f"{__spec__.parent}.error",
     f"{__spec__.parent}.header",
     f"{__spec__.parent}.help",
@@ -40,6 +41,7 @@ import textual.worker
 from textual.reactive import var
 
 from uproot_browser.axis import NO_LIMITS, AxisLimits
+from uproot_browser.exceptions import EmptyTreeError
 
 from ..plotext_compat import add_theme
 from .error import Error
@@ -65,7 +67,7 @@ add_theme(
 add_theme("uproot_dark", canvas=DARK_BACKGROUND, text=(DARK_TEXT, DARK_BACKGROUND))
 
 if TYPE_CHECKING:
-    from .messages import ErrorMessage, UprootSelected
+    from .messages import ErrorMessage, ExpressionErrorMessage, UprootSelected
 
 
 class Browser(textual.app.App[None]):
@@ -240,6 +242,22 @@ class Browser(textual.app.App[None]):
 
     def on_error_message(self, message: ErrorMessage) -> None:
         self.view_widget.item = message.err
+
+    def on_expression_error_message(self, message: ExpressionErrorMessage) -> None:
+        if self.view_widget.item is not message.source:
+            return
+        self.view_widget.plot_input.add_class("-needs-update")
+        if isinstance(message.source, Plotext):
+            self.view_widget.plot_widget.update(
+                "Expression could not be plotted. Edit the expression and try again."
+            )
+        self.notify(
+            str(message.error),
+            title="Plot expression",
+            severity="warning"
+            if isinstance(message.error, EmptyTreeError)
+            else "error",
+        )
 
     def on_request_plot(self) -> None:
         """Single render trigger: assigning a Plotext (or a resize) lands here."""
