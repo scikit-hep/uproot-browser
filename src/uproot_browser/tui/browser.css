@@ -108,6 +108,16 @@ CollapsibleTitle {
    text-style: bold;
 }
 
+#navigation-count {
+    display: none;
+    dock: bottom;
+    /* Footer occupies its own layer; leave its row unobstructed. */
+    margin-bottom: 1;
+    height: 1;
+    padding: 0 1;
+    background: $surface;
+}
+
 Footer {
     background: $secondary-lighten-2;
 }

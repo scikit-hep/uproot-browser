@@ -113,6 +113,7 @@ class Browser(textual.app.App[None]):
             yield self.view_widget
 
         yield textual.widgets.Footer()
+        yield textual.widgets.Static(id="navigation-count")
 
     def on_mount(self, _event: textual.events.Mount) -> None:
         self.query_one("#tree-view").focus()
