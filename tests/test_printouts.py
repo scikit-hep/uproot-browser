@@ -18,10 +18,13 @@ import uproot_browser.plot
 import uproot_browser.plotext_compat
 import uproot_browser.tree
 import uproot_browser.tui.plot
+from uproot_browser.axis import AxisLimits
 from uproot_browser.tree import UprootEntry, print_tree, process_item
 
 if TYPE_CHECKING:
     import pathlib
+
+ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 OUT1 = """\
 📁 uproot-Event.root
@@ -295,6 +298,46 @@ def test_plot_2d() -> None:
     assert "xaxis" in out
     assert "yaxis" in out
     assert "█" in out
+
+
+def _render(item: object, limits: AxisLimits, size: tuple[int, int]) -> str:
+    fig = uproot_browser.plotext_compat.make_figure()
+    fig.clear()
+    fig.plot_size(*size)
+    uproot_browser.plot.plot(item, fig=fig, limits=limits)
+    return ANSI.sub("", str(fig.build()))
+
+
+def test_y_range_clips_tall_bars() -> None:
+    """A bar above the typed Y maximum is clipped at the limit, not hidden."""
+    item = uproot.open(data_path("uproot-Event.root"))["hstat"]
+    peak = float(np.max(item.values()))
+
+    out = _render(item, AxisLimits(y=(None, peak / 2)), (60, 12))
+    rows = [line.split("┤", 1) for line in out.splitlines() if "┤" in line]
+
+    assert rows
+    assert float(rows[0][0]) == peak / 2  # a tick sits at the limit
+    assert "█" in rows[0][1]  # the clipped peak still reaches the top
+    assert "0┤" in out
+
+
+@pytest.mark.skipif(
+    not uproot_browser.plotext_compat.PLOTEXT_6, reason="heatmaps need plotext 6"
+)
+def test_2d_ranges_are_in_data_units() -> None:
+    """Typed limits window the heatmap's bin-index axes in data units."""
+    item = uproot.open(data_path("uproot-hepdata-example.root"))["hpxpy"]
+
+    full = _render(item, AxisLimits(), (80, 20))
+    zoomed = _render(item, AxisLimits(x=(-1, 1), y=(-1, 1)), (80, 20))
+
+    assert "-3.9" in full
+    assert "-3.9" not in zoomed
+    assert "█" in zoomed
+    labels = [float(x) for x in re.findall(r"-?\d+\.\d+", zoomed.rsplit("┘", 1)[1])]
+    assert labels
+    assert all(-1 <= x <= 1 for x in labels)
 
 
 @pytest.mark.skipif(

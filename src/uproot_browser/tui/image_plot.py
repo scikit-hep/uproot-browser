@@ -19,6 +19,8 @@ import dataclasses
 import warnings
 from typing import TYPE_CHECKING, Any
 
+from uproot_browser.axis import NO_LIMITS, AxisLimits
+
 from .messages import RequestImage
 from .plot import resolve_selection, run_posting_errors, selection_source
 from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND, as_hex
@@ -38,6 +40,7 @@ def make_image(
     dark: bool,
     size: tuple[int, int] | None = None,
     scale: float = 1.0,
+    limits: AxisLimits = NO_LIMITS,
 ) -> PIL.Image.Image:
     """Draw an already-built histogram into a PIL image.
 
@@ -64,7 +67,12 @@ def make_image(
         }
     style = ["dark_background", overrides] if dark else ["default", overrides]
     return uproot_browser.plot_mpl.render_image(
-        histogram, title, size=size, scale=scale, style=style
+        histogram,
+        title,
+        size=size,
+        scale=scale,
+        style=style,
+        limits=limits,
     )
 
 
@@ -90,6 +98,7 @@ class MPLPlot:
     size: tuple[int, int] | None = None
     scale: float = 1.0
     expr: str = ""
+    axis_limits: AxisLimits = NO_LIMITS
     # theme/scale/expr/resize re-renders only redraw instead of re-reading data
     built: _HistCache = dataclasses.field(default_factory=_HistCache)
 
@@ -106,12 +115,21 @@ class MPLPlot:
     def with_expr(self, expr: str) -> MPLPlot:
         return dataclasses.replace(self, expr=expr)
 
+    def with_axis_limits(self, limits: AxisLimits) -> MPLPlot:
+        return dataclasses.replace(self, axis_limits=limits)
+
     def dump_source(self) -> str:
         msg = selection_source(self.selection)
-        expr_arg = f", expr={self.expr!r}" if self.expr else ""
+        args = ""
+        imports = ""
+        if self.expr:
+            args += f", expr={self.expr!r}"
+        if self.axis_limits != NO_LIMITS:
+            args += f", limits={self.axis_limits!r}"
+            imports = "from uproot_browser.axis import AxisLimits\n"
         return (
             msg
-            + f"\n\nimport matplotlib.pyplot as plt\nimport uproot_browser.plot_mpl\n\nuproot_browser.plot_mpl.plot(item{expr_arg})\nplt.show()"
+            + f"\n\nimport matplotlib.pyplot as plt\nimport uproot_browser.plot_mpl\n{imports}\nuproot_browser.plot_mpl.plot(item{args})\nplt.show()"
         )
 
     def dump_renderables(self) -> tuple[Any, ...]:
@@ -140,6 +158,7 @@ class MPLPlot:
                 dark=self.dark,
                 size=self.size,
                 scale=self.scale,
+                limits=self.axis_limits,
             )
 
         return run_posting_errors(self.app, build, self.selection)

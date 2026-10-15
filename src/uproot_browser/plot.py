@@ -36,6 +36,7 @@ import uproot.interpretation.objects
 import uproot.model
 import uproot.models.RNTuple
 
+from uproot_browser.axis import NO_LIMITS, AxisLimits, AxisRange
 from uproot_browser.exceptions import EmptyTreeError
 
 if TYPE_CHECKING:
@@ -134,20 +135,46 @@ def apply_expr(histogram: hist.Hist[Any], expr: str) -> hist.Hist[Any]:
     return histogram
 
 
-def _bin_ticks(axis: Any, count: int = 5) -> tuple[list[int], list[str]]:
+def _bin_ticks(
+    axis: Any, visible: AxisRange = (None, None), count: int = 5
+) -> tuple[list[int], list[str]]:
+    """Tick positions (bin indices) and labels spread over the visible index range."""
+    lower, upper = visible
+    first = 0 if lower is None else max(0, math.ceil(lower))
+    last = len(axis) - 1 if upper is None else min(len(axis) - 1, math.floor(upper))
     positions = np.unique(
-        np.linspace(0, len(axis) - 1, min(count, len(axis))).round().astype(int)
+        np.linspace(first, last, min(count, last - first + 1)).round().astype(int)
     )
     return positions.tolist(), [f"{axis.centers[i]:g}" for i in positions]
 
 
-def _draw_hist_2d(fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any]) -> None:
+def _index_range(axis: Any, lim: AxisRange) -> AxisRange:
+    """Map a data-unit range onto bin-index coordinates (bar i spans i±0.5)."""
+    positions = np.arange(len(axis) + 1) - 0.5
+    return tuple(  # type: ignore[return-value]
+        None if v is None else float(np.interp(v, axis.edges, positions)) for v in lim
+    )
+
+
+def _set_lim(fig: PlotextFigure, axis: str, lim: AxisRange) -> None:
+    # lim(None, None) would undo an earlier default, so only set typed limits
+    if lim != (None, None):
+        fig.ruler(axis).lim(*lim)
+
+
+def _draw_hist_2d(
+    fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any], *, limits: AxisLimits
+) -> None:
     xaxis, yaxis = histogram.axes
     values = histogram.values().astype(float)
     # heatmap rows draw top-to-bottom; flip so y increases upward
     fig.draw(fig.heatmap(values.T[::-1].tolist(), map="viridis", fill=True))
-    fig.ruler("x").ticks(*_bin_ticks(xaxis))
-    fig.ruler("y").ticks(*_bin_ticks(yaxis))
+    # The heatmap draws against bin indices, so limits must be mapped too
+    xlim, ylim = _index_range(xaxis, limits.x), _index_range(yaxis, limits.y)
+    fig.ruler("x").ticks(*_bin_ticks(xaxis, xlim))
+    fig.ruler("y").ticks(*_bin_ticks(yaxis, ylim))
+    _set_lim(fig, "x", xlim)
+    _set_lim(fig, "y", ylim)
     fig.label(xaxis.name, axis="x")
     fig.label(yaxis.name, axis="y")
     fig.title(make_hist_title(tree, histogram))
@@ -160,40 +187,55 @@ def _collapses_in_float32(lower: float, upper: float) -> bool:
     return bool(low32 == high32 or not np.isfinite(low32) or not np.isfinite(high32))
 
 
-def _draw_hist_1d(fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any]) -> None:
+def _draw_hist_1d(
+    fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any], *, limits: AxisLimits
+) -> None:
     axis = histogram.axes[0]
     values = histogram.values().astype(float)
     if _collapses_in_float32(axis.edges[0], axis.edges[-1]):
         # Positions rescale to NaN in float32; draw against bin indices instead
         # and put the real values in the tick labels.
         fig.draw(fig.bar(np.arange(len(axis)).tolist(), values))
-        fig.ruler("x").ticks(*_bin_ticks(axis))
+        xlim = _index_range(axis, limits.x)
+        fig.ruler("x").ticks(*_bin_ticks(axis, xlim))
+        _set_lim(fig, "x", xlim)
     else:
         fig.draw(fig.bar(axis.centers, values))
         fig.ruler("x").ticks(np.linspace(axis.edges[0], axis.edges[-1], 5))
-    fig.ruler("y").lim(lower=0)
+        _set_lim(fig, "x", limits.x)
+    lower, upper = limits.y
+    fig.ruler("y").lim(0 if lower is None else lower, upper)
     fig.label(axis.name, axis="x")
     fig.title(make_hist_title(tree, histogram))
 
 
-def _draw_hist(fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any]) -> None:
+def _draw_hist(
+    fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any], *, limits: AxisLimits
+) -> None:
     match len(histogram.axes):
         case 1:
-            _draw_hist_1d(fig, tree, histogram)
+            _draw_hist_1d(fig, tree, histogram, limits=limits)
         case 2:
-            _draw_hist_2d(fig, tree, histogram)
+            _draw_hist_2d(fig, tree, histogram, limits=limits)
         case ndim:
             msg = f"Histograms with {ndim} dimensions are not plottable; reduce to 1 or 2 first"
             raise RuntimeError(msg)
 
 
-def plot(tree: Any, *, fig: PlotextFigure, width: int = 100, expr: str = "") -> None:
+def plot(
+    tree: Any,
+    *,
+    fig: PlotextFigure,
+    width: int = 100,
+    expr: str = "",
+    limits: AxisLimits = NO_LIMITS,
+) -> None:
     """
     Plot ``tree`` into the given plotext figure.
     Support new types by registering a :func:`to_histogram` overload.
     """
     histogram = to_histogram(tree, bins=width)
-    _draw_hist(fig, tree, apply_expr(histogram, expr))
+    _draw_hist(fig, tree, apply_expr(histogram, expr), limits=limits)
 
 
 def _model_is_histogram(model: Any) -> bool:

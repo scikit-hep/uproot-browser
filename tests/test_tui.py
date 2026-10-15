@@ -9,11 +9,13 @@ import textual.geometry
 import textual.pilot
 import textual.widgets
 
+from uproot_browser.axis import AxisLimits
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.error import Error
 from uproot_browser.tui.jump import JumpScreen
 from uproot_browser.tui.left_panel import SCROLLOFF, UprootTree
 from uproot_browser.tui.plot import Plotext
+from uproot_browser.tui.right_panel import RightPanel
 
 LEAF_PATH = "//T/event/fFlag"
 EXPAND_EVENT = ("down", "down", "l", "j", "l")  # open //T/event: 26 lines deep
@@ -79,6 +81,22 @@ async def test_browse_logo() -> None:
         assert pilot.app.view_widget.item is None
 
 
+async def test_right_panel_toggle() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        panel = pilot.app.query_one("#right-panel")
+        assert panel.display
+
+        await pilot.press("r")
+        assert not pilot.app.show_right_panel
+        assert not panel.display
+
+        await pilot.press("r")
+        assert pilot.app.show_right_panel
+        assert panel.display
+
+
 async def test_browse_plot() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
@@ -89,6 +107,53 @@ async def test_browse_plot() -> None:
         assert isinstance(item, Plotext)
         # Dump & Quit source for the text mode rebuilds the histogram
         assert item.dump_source().startswith('\nitem = uproot_file["')
+
+
+async def test_axis_ranges_are_typed_in_right_panel() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        await pilot.press("down", "down", "down", "enter")
+        await pilot.pause()
+        assert pilot.app.query_one("#y-min", textual.widgets.Input).display
+        assert pilot.app.query_one("#y-max", textual.widgets.Input).display
+        pilot.app.query_one("#x-min", textual.widgets.Input).value = "0.2"
+        pilot.app.query_one("#x-max", textual.widgets.Input).value = "0.8"
+        pilot.app.query_one("#y-min", textual.widgets.Input).value = "1"
+        pilot.app.query_one("#y-max", textual.widgets.Input).value = "15"
+        pilot.app.query_one("#x-min", textual.widgets.Input).focus()
+        await pilot.press("enter")
+        await pilot.pause()
+        assert pilot.app.axis_limits.x == (0.2, 0.8)
+        assert pilot.app.axis_limits.y == (1.0, 15.0)
+        panel = pilot.app.query_one(RightPanel)
+        assert panel.status == "Applied."
+        item = pilot.app.view_widget.item
+        assert isinstance(item, Plotext)
+        assert "limits=AxisLimits(x=(0.2, 0.8), y=(1.0, 15.0))" in item.dump_source()
+
+        # Selecting another node drops the limits and clears the panel
+        pilot.app.query_one(UprootTree).focus()
+        await pilot.press("down", "enter")
+        await pilot.pause()
+        assert pilot.app.axis_limits == AxisLimits()
+        assert pilot.app.query_one("#x-min", textual.widgets.Input).value == ""
+        assert panel.status == ""
+
+
+async def test_axis_range_rejects_bad_input() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        await pilot.press("down", "down", "down", "enter")
+        await pilot.pause()
+        pilot.app.query_one("#x-max", textual.widgets.Input).value = "1,5"
+        pilot.app.query_one("#x-max", textual.widgets.Input).focus()
+        await pilot.press("enter")
+        await pilot.pause()
+        panel = pilot.app.query_one(RightPanel)
+        assert panel.status == "Axis limits must be finite numbers, not '1,5'."
+        assert pilot.app.axis_limits == AxisLimits()
 
 
 async def test_plot_canvas_matches_widget_size() -> None:

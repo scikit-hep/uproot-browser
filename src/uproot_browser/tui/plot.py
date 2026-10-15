@@ -6,6 +6,7 @@ __lazy_modules__ = {
     "operator",
     "rich",
     "rich.text",
+    "textwrap",
     "uproot_browser.exceptions",
     "uproot_browser.plot",
     "uproot_browser.plotext_compat",
@@ -17,12 +18,14 @@ import contextlib
 import dataclasses
 import functools
 import operator
+import textwrap
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
 import rich.text
 
 import uproot_browser.plot
 import uproot_browser.plotext_compat
+from uproot_browser.axis import NO_LIMITS, AxisLimits
 from uproot_browser.exceptions import EmptyTreeError
 
 from .error import Error
@@ -60,6 +63,9 @@ class PlotItem(Protocol):
     def with_expr(self, expr: str) -> PlotItem:
         """A copy of this item with a new slicing expression."""
 
+    def with_axis_limits(self, limits: AxisLimits) -> PlotItem:
+        """A copy of this item with typed display limits."""
+
     def dump_source(self) -> str:
         """Python source for Dump & Quit (appended after `uproot_file = ...`)."""
 
@@ -96,22 +102,39 @@ def resolve_selection(tree: Any, selection: str) -> Any:
     return functools.reduce(operator.getitem, selection.split(":"), tree)
 
 
-def render_canvas(item: Any, theme: str, *size: int, expr: str) -> str:
+def render_canvas(
+    item: Any, theme: str, *size: int, expr: str, limits: AxisLimits
+) -> str:
     """Build the plotext canvas string for an item."""
     fig = uproot_browser.plotext_compat.make_figure()
     fig.clear()
     fig.theme(theme)
     fig.plot_size(*size)
-    uproot_browser.plot.plot(item, fig=fig, width=size[0] - 5, expr=expr)
+    uproot_browser.plot.plot(item, fig=fig, width=size[0] - 5, expr=expr, limits=limits)
     return str(fig.build())
 
 
-def make_dump(item: Any, *size: int, expr: str = "") -> str:
-    """Standalone Python source rebuilding the plotted histogram as ``h``."""
+def make_dump(
+    item: Any, *size: int, expr: str = "", limits: AxisLimits = NO_LIMITS
+) -> str:
+    """Standalone Python source rebuilding the plotted histogram as ``h``.
+
+    Typed axis limits are a display setting, not part of ``h``, so they add a
+    block that draws the plot the way the TUI did.
+    """
     width = size[0] - 5 if size else 100
     code = uproot_browser.plot.dump(item, width=width)
     if expr:
         code += f"\nh = {expr}"
+    if limits != NO_LIMITS:
+        code += textwrap.dedent(f"""
+
+            import uproot_browser.plot
+            import uproot_browser.plotext_compat
+            from uproot_browser.axis import AxisLimits
+            fig = uproot_browser.plotext_compat.make_figure()
+            uproot_browser.plot.plot(item, fig=fig, width={width}, expr={expr!r}, limits={limits!r})
+            print(fig.build())""")
     return code
 
 
@@ -124,6 +147,7 @@ class Plotext:
     app: Browser
     expr: str = ""
     size: tuple[int, int] | None = None
+    axis_limits: AxisLimits = NO_LIMITS
 
     @property
     def theme(self) -> str:
@@ -143,12 +167,15 @@ class Plotext:
     def with_expr(self, expr: str) -> Plotext:
         return dataclasses.replace(self, expr=expr)
 
+    def with_axis_limits(self, limits: AxisLimits) -> Plotext:
+        return dataclasses.replace(self, axis_limits=limits)
+
     def dump_source(self) -> str:
         msg = selection_source(self.selection)
         selected = resolve_selection(self.upfile, self.selection)
         size = self.size or ()
         with contextlib.suppress(RuntimeError):
-            msg += f"\n{make_dump(selected, *size, expr=self.expr)}"
+            msg += f"\n{make_dump(selected, *size, expr=self.expr, limits=self.axis_limits)}"
         return msg
 
     def dump_renderables(self) -> tuple[Any, ...]:
@@ -157,7 +184,9 @@ class Plotext:
         size = self.size or (100, 30)
         try:
             selected = resolve_selection(self.upfile, self.selection)
-            canvas = render_canvas(selected, self.theme, *size, expr=self.expr)
+            canvas = render_canvas(
+                selected, self.theme, *size, expr=self.expr, limits=self.axis_limits
+            )
         except Exception:  # noqa: BLE001
             # The render worker can still be in flight, so this item can be one
             # that fails. Quit with the source only instead of crashing.
@@ -170,7 +199,9 @@ class Plotext:
 
         def build() -> rich.text.Text:
             item = resolve_selection(self.upfile, self.selection)
-            canvas = render_canvas(item, self.theme, *size, expr=self.expr)
+            canvas = render_canvas(
+                item, self.theme, *size, expr=self.expr, limits=self.axis_limits
+            )
             return rich.text.Text.from_ansi(canvas)
 
         return run_posting_errors(self.app, build, self.selection)

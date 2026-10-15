@@ -34,6 +34,9 @@ uproot-browser currently provides the following features (get help with `-h` or 
 - `browse` can be used to display a TUI (text user interface), acts as default if no subcommand specified.
 - `plot` can be used to display a plot.
 - `tree` can be used to display a tree.
+- `browse` provides a right-side axis panel with typed X and Y range controls.
+- The right-side panel can be shown or hidden with `r`.
+- Image-mode render scaling is available from the right-side panel.
 
 
 ## Examples
@@ -47,6 +50,16 @@ uproot-browser browse --testdata uproot-Event.root
 ```
 
 ![GIF of the TUI functionality](https://github.com/scikit-hep/uproot-browser/releases/download/v0.5.0/tui.gif)
+
+### Browse controls
+
+When a plottable object is selected in `browse`, the right-side **Axis scaling** panel provides typed fields for the X and Y limits. Press **Enter** in a field or choose **Apply ranges** to update the plot. Leave a field blank to use the automatic range, or choose **Reset to automatic** to clear both axes.
+
+The existing image render scale control is also located in this panel when using `browse --image`. The Tree, Tools, and Info tabs remain on the left. Use the following keyboard shortcuts from the bottom footer:
+
+```text
+b  Navbar       r  Right Panel       q  Quit       d  Dump & Quit
+```
 
 **`plot` command:**
 

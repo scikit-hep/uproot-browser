@@ -31,6 +31,7 @@ import PIL.Image
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 import uproot_browser.plot
+from uproot_browser.axis import NO_LIMITS, AxisLimits
 
 if TYPE_CHECKING:
     import hist
@@ -39,7 +40,13 @@ DPI = 100
 ASPECT_RATIO = 5 / 8  # height / width of the default figure
 
 
-def _draw_on(ax: matplotlib.axes.Axes, histogram: hist.Hist[Any], title: str) -> None:
+def _draw_on(
+    ax: matplotlib.axes.Axes,
+    histogram: hist.Hist[Any],
+    title: str,
+    *,
+    limits: AxisLimits = NO_LIMITS,
+) -> None:
     """
     Draw an already-built histogram into the given axes.
     """
@@ -53,16 +60,28 @@ def _draw_on(ax: matplotlib.axes.Axes, histogram: hist.Hist[Any], title: str) ->
         else:
             histogram.plot(ax=ax)
     ax.set_title(title)
+    ax.set_xlim(*limits.x)
+    ax.set_ylim(*limits.y)
 
 
-def draw_hist(histogram: hist.Hist[Any], title: str) -> None:
+def draw_hist(
+    histogram: hist.Hist[Any],
+    title: str,
+    *,
+    limits: AxisLimits = NO_LIMITS,
+) -> None:
     """
     Draw an already-built histogram into the current matplotlib axes.
     """
-    _draw_on(plt.gca(), histogram, title)
+    _draw_on(plt.gca(), histogram, title, limits=limits)
 
 
-def plot(tree: Any, *, expr: str = "") -> None:
+def plot(
+    tree: Any,
+    *,
+    expr: str = "",
+    limits: AxisLimits = NO_LIMITS,
+) -> None:
     """
     Build and draw in one step. The optional ``expr`` is evaluated with the
     histogram bound to ``h`` (e.g. ``h[::2j]``).
@@ -70,7 +89,11 @@ def plot(tree: Any, *, expr: str = "") -> None:
     histogram = uproot_browser.plot.apply_expr(
         uproot_browser.plot.to_histogram(tree), expr
     )
-    draw_hist(histogram, uproot_browser.plot.make_hist_title(tree, histogram))
+    draw_hist(
+        histogram,
+        uproot_browser.plot.make_hist_title(tree, histogram),
+        limits=limits,
+    )
 
 
 def render_image(
@@ -80,6 +103,7 @@ def render_image(
     size: tuple[int, int] | None = None,
     scale: float = 1.0,
     style: Any = "default",
+    limits: AxisLimits = NO_LIMITS,
 ) -> PIL.Image.Image:
     """Draw an already-built histogram into a PIL image.
 
@@ -96,7 +120,7 @@ def render_image(
         # first, or pyplot attaches a GUI one, which a worker thread cannot do.
         FigureCanvasAgg.new_manager(fig, 0)
         try:
-            _draw_on(fig.subplots(), histogram, title)
+            _draw_on(fig.subplots(), histogram, title, limits=limits)
             buf = io.BytesIO()
             fig.savefig(buf, format="png")
         finally:
@@ -112,6 +136,7 @@ def make_image(
     size: tuple[int, int] | None = None,
     scale: float = 1.0,
     style: Any = "default",
+    limits: AxisLimits = NO_LIMITS,
 ) -> PIL.Image.Image:
     """
     Build and render to a PIL image in one step.
@@ -125,4 +150,5 @@ def make_image(
         size=size,
         scale=scale,
         style=style,
+        limits=limits,
     )
