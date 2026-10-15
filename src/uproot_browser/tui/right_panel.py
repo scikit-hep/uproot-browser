@@ -29,27 +29,25 @@ class RightPanel(textual.containers.Container):
         return cast("Browser", self.app)
 
     def compose(self) -> textual.app.ComposeResult:
-        yield textual.widgets.Label("Axis scaling", id="axis-title")
-        yield textual.widgets.Static(
-            "Type numeric limits and press Enter. Blank values use the automatic range.",
-            id="axis-help",
-        )
-        with textual.containers.Vertical(classes="axis-section"):
+        with textual.widgets.Collapsible(title="Axis ranges", collapsed=False):
+            yield textual.widgets.Static(
+                "Blank values use the automatic range.", id="axis-help"
+            )
             for axis in "XY":
-                yield textual.widgets.Label(f"{axis} range", classes="axis-label")
                 with textual.containers.Horizontal(classes="axis-row"):
+                    yield textual.widgets.Label(axis, classes="axis-label")
                     for end in ("min", "max"):
                         yield textual.widgets.Input(
-                            placeholder=f"{axis} {end}", id=f"{axis.lower()}-{end}"
+                            placeholder=end, id=f"{axis.lower()}-{end}"
                         )
-        yield textual.widgets.Label("", id="axis-status")
-        yield textual.widgets.Button("Apply ranges", id="axis-apply", variant="primary")
-        yield textual.widgets.Button("Reset to automatic", id="axis-reset")
+            yield textual.widgets.Label("", id="axis-status")
+            with textual.containers.Horizontal(id="axis-buttons"):
+                yield textual.widgets.Button(
+                    "Apply", id="axis-apply", variant="primary"
+                )
+                yield textual.widgets.Button("Reset", id="axis-reset")
         if self.browser.image:
-            with textual.containers.Vertical(
-                classes="axis-section image-scale-section"
-            ):
-                yield textual.widgets.Label("Render scale", classes="axis-label")
+            with textual.widgets.Collapsible(title="Render scale", collapsed=False):
                 yield textual.widgets.Select(
                     [(f"{scale:g}×", scale) for scale in IMAGE_SCALES],
                     allow_blank=False,
