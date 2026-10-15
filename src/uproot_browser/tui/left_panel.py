@@ -128,11 +128,12 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         super().scroll_to_line(line, animate=animate)
 
     def _set_count(self, count: str) -> None:
-        """Store the pending count and echo it on the tab."""
+        """Store the pending count and show it above the footer."""
         self._count = count
         with contextlib.suppress(textual.css.query.NoMatches):
-            tabs = self.screen.query_one("#left-view", textual.widgets.TabbedContent)
-            tabs.get_tab("tree-tab").label = f"Tree {count}" if count else "Tree"
+            status = self.screen.query_one("#navigation-count", textual.widgets.Static)
+            status.update(f"Move: {count}" if count else "")
+            status.display = bool(count)
 
     def _take_count(self) -> int:
         """Consume the pending count, defaulting to 1."""
@@ -152,6 +153,10 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
             event.prevent_default()
         elif event.key not in COUNT_MOTIONS and not event.key.endswith(MODIFIERS):
             self._set_count("")
+
+    def on_blur(self) -> None:
+        """Discard pending navigation when focus leaves the tree."""
+        self._set_count("")
 
     def render_label(
         self,

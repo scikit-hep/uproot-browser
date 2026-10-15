@@ -4,15 +4,20 @@ Welcome to uproot-browser's help!
 
 ## Navigation
 
-Use the arrow keys to navigate the tree view. Press `enter` to select a
-something to plot. Press `spacebar` to open/close a directory or tree. You can
+Use the arrow keys to navigate the tree view. Press `enter` to select an
+object to plot. Press `spacebar` to open/close a directory or tree. You can
 also use the VIM keys: `j` to move down, `k` to move up, `l` to open a folder,
 and `h` to close a folder.
 
-Type a number before a move to repeat it: `12j` goes down twelve lines. The
-pending number is shown on the `Tree` tab, and any other key discards it. The
-tree also keeps two lines visible above and below the cursor, so you can see
-what comes next.
+Type a positive count (up to four digits) before `down`, `up`, `j`, or `k` to
+move that many visible rows. For example, `12j` moves down twelve rows.
+Movement stops at the first or last visible row. Press `enter` to plot the
+highlighted object.
+
+The pending count appears as `Move: 12` in a separate row above the footer;
+the `Tree` tab label stays unchanged. The row disappears after a move, another
+key, or focus leaving the tree. Scrolling keeps two rows visible above and
+below the cursor when space permits.
 
 Press `/` to open a fuzzy finder: start typing a branch or field name and the
 list narrows as you type (`fzf`-style). Use the arrow keys to pick a match and
