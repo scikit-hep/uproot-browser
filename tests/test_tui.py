@@ -398,6 +398,10 @@ async def test_count_prefix_shown_and_reset() -> None:
         await pilot.pause()
         assert tabs.get_tab("tree-tab").label_text == "Tree 4"
 
+        await pilot.press("left_shift")  # bare modifiers keep the count
+        await pilot.pause()
+        assert tabs.get_tab("tree-tab").label_text == "Tree 4"
+
         await pilot.press("x")  # any other key discards the count
         await pilot.pause()
         assert tabs.get_tab("tree-tab").label_text == "Tree"
