@@ -179,7 +179,7 @@ def _visible_values(
     lower, upper = ylim
     if lower is None and upper is None:
         return values
-    visible = values.copy()
+    visible: np.ndarray = values.copy()
     if lower is not None:
         visible[visible < lower] = 0
     if upper is not None:

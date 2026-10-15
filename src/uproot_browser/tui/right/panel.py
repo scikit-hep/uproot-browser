@@ -1,11 +1,6 @@
 from __future__ import annotations
 
-__lazy_modules__ = {
-    "math",
-    "textual.app",
-    f"{__spec__.parent.rsplit('.', 1)[0]}.tools",
-    f"{__spec__.parent}.axis",
-}
+__lazy_modules__ = {"math", "textual.app", f"{__spec__.parent}.axis"}
 
 import math
 from typing import TYPE_CHECKING, cast
@@ -14,11 +9,13 @@ import textual.app
 import textual.containers
 import textual.widgets
 
-from ..tools import IMAGE_SCALES
 from .axis import AxisLimits, AxisRange
 
 if TYPE_CHECKING:
     from ..browser import Browser
+
+
+IMAGE_SCALES = [1.0, 1.25, 1.5, 2.0, 2.5, 3.0]
 
 
 class AxisControls(textual.containers.Container):
@@ -86,13 +83,13 @@ class AxisControls(textual.containers.Container):
         except ValueError as err:
             self._set_status(str(err), error=True)
             return
-        cast("Browser", self.app).axis_limits = limits
+        cast("Browser", self.app).axis_limits = limits  # pylint: disable=attribute-defined-outside-init
         self._set_status("Applied.")
 
     def _reset_ranges(self) -> None:
         for control_id in ("x-min", "x-max", "y-min", "y-max"):
             self.query_one(f"#{control_id}", textual.widgets.Input).value = ""
-        cast("Browser", self.app).axis_limits = AxisLimits()
+        cast("Browser", self.app).axis_limits = AxisLimits()  # pylint: disable=attribute-defined-outside-init
         self._set_status("Automatic ranges restored.")
 
     def on_input_submitted(self, _event: textual.widgets.Input.Submitted) -> None:
@@ -107,4 +104,4 @@ class AxisControls(textual.containers.Container):
     @textual.on(textual.widgets.Select.Changed, "#image-scale-select")
     def image_scale_changed(self, event: textual.widgets.Select.Changed) -> None:
         assert isinstance(event.value, float)
-        cast("Browser", self.app).image_scale = event.value
+        cast("Browser", self.app).image_scale = event.value  # pylint: disable=attribute-defined-outside-init

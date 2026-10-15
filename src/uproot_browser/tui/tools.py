@@ -14,8 +14,6 @@ from .. import __version__
 if TYPE_CHECKING:
     from .browser import Browser
 
-IMAGE_SCALES = [1.0, 1.25, 1.5, 2.0, 2.5, 3.0]
-
 
 class Tools(textual.containers.Container):
     def compose(self) -> textual.app.ComposeResult:
