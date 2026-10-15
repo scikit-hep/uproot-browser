@@ -17,6 +17,7 @@ import uproot_browser.plot
 import uproot_browser.plot_mpl
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.image_plot import MPLPlot, make_image
+from uproot_browser.tui.left_panel import UprootTree
 from uproot_browser.tui.messages import RequestImage
 
 
@@ -156,18 +157,28 @@ async def test_image_expr() -> None:
         assert isinstance(pilot.app.view_widget.item, MPLPlot)
 
 
+@pytest.mark.parametrize(
+    "expr", ["h[::2j]", 'tree["fTracks.fPx"].array()[tree["fTracks.fPy"].array() < 0]']
+)
 async def test_image_hist_cached_across_expr_change(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, expr: str
 ) -> None:
-    """An expr edit slices the cached histogram without re-reading data."""
+    """An expr edit reuses the cached histogram without re-reading data."""
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root"), image=True
     ).run_test() as pilot:
-        built = (await _open_settled_plot(pilot)).built.hist
+        pilot.app.query_one("#tree-view", UprootTree).select_path("//T/event/fNtrack")
+        await pilot.pause()
+        await pilot.pause()
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        original = pilot.app.view_widget.item
+        assert isinstance(original, MPLPlot)
+        built = original.built.hist
         assert built is not None
         monkeypatch.setattr(uproot_browser.plot, "to_histogram", _fail_build)
 
-        pilot.app.view_widget.plot_input.value = "h[::2j]"
+        pilot.app.view_widget.plot_input.value = expr
         pilot.app.view_widget.plot_input.apply_expression()
         await pilot.pause()
         await pilot.app.workers.wait_for_complete()
@@ -175,7 +186,7 @@ async def test_image_hist_cached_across_expr_change(
         # a rebuild would have raised, replacing the item with an Error
         item = pilot.app.view_widget.item
         assert isinstance(item, MPLPlot)
-        assert item.expr == "h[::2j]"
+        assert item.expr == expr
         # the cache keeps the unsliced histogram
         assert item.built.hist is built
 
@@ -240,3 +251,43 @@ async def test_image_scale_select_only_in_image_mode() -> None:
         ).active = "tab-2"
         await pilot.pause()
         assert not pilot.app.query("#image-scale-select")
+
+
+@pytest.mark.parametrize(
+    "expr", ["42", 'tree["fNtrack"].array()[tree["fNtrack"].array() > 1e99]']
+)
+async def test_image_expression_failure_can_be_corrected(expr: str) -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root"), image=True
+    ).run_test() as pilot:
+        pilot.app.query_one("#tree-view", UprootTree).select_path("//T/event/fNtrack")
+        await pilot.pause()
+        await pilot.pause()
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        view = pilot.app.view_widget
+        view.input_container.add_class("-show-container")
+        await pilot.pause()
+        view.plot_input.value = expr
+        view.plot_input.apply_expression()
+        await pilot.pause()
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+
+        assert isinstance(view.item, MPLPlot)
+        assert view.current == "image-window"
+        assert view.plot_input.region.height > 0
+        assert view.plot_input.has_class("-needs-update")
+        assert view.image_widget is not None
+        assert view.image_widget.image is not None
+        assert not view.image_widget.loading
+
+        view.plot_input.value = 'tree["fNtrack"].array()[tree["fNtrack"].array() > 0]'
+        view.plot_input.apply_expression()
+        await pilot.pause()
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        assert isinstance(view.item, MPLPlot)
+        assert view.item.expr == view.plot_input.value
+        assert not view.plot_input.has_class("-needs-update")
+        assert view.image_widget.image is not None

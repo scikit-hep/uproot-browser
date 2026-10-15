@@ -9,10 +9,12 @@ import textual.geometry
 import textual.pilot
 import textual.widgets
 
+from uproot_browser.exceptions import EmptyTreeError
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.error import Error
 from uproot_browser.tui.jump import JumpScreen
 from uproot_browser.tui.left_panel import SCROLLOFF, UprootTree
+from uproot_browser.tui.messages import ExpressionErrorMessage
 from uproot_browser.tui.plot import Plotext
 
 LEAF_PATH = "//T/event/fFlag"
@@ -115,14 +117,21 @@ async def test_resize_replots_at_the_new_size() -> None:
         assert assert_canvas(pilot.app, item) != before_text
 
 
-async def test_expr_replots_and_clears_flag() -> None:
+@pytest.mark.parametrize(
+    "expr", ["h[::2j]", 'tree["fTracks.fPx"].array()[tree["fTracks.fPy"].array() < 0]']
+)
+async def test_expr_replots_and_clears_flag(expr: str) -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
-        before_text = assert_canvas(pilot.app, await settled_plot(pilot))
+        pilot.app.query_one("#tree-view", UprootTree).select_path("//T/event/fNtrack")
+        await settle_render(pilot)
+        original = pilot.app.view_widget.item
+        assert isinstance(original, Plotext)
+        before_text = assert_canvas(pilot.app, original)
 
         plot_input = pilot.app.view_widget.plot_input
-        plot_input.value = "h[::2j]"
+        plot_input.value = expr
         await pilot.pause()
         assert plot_input.has_class("-needs-update")
 
@@ -130,7 +139,7 @@ async def test_expr_replots_and_clears_flag() -> None:
         await settle_render(pilot)
         item = pilot.app.view_widget.item
         assert isinstance(item, Plotext)
-        assert item.expr == "h[::2j]"
+        assert item.expr == expr
         assert not plot_input.has_class("-needs-update")
         await wait_until(pilot, lambda: plot_text(pilot.app) != before_text, delay=0.05)
 
@@ -431,3 +440,48 @@ async def test_dump_survives_render_failure(monkeypatch: pytest.MonkeyPatch) -> 
         monkeypatch.setattr("uproot_browser.tui.plot.render_canvas", raise_error)
         _, items = pilot.app.dump_source()
         assert items == []
+
+
+@pytest.mark.parametrize("expr", ["42", "h[", "np.array([])"])
+async def test_expression_failure_can_be_corrected(expr: str) -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        original = await settled_plot(pilot)
+        view = pilot.app.view_widget
+        view.input_container.add_class("-show-container")
+        await settle_render(pilot)
+        view.plot_input.value = expr
+        view.plot_input.apply_expression()
+        await settle_render(pilot)
+
+        assert isinstance(view.item, Plotext)
+        assert view.item.selection == original.selection
+        assert view.current == "plot-window"
+        assert view.plot_input.region.height > 0
+        assert view.plot_input.has_class("-needs-update")
+
+        # Clearing the input restores the original plot without reselecting it.
+        view.plot_input.value = ""
+        view.plot_input.apply_expression()
+        await settle_render(pilot)
+        assert isinstance(view.item, Plotext)
+        assert view.item.expr == ""
+        assert_canvas(pilot.app, view.item)
+        assert not view.plot_input.has_class("-needs-update")
+
+
+async def test_superseded_expression_error_is_ignored() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        original = await settled_plot(pilot)
+        view = pilot.app.view_widget
+        view.item = original.with_expr("h[::2j]")
+        await settle_render(pilot)
+        before = plot_text(pilot.app)
+
+        pilot.app.post_message(ExpressionErrorMessage(original, EmptyTreeError("old")))
+        await pilot.pause()
+        assert plot_text(pilot.app) == before
+        assert not view.plot_input.has_class("-needs-update")

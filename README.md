@@ -48,6 +48,21 @@ uproot-browser browse --testdata uproot-Event.root
 
 ![GIF of the TUI functionality](https://github.com/scikit-hep/uproot-browser/releases/download/v0.5.0/tui.gif)
 
+To transform a plot, select a numeric branch or field and enable
+**Tools → Plot → Entry box**. Enter one Python expression and press `enter`.
+The expression sees `h`, the default histogram, and `tree`, the containing
+TTree or RNTuple. The modules `ak`, `np`, and `hist` are also available.
+
+For example, with a branch selected from `uproot-Event.root`, this plots track
+momentum values with a cut using the normal uproot API:
+
+```python
+tree["fTracks.fPx"].array()[tree["fTracks.fPy"].array() < 0]
+```
+
+Array results are flattened, filtered to finite values, and histogrammed with
+the default bin count. Histogram expressions such as `h[::2j]` also work.
+
 **`plot` command:**
 
 ```bash
