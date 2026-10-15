@@ -37,15 +37,15 @@ be plottable, feel free to open an issue. 2D histograms draw as heatmaps
 
 To open the expression input, enable **Tools → Plot → Entry box**. Type an
 expression and press `enter` to apply it. The expression sees `h`, the default
-histogram, and `t`, the selected object; `t["branch"]` reads any branch or
-field of the containing TTree/RNTuple as an awkward array, and everything else
-on `t` forwards to the selected object (e.g. `t.array()`). The modules `ak`,
+histogram, `t`, the selected uproot object, and `tree`, its containing TTree or
+RNTuple. Both objects use the normal uproot API, for example `t.array()` or
+`tree["branch"].array()`. The modules `ak`,
 `np`, and `hist` are also available. A `hist.Hist` result is drawn as is; an
 array result is flattened, filtered to finite values, and histogrammed with
 the default bin count. For example, a cut:
 
 ```
-t["fTracks.fPx"][t["fTracks.fPy"] < 0]
+tree["fTracks.fPx"].array()[tree["fTracks.fPy"].array() < 0]
 ```
 
 ## Panels

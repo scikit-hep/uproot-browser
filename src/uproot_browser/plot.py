@@ -150,40 +150,23 @@ def _field_tree(item: uproot.behaviors.RNTuple.HasFields) -> Any:
     return item.ntuple
 
 
-class TreeView:
-    """The ``t`` of a plot expression: the selected object plus its tree's arrays.
-
-    ``t["fTracks.fPx"]`` reads any branch/field of the containing tree as an
-    awkward array; everything else forwards to the selected object
-    (``t.array()``, ``t.name``), so a cut such as ``t["fPx"][t["fPy"] < 0]``
-    works on any TTree or RNTuple.
-    """
-
-    def __init__(self, item: Any) -> None:
-        self._item = item
-        self._tree = containing_tree(item)
-
-    def __getitem__(self, name: str) -> Any:
-        if self._tree is None:
-            msg = f"{type(self._item).__name__} has no TTree/RNTuple to read branches from"
-            raise AttributeError(msg)
-        # pylint: disable-next=unsubscriptable-object  # pylint only sees the None default
-        return self._tree[name].array()
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._item, name)
-
-
 def apply_expr(histogram: hist.Hist[Any], expr: str, item: Any) -> hist.Hist[Any]:
     """
-    Evaluate the expression with the histogram bound to ``h`` and ``item``
-    wrapped in a :class:`TreeView` as ``t``, so a user can slice ``h``, build a
-    histogram from the data, or apply a cut such as ``t["fPx"][t["fPy"] < 0]``.
-    An array result is histogrammed with the bin count of ``h``.
+    Evaluate with ``h`` as the histogram, ``t`` as the selected uproot object,
+    and ``tree`` as its containing TTree/RNTuple. Both objects retain uproot's
+    API, e.g. ``tree["fPx"].array()[tree["fPy"].array() < 0]``. An array result
+    is histogrammed with the bin count of ``h``.
     """
     if not expr:
         return histogram
-    namespace = {"h": histogram, "t": TreeView(item), "ak": ak, "hist": hist, "np": np}
+    namespace = {
+        "h": histogram,
+        "t": item,
+        "tree": containing_tree(item),
+        "ak": ak,
+        "hist": hist,
+        "np": np,
+    }
     # pylint: disable-next=eval-used
     result = eval(expr, namespace)
     if isinstance(result, hist.Hist):
