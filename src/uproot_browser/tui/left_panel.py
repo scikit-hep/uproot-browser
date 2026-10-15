@@ -44,6 +44,7 @@ if TYPE_CHECKING:
 SCROLLOFF = 2  # lines kept visible past the cursor, like vim's 'scrolloff'
 MAX_COUNT_DIGITS = 4
 COUNT_MOTIONS = frozenset({"up", "down", "j", "k"})
+MODIFIERS = ("shift", "control", "alt", "super", "hyper", "meta")
 
 
 class UprootTree(textual.widgets.Tree[UprootEntry]):
@@ -149,7 +150,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
                 self._set_count(self._count + character)
             event.stop()
             event.prevent_default()
-        elif event.key not in COUNT_MOTIONS:
+        elif event.key not in COUNT_MOTIONS and not event.key.endswith(MODIFIERS):
             self._set_count("")
 
     def render_label(
