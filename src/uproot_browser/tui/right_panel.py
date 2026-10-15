@@ -90,6 +90,7 @@ class RightPanel(textual.containers.Container):
         except ValueError as err:
             self._set_status(str(err), error=True)
             return
+        # pylint: disable-next=attribute-defined-outside-init
         self.browser.axis_limits = limits
         self._set_status("Applied.")
 
@@ -101,6 +102,7 @@ class RightPanel(textual.containers.Container):
 
     def _reset_ranges(self) -> None:
         self.clear()
+        # pylint: disable-next=attribute-defined-outside-init
         self.browser.axis_limits = AxisLimits()
         self._set_status("Automatic ranges restored.")
 
@@ -116,4 +118,5 @@ class RightPanel(textual.containers.Container):
     @textual.on(textual.widgets.Select.Changed, "#image-scale-select")
     def image_scale_changed(self, event: textual.widgets.Select.Changed) -> None:
         assert isinstance(event.value, float)
+        # pylint: disable-next=attribute-defined-outside-init
         self.browser.image_scale = event.value
