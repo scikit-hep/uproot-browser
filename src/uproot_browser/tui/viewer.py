@@ -59,10 +59,10 @@ class ViewWidget(textual.widgets.ContentSwitcher):
         self.plot_widget = textual.widgets.Static("", id="plot")
         self.plot_input = PlotInput(
             id="plot-input",
-            placeholder="h[:] or t.array()",
+            placeholder="h[:] or tree['branch'].array()",
             tooltip=(
-                "Use h for the histogram, t for the selected uproot object, "
-                "and tree for its containing TTree/RNTuple. Press Enter to apply."
+                "Use h for the histogram and tree for its containing "
+                "TTree/RNTuple, when available. Press Enter to apply."
             ),
         )
         # The entry box goes into whichever window the active mode uses

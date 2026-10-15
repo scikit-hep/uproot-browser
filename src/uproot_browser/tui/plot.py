@@ -135,7 +135,6 @@ def make_dump(item: Any, *size: int, expr: str = "") -> str:
 
             tree = getattr(item, "tree", getattr(item, "ntuple", None))
 
-            t = item
             result = {expr}
             if not isinstance(result, hist.Hist):
                 values = ak.ravel(result)
