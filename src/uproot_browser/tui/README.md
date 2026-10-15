@@ -30,23 +30,18 @@ be plotted, you'll see a scrollable error traceback. If you think it should
 be plottable, feel free to open an issue. 2D histograms draw as heatmaps
 (text mode needs plotext 6 or newer; `--image` mode always supports them).
 
-To open the expression input, select **Tools → Plot → Entry box**. Enter an
-expression and press `enter` or select **Plot** to apply it.
-
-The plot input box evaluates an expression with `h` bound to the default
-histogram and `t` bound to the selected object's tree (reading any branch or
-field as an awkward array with `t["branch"]`; the selected object itself is
-still reachable, e.g. `t.array()`). You can slice `h`, build a histogram, or
-apply a cut to branches with compatible array shapes, for example:
+To open the expression input, enable **Tools → Plot → Entry box**. Type an
+expression and press `enter` to apply it. The expression sees `h`, the default
+histogram, `t`, the selected uproot object, and `tree`, its containing TTree or
+RNTuple. Both objects use the normal uproot API, for example `t.array()` or
+`tree["branch"].array()`. The modules `ak`,
+`np`, and `hist` are also available. A `hist.Hist` result is drawn as is; an
+array result is flattened, filtered to finite values, and histogrammed with
+the default bin count. For example, a cut:
 
 ```
-t["fTracks.fPx"][t["fTracks.fPy"] < 0]
+tree["fTracks.fPx"].array()[tree["fTracks.fPy"].array() < 0]
 ```
-
-The modules `ak`, `np`, `hist`, and `uproot` are also available. An expression
-that produces a numeric array is flattened, filtered to finite values, and
-histogrammed automatically using the default histogram's bin count. Both TTree
-branches and RNTuple fields are supported; use names present in your file.
 
 Invalid expressions and cuts with no finite results show a notification while
 keeping the selection and input available for correction. Clear the expression

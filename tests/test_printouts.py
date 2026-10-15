@@ -6,9 +6,7 @@ import re
 import shutil
 import sys
 from typing import TYPE_CHECKING
-from unittest.mock import patch
 
-import awkward as ak
 import hist
 import numpy as np
 import pytest
@@ -197,7 +195,6 @@ def test_tree_bracket_path_link(tmp_path: pathlib.Path) -> None:
         assert meta["label_text"].style.link.startswith("file://")
 
 
-@pytest.mark.parametrize("width", [80, 105])
 @pytest.mark.parametrize(
     ("filename", "selection", "expr"),
     [
@@ -215,22 +212,27 @@ def test_tree_bracket_path_link(tmp_path: pathlib.Path) -> None:
             "T/event/fNtrack",
             "hist.Hist.new.Reg(10, 0, 100).Double().fill(t.array())",
         ),
-        # `t` reads branch arrays from the containing tree, so a cut expression
+        # `tree` exposes the containing uproot tree, so a cut expression
         # still runs from the dumped source
         (
             "uproot-Event.root",
             "T/event/fNtrack",
-            't["fTracks.fPx"][t["fTracks.fPy"] < 0]',
+            'tree["fTracks.fPx"].array()[tree["fTracks.fPy"].array() < 0]',
+        ),
+        (
+            "uproot-Event.root",
+            "T/event/fNtrack",
+            'tree.arrays("fTracks.fPx", cut="fTracks.fPy < 0")["fTracks.fPx"]',
         ),
         (
             "ntpl001_staff_rntuple_v1-0-0-0.root",
             "Staff/Age",
-            't["Age"][t["Age"] > 20]',
+            'tree["Age"].array()[tree["Age"].array() > 20]',
         ),
     ],
 )
-def test_dump_is_runnable(filename: str, selection: str, expr: str, width: int) -> None:
-    """Exported bin edges and counts match the live plot at different sizes."""
+def test_dump_is_runnable(filename: str, selection: str, expr: str) -> None:
+    """The exported source rebuilds the plotted histogram without the browser package."""
     uproot_file = uproot.open(data_path(filename))
     # Navigate key-by-key, like the tree browser does (RNTuple fields are not
     # reachable via a recursive "a/b" lookup on the minimum uproot).
@@ -238,37 +240,23 @@ def test_dump_is_runnable(filename: str, selection: str, expr: str, width: int) 
         lambda obj, key: obj[key], selection.split("/"), uproot_file
     )
 
-    code = uproot_browser.tui.plot.make_dump(item, width, 30, expr=expr)
+    code = uproot_browser.tui.plot.make_dump(item, 105, 30, expr=expr)
+    assert "uproot_browser" not in code
 
     namespace: dict[str, object] = {"item": item}
     exec(code, namespace)
 
     actual = namespace["h"]
     assert isinstance(actual, hist.Hist)
+    if expr:
+        assert namespace["t"] is item
+        assert namespace["tree"] is uproot_browser.plot.containing_tree(item)
     expected = uproot_browser.plot.apply_expr(
-        uproot_browser.plot.to_histogram(item, bins=width - 5), expr, item
+        uproot_browser.plot.to_histogram(item, bins=100), expr, item
     )
     np.testing.assert_array_equal(actual.values(flow=True), expected.values(flow=True))
     for actual_axis, expected_axis in zip(actual.axes, expected.axes, strict=True):
         np.testing.assert_array_equal(actual_axis.edges, expected_axis.edges)
-
-
-@pytest.mark.parametrize("expr", ["h[::2j]", 't["fNtrack"][t["fNtrack"] > 0]'])
-def test_dump_without_browser_package(expr: str) -> None:
-    """An analysis environment need not have the browser package installed."""
-    item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
-    code = uproot_browser.tui.plot.make_dump(item, 80, 24, expr=expr)
-    import_function = __import__
-
-    def analysis_import(name: str, *args: object, **kwargs: object) -> object:
-        if name.startswith("uproot_browser"):
-            raise ModuleNotFoundError(name)
-        return import_function(name, *args, **kwargs)
-
-    namespace: dict[str, object] = {"item": item}
-    with patch("builtins.__import__", side_effect=analysis_import):
-        exec(code, namespace)
-    assert isinstance(namespace["h"], hist.Hist)
 
 
 def test_make_hist_title_counts_profile_entries() -> None:
@@ -451,15 +439,20 @@ def test_apply_expr_binds_tree() -> None:
     assert result.sum() > 0
 
 
-def test_apply_expr_cut_ttree() -> None:
-    """``t["branch"]`` reads arrays from the tree, so a jagged cut histograms."""
+@pytest.mark.parametrize(
+    "expr",
+    [
+        'tree["fTracks.fPx"].array()[tree["fTracks.fPy"].array() < 0]',
+        'tree.arrays("fTracks.fPx", cut="fTracks.fPy < 0")["fTracks.fPx"]',
+    ],
+)
+def test_apply_expr_cut_ttree(expr: str) -> None:
+    """Plain uproot array access supports jagged cuts from the containing tree."""
     item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
     default = uproot_browser.plot.to_histogram(item)
 
-    result = uproot_browser.plot.apply_expr(
-        default, 't["fTracks.fPx"][t["fTracks.fPy"] < 0]', item
-    )
-    uncut = uproot_browser.plot.apply_expr(default, 't["fTracks.fPx"]', item)
+    result = uproot_browser.plot.apply_expr(default, expr, item)
+    uncut = uproot_browser.plot.apply_expr(default, 'tree["fTracks.fPx"].array()', item)
 
     assert isinstance(result, hist.Hist)
     assert result.axes[0].size == default.axes[0].size
@@ -471,7 +464,9 @@ def test_apply_expr_cut_rntuple() -> None:
     item = uproot.open(data_path("ntpl001_staff_rntuple_v1-0-0-0.root"))["Staff"]["Age"]
     default = uproot_browser.plot.to_histogram(item)
 
-    result = uproot_browser.plot.apply_expr(default, 't["Age"][t["Age"] > 30]', item)
+    result = uproot_browser.plot.apply_expr(
+        default, 'tree["Age"].array()[tree["Age"].array() > 30]', item
+    )
 
     assert isinstance(result, hist.Hist)
     assert 0 < result.sum() <= default.sum()
@@ -486,21 +481,28 @@ def test_apply_expr_rejects_non_data() -> None:
         uproot_browser.plot.apply_expr(default, "42", item)
 
 
-def test_tree_view_keys_and_array() -> None:
-    """``tree_view`` keeps the selected object's interface while reading arrays."""
-    item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
-    view = uproot_browser.plot.tree_view(item)
-
-    assert view.name == "fNtrack"
-    assert len(view.array()) > 0
-    keys = view.keys()
-    assert any(key.endswith("fTracks.fPx") for key in keys)
-
-
-def test_tree_view_rntuple_container() -> None:
-    with uproot.open(data_path("ntpl001_staff_rntuple_v1-0-0-0.root")) as upfile:
-        tree = upfile["Staff"]
-        view = uproot_browser.plot.tree_view(tree)
-        keys = view.keys()
-        assert "Age" in keys
-        assert ak.to_list(view["Age"]) == ak.to_list(tree["Age"].array())
+@pytest.mark.parametrize(
+    ("filename", "tree_name", "selection"),
+    [
+        ("uproot-Event.root", "T", "fTracks"),
+        ("uproot-Event.root", "T", None),
+        ("ntpl001_staff_rntuple_v1-0-0-0.root", "Staff", "Age"),
+        ("ntpl001_staff_rntuple_v1-0-0-0.root", "Staff", None),
+    ],
+)
+def test_expression_objects_use_uproot_api(
+    filename: str, tree_name: str, selection: str | None
+) -> None:
+    """Expressions receive the original objects and retain sub-branch lookup."""
+    with uproot.open(data_path(filename)) as upfile:
+        tree = upfile[tree_name]
+        item = tree if selection is None else tree[selection]
+        default = hist.Hist.new.Reg(4, 0, 4).Double()
+        expression = f"h if id(t) == {id(item)} and id(tree) == {id(tree)} else None"
+        assert uproot_browser.plot.apply_expr(default, expression, item) is default
+        assert uproot_browser.plot.containing_tree(tree) is tree
+        if selection == "fTracks":
+            result = uproot_browser.plot.apply_expr(
+                default, 't["fTracks.fPx"].array()', item
+            )
+            assert result.sum() > 0
