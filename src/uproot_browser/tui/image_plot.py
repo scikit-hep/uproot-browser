@@ -144,4 +144,4 @@ class MPLPlot:
                 scale=self.scale,
             )
 
-        return run_posting_errors(self.app, build, self.selection)
+        return run_posting_errors(self.app, build, self.selection, source=self)

@@ -274,3 +274,41 @@ async def test_image_scale_select_only_in_image_mode() -> None:
         ).active = "tab-2"
         await pilot.pause()
         assert not pilot.app.query("#image-scale-select")
+
+
+@pytest.mark.parametrize("expr", ["42", 't["fNtrack"][t["fNtrack"] > 1e99]'])
+async def test_image_expression_failure_can_be_corrected(expr: str) -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root"), image=True
+    ).run_test() as pilot:
+        pilot.app.query_one("#tree-view", UprootTree).select_path("//T/event/fNtrack")
+        await pilot.pause()
+        await pilot.pause()
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        view = pilot.app.view_widget
+        view.input_container.add_class("-show-container")
+        await pilot.pause()
+        view.plot_input.value = expr
+        view.plot_input.apply_expression()
+        await pilot.pause()
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+
+        assert isinstance(view.item, MPLPlot)
+        assert view.current == "image-window"
+        assert view.plot_input.region.height > 0
+        assert view.plot_input.has_class("-needs-update")
+        assert view.image_widget is not None
+        assert view.image_widget.image is not None
+        assert not view.image_widget.loading
+
+        view.plot_input.value = 't["fNtrack"][t["fNtrack"] > 0]'
+        view.plot_input.apply_expression()
+        await pilot.pause()
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        assert isinstance(view.item, MPLPlot)
+        assert view.item.expr == view.plot_input.value
+        assert not view.plot_input.has_class("-needs-update")
+        assert view.image_widget.image is not None

@@ -48,6 +48,10 @@ that produces a numeric array is flattened, filtered to finite values, and
 histogrammed automatically using the default histogram's bin count. Both TTree
 branches and RNTuple fields are supported; use names present in your file.
 
+Invalid expressions and cuts with no finite results show a notification while
+keeping the selection and input available for correction. Clear the expression
+and apply it to restore the default histogram.
+
 ## Tools
 
 The panel on the left (which can be hidden/shown with `b` has tabs; the `Tree`

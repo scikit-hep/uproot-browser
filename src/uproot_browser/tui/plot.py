@@ -28,7 +28,7 @@ import uproot_browser.plotext_compat
 from uproot_browser.exceptions import EmptyTreeError
 
 from .error import Error
-from .messages import EmptyMessage, ErrorMessage, RequestPlot
+from .messages import EmptyMessage, ErrorMessage, ExpressionErrorMessage, RequestPlot
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -70,19 +70,32 @@ class PlotItem(Protocol):
 
 
 def run_posting_errors(
-    app: Browser, fn: Callable[[], T], selection: str = ""
+    app: Browser,
+    fn: Callable[[], T],
+    selection: str = "",
+    *,
+    source: PlotItem | None = None,
 ) -> T | None:
     """Run ``fn``, posting an Empty/Error message to the app on failure.
 
     ``selection`` travels with the error so Dump & Quit can show the branch.
+    A failed expression keeps ``source`` editable instead of replacing it.
     """
     try:
         return fn()
-    except EmptyTreeError:
-        app.post_message(EmptyMessage())
+    except EmptyTreeError as err:
+        app.post_message(
+            ExpressionErrorMessage(source, err)
+            if source is not None and source.expr
+            else EmptyMessage()
+        )
         return None
     except Exception as err:  # noqa: BLE001
-        app.post_message(ErrorMessage(Error(err, selection)))
+        app.post_message(
+            ExpressionErrorMessage(source, err)
+            if source is not None and source.expr
+            else ErrorMessage(Error(err, selection))
+        )
         return None
 
 
@@ -223,4 +236,4 @@ class Plotext:
             canvas = render_canvas(item, self.theme, *size, expr=self.expr)
             return rich.text.Text.from_ansi(canvas)
 
-        return run_posting_errors(self.app, build, self.selection)
+        return run_posting_errors(self.app, build, self.selection, source=self)
