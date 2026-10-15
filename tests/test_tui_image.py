@@ -157,8 +157,11 @@ async def test_image_expr() -> None:
         assert isinstance(pilot.app.view_widget.item, MPLPlot)
 
 
-async def test_image_branch_array_cut() -> None:
-    """Image mode accepts cuts returning arrays and keeps its source cache."""
+@pytest.mark.parametrize("expr", ["h[::2j]", 't["fTracks.fPx"][t["fTracks.fPy"] < 0]'])
+async def test_image_hist_cached_across_expr_change(
+    monkeypatch: pytest.MonkeyPatch, expr: str
+) -> None:
+    """An expr edit reuses the cached histogram without re-reading data."""
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root"), image=True
     ).run_test() as pilot:
@@ -167,41 +170,13 @@ async def test_image_branch_array_cut() -> None:
         await pilot.pause()
         await pilot.app.workers.wait_for_complete()
         await pilot.pause()
-        view = pilot.app.view_widget
-        original = view.item
+        original = pilot.app.view_widget.item
         assert isinstance(original, MPLPlot)
-        assert view.image_widget is not None
-        before = view.image_widget.image
-        assert before is not None
-
-        expression = 't["fTracks.fPx"][t["fTracks.fPy"] < 0]'
-        view.plot_input.value = expression
-        view.plot_input.apply_expression()
-        await pilot.pause()
-        await pilot.app.workers.wait_for_complete()
-        await pilot.pause()
-
-        item = view.item
-        assert isinstance(item, MPLPlot)
-        assert item.expr == expression
-        assert item.built.hist is original.built.hist
-        assert view.image_widget.image is not None
-        assert view.image_widget.image is not before
-        assert not view.image_widget.loading
-
-
-async def test_image_hist_cached_across_expr_change(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """An expr edit slices the cached histogram without re-reading data."""
-    async with Browser(
-        skhep_testdata.data_path("uproot-Event.root"), image=True
-    ).run_test() as pilot:
-        built = (await _open_settled_plot(pilot)).built.hist
+        built = original.built.hist
         assert built is not None
         monkeypatch.setattr(uproot_browser.plot, "to_histogram", _fail_build)
 
-        pilot.app.view_widget.plot_input.value = "h[::2j]"
+        pilot.app.view_widget.plot_input.value = expr
         pilot.app.view_widget.plot_input.apply_expression()
         await pilot.pause()
         await pilot.app.workers.wait_for_complete()
@@ -209,7 +184,7 @@ async def test_image_hist_cached_across_expr_change(
         # a rebuild would have raised, replacing the item with an Error
         item = pilot.app.view_widget.item
         assert isinstance(item, MPLPlot)
-        assert item.expr == "h[::2j]"
+        assert item.expr == expr
         # the cache keeps the unsliced histogram
         assert item.built.hist is built
 

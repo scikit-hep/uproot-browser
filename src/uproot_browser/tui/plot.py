@@ -113,55 +113,30 @@ def make_dump(item: Any, *size: int, expr: str = "") -> str:
     width = size[0] - 5 if size else 100
     code = uproot_browser.plot.dump(item, width=width)
     if expr:
-        # Keep the exported tree view self-contained: analysis scripts should
-        # only need uproot, awkward, numpy and hist installed.
+        # Self-contained: the exported script must not need uproot_browser.
         code += textwrap.dedent(f"""
 
             import awkward as ak
             import hist
             import numpy as np
-            import uproot
+
+            tree = getattr(item, "tree", getattr(item, "ntuple", None))
 
             class TreeView:
-                def __init__(self, selected):
-                    self.selected = selected
-                    tree = selected
-                    while isinstance(tree, uproot.models.RNTuple.RField):
-                        tree = tree.parent
-                    if isinstance(tree, uproot.TBranch):
-                        tree = tree.tree
-                    self.tree = tree if isinstance(
-                        tree, (uproot.TTree, uproot.behaviors.RNTuple.RNTuple)
-                    ) else None
-
                 def __getitem__(self, name):
-                    if self.tree is None:
-                        raise AttributeError("Selected object has no TTree/RNTuple")
-                    member = self.tree[name]
-                    return member.array() if hasattr(member, "array") else member
+                    return tree[name].array()
 
                 def __getattr__(self, name):
-                    return getattr(self.selected, name)
+                    return getattr(item, name)
 
-                def keys(self):
-                    return () if self.tree is None else self.tree.keys()
-
-            t = TreeView(item)
-            bins = len(h.axes[0])
+            t = TreeView()
             result = {expr}
-            if isinstance(result, hist.Hist):
-                h = result
-            elif isinstance(result, (ak.Array, np.ndarray)):
+            if not isinstance(result, hist.Hist):
                 values = ak.ravel(result)
-                finite = values[np.isfinite(values)]
-                if len(finite) == 0:
-                    raise ValueError("Expression produced no finite values.")
-                h = hist.numpy.histogram(finite, bins=bins, histogram=hist.Hist)
-            else:
-                raise RuntimeError(
-                    "Expression must produce a hist.Hist or an awkward/numpy array, "
-                    f"got {{type(result).__name__}}."
-                )""")
+                result = hist.numpy.histogram(
+                    values[np.isfinite(values)], bins=len(h.axes[0]), histogram=hist.Hist
+                )
+            h = result""")
     return code
 
 
