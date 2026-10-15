@@ -167,7 +167,9 @@ async def test_image_expr() -> None:
         assert isinstance(pilot.app.view_widget.item, MPLPlot)
 
 
-@pytest.mark.parametrize("expr", ["h[::2j]", 't["fTracks.fPx"][t["fTracks.fPy"] < 0]'])
+@pytest.mark.parametrize(
+    "expr", ["h[::2j]", 'tree["fTracks.fPx"].array()[tree["fTracks.fPy"].array() < 0]']
+)
 async def test_image_hist_cached_across_expr_change(
     monkeypatch: pytest.MonkeyPatch, expr: str
 ) -> None:

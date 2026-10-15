@@ -134,14 +134,7 @@ def make_dump(
 
             tree = getattr(item, "tree", getattr(item, "ntuple", None))
 
-            class TreeView:
-                def __getitem__(self, name):
-                    return tree[name].array()
-
-                def __getattr__(self, name):
-                    return getattr(item, name)
-
-            t = TreeView()
+            t = item
             result = {expr}
             if not isinstance(result, hist.Hist):
                 values = ak.ravel(result)

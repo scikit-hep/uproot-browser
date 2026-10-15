@@ -180,7 +180,9 @@ async def test_resize_replots_at_the_new_size() -> None:
         assert assert_canvas(pilot.app, item) != before_text
 
 
-@pytest.mark.parametrize("expr", ["h[::2j]", 't["fTracks.fPx"][t["fTracks.fPy"] < 0]'])
+@pytest.mark.parametrize(
+    "expr", ["h[::2j]", 'tree["fTracks.fPx"].array()[tree["fTracks.fPy"].array() < 0]']
+)
 async def test_expr_replots_and_clears_flag(expr: str) -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
