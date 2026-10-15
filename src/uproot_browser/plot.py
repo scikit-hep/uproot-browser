@@ -167,6 +167,7 @@ class TreeView:
         if self._tree is None:
             msg = f"{type(self._item).__name__} has no TTree/RNTuple to read branches from"
             raise AttributeError(msg)
+        # pylint: disable-next=unsubscriptable-object  # pylint only sees the None default
         return self._tree[name].array()
 
     def __getattr__(self, name: str) -> Any:
