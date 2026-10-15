@@ -63,6 +63,72 @@ Switch {
     height: 100%;
 }
 
+#right-panel {
+    dock: right;
+    width: 26%;
+    min-width: 26;
+    height: 100%;
+    overflow: auto;
+    padding: 1 1;
+    border-left: solid $panel;
+    background: $surface;
+}
+
+Browser.-hide-right-panel #right-panel {
+    display: none;
+}
+
+#axis-title {
+    text-style: bold;
+    padding-bottom: 1;
+}
+
+#axis-help {
+    color: $text-muted;
+    padding-bottom: 1;
+}
+
+.axis-section {
+    border-top: solid $panel-lighten-1;
+    padding-top: 1;
+    margin-top: 1;
+}
+
+.axis-label {
+    color: $text-muted;
+}
+
+.axis-row {
+    height: 3;
+    width: 100%;
+}
+
+.axis-row Input {
+    width: 1fr;
+    margin-right: 1;
+    display: block;
+    background: $surface-darken-1;
+    border: solid $panel-lighten-2;
+}
+
+#axis-status {
+    height: 2;
+    color: $success;
+}
+
+#axis-status.-error {
+    color: $error;
+}
+
+#axis-apply, #axis-reset {
+    width: 100%;
+    margin-bottom: 1;
+}
+
+.image-scale-section Select {
+    width: 100%;
+}
+
 #image-window {
     height: 100%;
     padding: 1;

@@ -17,6 +17,7 @@ __lazy_modules__ = {
     f"{__spec__.parent}.jump",
     f"{__spec__.parent}.left_panel",
     f"{__spec__.parent}.plot",
+    f"{__spec__.parent}.right",
     f"{__spec__.parent}.tools",
     f"{__spec__.parent}.viewer",
 }
@@ -46,6 +47,7 @@ from .image_plot import MPLPlot
 from .jump import JumpScreen
 from .left_panel import UprootTree
 from .plot import Plotext, PlotItem, selection_source
+from .right import AxisControls, AxisLimits
 from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND
 from .tools import Info, Tools
 from .viewer import ViewWidget
@@ -70,6 +72,10 @@ class Browser(textual.app.App[None]):
     CSS_PATH = "browser.css"
     BINDINGS: ClassVar[list[textual.binding.BindingType]] = [
         textual.binding.Binding("b", "toggle_files", "Navbar"),
+        textual.binding.Binding("r", "toggle_right_panel", "Right Panel"),
+        textual.binding.Binding(
+            "p", "toggle_right_panel", "Right Panel", show=False
+        ),
         textual.binding.Binding("/", "jump", "Jump"),
         textual.binding.Binding("q", "quit", "Quit"),
         textual.binding.Binding("d", "quit_with_dump", "Dump & Quit"),
@@ -79,7 +85,9 @@ class Browser(textual.app.App[None]):
     ]
 
     show_tree = var(True)
+    show_right_panel = var(True)
     image_scale = var(1.5)
+    axis_limits = var(AxisLimits())
 
     def __init__(
         self, path: str, *, image: bool = False, image_scale: float = 1.5, **kwargs: Any
@@ -92,6 +100,7 @@ class Browser(textual.app.App[None]):
 
         self.view_widget = ViewWidget(id="plot-view", image=image)
         self.set_reactive(Browser.image_scale, image_scale)
+        self.set_reactive(Browser.axis_limits, AxisLimits())
 
     def compose(self) -> textual.app.ComposeResult:
         """Compose our UI."""
@@ -111,6 +120,7 @@ class Browser(textual.app.App[None]):
                     yield textual.lazy.Lazy(Info())
             # main_panel
             yield self.view_widget
+            yield AxisControls(id="right-panel")
 
         yield textual.widgets.Footer()
 
@@ -138,6 +148,14 @@ class Browser(textual.app.App[None]):
     def action_toggle_files(self) -> None:
         """Called in response to key binding."""
         self.show_tree = not self.show_tree
+
+    def action_toggle_right_panel(self) -> None:
+        """Toggle the typed axis controls and render scale panel."""
+        self.show_right_panel = not self.show_right_panel
+
+    def watch_show_right_panel(self, show: bool) -> None:  # noqa: FBT001
+        """Called when the right panel visibility changes."""
+        self.set_class(not show, "-hide-right-panel")
 
     def dump_source(self) -> tuple[str, list[Any]]:
         """The Dump & Quit source, and the renderables to show above it."""
@@ -182,6 +200,7 @@ class Browser(textual.app.App[None]):
         """A message sent by the tree when a file is clicked."""
 
         self.view_widget.plot_input.value = ""
+        self.axis_limits = AxisLimits()
         dark = self.current_theme.dark
         self.view_widget.item = (
             MPLPlot(
@@ -190,9 +209,16 @@ class Browser(textual.app.App[None]):
                 dark=dark,
                 app=self,
                 scale=self.image_scale,
+                axis_limits=self.axis_limits,
             )
             if self.image
-            else Plotext(message.upfile, message.path, dark=dark, app=self)
+            else Plotext(
+                message.upfile,
+                message.path,
+                dark=dark,
+                app=self,
+                axis_limits=self.axis_limits,
+            )
         )
 
     def on_empty_message(self) -> None:
@@ -211,7 +237,7 @@ class Browser(textual.app.App[None]):
         if not size.width or not size.height:
             return
         item.size = (size.width, size.height)
-        key = (item.selection, item.expr, item.dark, item.size)
+        key = (item.selection, item.expr, item.dark, item.size, item.axis_limits)
         if key != self._plot_rendered:
             self._plot_rendered = key
             self.view_widget.plot_widget.update(rich.text.Text("... plotting ..."))
@@ -222,6 +248,11 @@ class Browser(textual.app.App[None]):
         if isinstance(item, MPLPlot) and item.scale != scale:
             self.view_widget.item = dataclasses.replace(item, scale=scale)
 
+    def watch_axis_limits(self, limits: AxisLimits) -> None:
+        item = self.view_widget.item
+        if isinstance(item, PlotItem):
+            self.view_widget.item = item.with_axis_limits(limits)
+
     def on_request_image(self) -> None:
         """Single render trigger: assigning an MPLPlot (or a resize) lands here."""
         item = self.view_widget.item
@@ -230,7 +261,14 @@ class Browser(textual.app.App[None]):
         size = self.view_widget.image_pixel_size()
         if size is not None:
             item.size = size
-        key = (item.selection, item.expr, item.dark, item.scale, item.size)
+        key = (
+            item.selection,
+            item.expr,
+            item.dark,
+            item.scale,
+            item.size,
+            item.axis_limits,
+        )
         if key != self._image_rendered:
             self._image_rendered = key
             assert self.view_widget.image_widget is not None

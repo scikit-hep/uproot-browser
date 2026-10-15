@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any
 from .messages import RequestImage
 from .plot import resolve_selection, run_posting_errors, selection_source
 from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND, as_hex
+from .right.axis import AxisLimits
 
 if TYPE_CHECKING:
     import hist
@@ -38,6 +39,7 @@ def make_image(
     dark: bool,
     size: tuple[int, int] | None = None,
     scale: float = 1.0,
+    limits: AxisLimits | None = None,
 ) -> PIL.Image.Image:
     """Draw an already-built histogram into a PIL image.
 
@@ -64,7 +66,13 @@ def make_image(
         }
     style = ["dark_background", overrides] if dark else ["default", overrides]
     return uproot_browser.plot_mpl.render_image(
-        histogram, title, size=size, scale=scale, style=style
+        histogram,
+        title,
+        size=size,
+        scale=scale,
+        style=style,
+        xlim=limits.x if limits else (None, None),
+        ylim=limits.y if limits else (None, None),
     )
 
 
@@ -90,6 +98,7 @@ class MPLPlot:
     size: tuple[int, int] | None = None
     scale: float = 1.0
     expr: str = ""
+    axis_limits: AxisLimits = dataclasses.field(default_factory=AxisLimits)
     # theme/scale/expr/resize re-renders only redraw instead of re-reading data
     built: _HistCache = dataclasses.field(default_factory=_HistCache)
 
@@ -105,6 +114,9 @@ class MPLPlot:
 
     def with_expr(self, expr: str) -> MPLPlot:
         return dataclasses.replace(self, expr=expr)
+
+    def with_axis_limits(self, limits: AxisLimits) -> MPLPlot:
+        return dataclasses.replace(self, axis_limits=limits)
 
     def dump_source(self) -> str:
         msg = selection_source(self.selection)
@@ -140,6 +152,7 @@ class MPLPlot:
                 dark=self.dark,
                 size=self.size,
                 scale=self.scale,
+                limits=self.axis_limits,
             )
 
         return run_posting_errors(self.app, build, self.selection)

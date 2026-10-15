@@ -297,6 +297,12 @@ def test_plot_2d() -> None:
     assert "█" in out
 
 
+def test_y_range_hides_out_of_range_bars() -> None:
+    values = np.asarray([1.0, 10.0, 5.0])
+    visible = uproot_browser.plot._visible_values(values, (0, 8.3))
+    np.testing.assert_array_equal(visible, [1.0, 0.0, 5.0])
+
+
 @pytest.mark.skipif(
     uproot_browser.plotext_compat.PLOTEXT_6, reason="plotext 6 supports heatmaps"
 )

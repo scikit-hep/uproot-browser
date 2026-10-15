@@ -27,6 +27,7 @@ from uproot_browser.exceptions import EmptyTreeError
 
 from .error import Error
 from .messages import EmptyMessage, ErrorMessage, RequestPlot
+from .right.axis import AxisLimits
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -59,6 +60,9 @@ class PlotItem(Protocol):
 
     def with_expr(self, expr: str) -> PlotItem:
         """A copy of this item with a new slicing expression."""
+
+    def with_axis_limits(self, limits: Any) -> PlotItem:
+        """A copy of this item with typed display limits."""
 
     def dump_source(self) -> str:
         """Python source for Dump & Quit (appended after `uproot_file = ...`)."""
@@ -96,13 +100,16 @@ def resolve_selection(tree: Any, selection: str) -> Any:
     return functools.reduce(operator.getitem, selection.split(":"), tree)
 
 
-def render_canvas(item: Any, theme: str, *size: int, expr: str) -> str:
+def render_canvas(item: Any, theme: str, *size: int, expr: str, limits: Any) -> str:
     """Build the plotext canvas string for an item."""
+    limits = limits or AxisLimits()
     fig = uproot_browser.plotext_compat.make_figure()
     fig.clear()
     fig.theme(theme)
     fig.plot_size(*size)
-    uproot_browser.plot.plot(item, fig=fig, width=size[0] - 5, expr=expr)
+    uproot_browser.plot.plot(
+        item, fig=fig, width=size[0] - 5, expr=expr, xlim=limits.x, ylim=limits.y
+    )
     return str(fig.build())
 
 
@@ -124,6 +131,7 @@ class Plotext:
     app: Browser
     expr: str = ""
     size: tuple[int, int] | None = None
+    axis_limits: Any = None
 
     @property
     def theme(self) -> str:
@@ -143,6 +151,9 @@ class Plotext:
     def with_expr(self, expr: str) -> Plotext:
         return dataclasses.replace(self, expr=expr)
 
+    def with_axis_limits(self, limits: Any) -> Plotext:
+        return dataclasses.replace(self, axis_limits=limits)
+
     def dump_source(self) -> str:
         msg = selection_source(self.selection)
         selected = resolve_selection(self.upfile, self.selection)
@@ -157,7 +168,9 @@ class Plotext:
         size = self.size or (100, 30)
         try:
             selected = resolve_selection(self.upfile, self.selection)
-            canvas = render_canvas(selected, self.theme, *size, expr=self.expr)
+            canvas = render_canvas(
+                selected, self.theme, *size, expr=self.expr, limits=self.axis_limits
+            )
         except Exception:  # noqa: BLE001
             # The render worker can still be in flight, so this item can be one
             # that fails. Quit with the source only instead of crashing.
@@ -170,7 +183,9 @@ class Plotext:
 
         def build() -> rich.text.Text:
             item = resolve_selection(self.upfile, self.selection)
-            canvas = render_canvas(item, self.theme, *size, expr=self.expr)
+            canvas = render_canvas(
+                item, self.theme, *size, expr=self.expr, limits=self.axis_limits
+            )
             return rich.text.Text.from_ansi(canvas)
 
         return run_posting_errors(self.app, build, self.selection)

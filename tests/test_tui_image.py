@@ -214,7 +214,7 @@ async def test_image_scale_tool() -> None:
         await pilot.press("down", "down", "down", "enter")
         await pilot.pause()
 
-        pilot.app.query_one("#image-scale-select", textual.widgets.Select).value = 2.0
+        pilot.app.query_one("#right-panel #image-scale-select", textual.widgets.Select).value = 2.0
         await pilot.pause()
         item = pilot.app.view_widget.item
         assert isinstance(item, MPLPlot)
@@ -226,17 +226,11 @@ async def test_image_scale_select_only_in_image_mode() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root"), image=True
     ).run_test() as pilot:
-        pilot.app.query_one(
-            "#left-view", textual.widgets.TabbedContent
-        ).active = "tab-2"
         await pilot.pause()
-        assert pilot.app.query("#image-scale-select")
+        assert pilot.app.query("#right-panel #image-scale-select")
 
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
-        pilot.app.query_one(
-            "#left-view", textual.widgets.TabbedContent
-        ).active = "tab-2"
         await pilot.pause()
-        assert not pilot.app.query("#image-scale-select")
+        assert not pilot.app.query("#right-panel #image-scale-select")
