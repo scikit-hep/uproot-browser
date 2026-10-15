@@ -125,7 +125,8 @@ def make_dump(
     width = size[0] - 5 if size else 100
     code = uproot_browser.plot.dump(item, width=width)
     if expr:
-        # the same names the plot input offers, so any expression still runs
+        # Keep the exported tree view self-contained: analysis scripts should
+        # only need uproot, awkward, numpy and hist installed.
         code += textwrap.dedent(f"""
 
             import awkward as ak
@@ -133,8 +134,46 @@ def make_dump(
             import numpy as np
             import uproot
 
-            t = item
-            h = {expr}""")
+            class TreeView:
+                def __init__(self, selected):
+                    self.selected = selected
+                    tree = selected
+                    while isinstance(tree, uproot.models.RNTuple.RField):
+                        tree = tree.parent
+                    if isinstance(tree, uproot.TBranch):
+                        tree = tree.tree
+                    self.tree = tree if isinstance(
+                        tree, (uproot.TTree, uproot.behaviors.RNTuple.RNTuple)
+                    ) else None
+
+                def __getitem__(self, name):
+                    if self.tree is None:
+                        raise AttributeError("Selected object has no TTree/RNTuple")
+                    member = self.tree[name]
+                    return member.array() if hasattr(member, "array") else member
+
+                def __getattr__(self, name):
+                    return getattr(self.selected, name)
+
+                def keys(self):
+                    return () if self.tree is None else self.tree.keys()
+
+            t = TreeView(item)
+            bins = len(h.axes[0])
+            result = {expr}
+            if isinstance(result, hist.Hist):
+                h = result
+            elif isinstance(result, (ak.Array, np.ndarray)):
+                values = ak.ravel(result)
+                finite = values[np.isfinite(values)]
+                if len(finite) == 0:
+                    raise ValueError("Expression produced no finite values.")
+                h = hist.numpy.histogram(finite, bins=bins, histogram=hist.Hist)
+            else:
+                raise RuntimeError(
+                    "Expression must produce a hist.Hist or an awkward/numpy array, "
+                    f"got {{type(result).__name__}}."
+                )""")
     if limits != NO_LIMITS:
         code += textwrap.dedent(f"""
 

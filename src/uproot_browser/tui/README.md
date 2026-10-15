@@ -35,9 +35,24 @@ be plotted, you'll see a scrollable error traceback. If you think it should
 be plottable, feel free to open an issue. 2D histograms draw as heatmaps
 (text mode needs plotext 6 or newer; `--image` mode always supports them).
 
-Press `e` to show the entry box below the plot. The histogram is `h`, and you
-can slice it, for example `h[::2j]`. Press `enter` or the `Plot` button to apply
-the expression, and `esc` to close the box.
+Press `e` to show the entry box below the plot. Press `enter` or the `Plot`
+button to apply the expression, and `esc` to close the box.
+
+The plot input box evaluates an expression with `h` bound to the default
+histogram and `t` bound to the selected object's tree (reading any branch or
+field as an awkward array with `t["branch"]`; the selected object itself is
+still reachable, e.g. `t.array()`). You can slice `h` (for example `h[::2j]`),
+build a histogram, or apply a cut to branches with compatible array shapes, for
+example:
+
+```
+t["fTracks.fPx"][t["fTracks.fPy"] < 0]
+```
+
+The modules `ak`, `np`, `hist`, and `uproot` are also available. An expression
+that produces a numeric array is flattened, filtered to finite values, and
+histogrammed automatically using the default histogram's bin count. Both TTree
+branches and RNTuple fields are supported; use names present in your file.
 
 ## Panels
 

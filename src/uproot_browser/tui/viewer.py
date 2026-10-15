@@ -64,10 +64,10 @@ class ViewWidget(textual.widgets.ContentSwitcher):
         self.plot_widget = textual.widgets.Static("", id="plot")
         self.plot_input = PlotInput(
             id="plot-input",
-            placeholder="h[:]",
+            placeholder="h[:] or t['branch']",
             tooltip=(
-                "The histogram is 'h' and the selected object is 't'; "
-                "slice 'h' or build a new histogram from 't'. Experimental."
+                "Use h for the histogram, t['branch'] for branch arrays, and "
+                "np, ak, or hist for calculations. Press Enter to apply."
             ),
         )
         # The entry box goes into whichever window the active mode uses
