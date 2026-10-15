@@ -78,7 +78,7 @@ def make_image(
 
 @dataclasses.dataclass(slots=True)
 class _HistCache:
-    """One-slot cache for the resolved item and its pre-expr histogram.
+    """One-slot cache for the resolved item, its histogram, and the last expr result.
 
     Shared by reference across ``dataclasses.replace``, so a build finished by
     an already-superseded render worker still lands in the current item's
@@ -86,6 +86,8 @@ class _HistCache:
     """
 
     item: Any = None
+    expr: str = ""
+    expr_hist: hist.Hist[Any] | None = None
     hist: hist.Hist[Any] | None = None
 
 
@@ -150,10 +152,13 @@ class MPLPlot:
                     histogram = uproot_browser.plot.to_histogram(item)
                 self.built.hist = histogram
             if self.expr:
-                # copy so an in-place expr cannot corrupt the cache
-                histogram = uproot_browser.plot.apply_expr(
-                    histogram.copy(), self.expr, item
-                )
+                if self.built.expr_hist is None or self.built.expr != self.expr:
+                    # copy so an in-place expr cannot corrupt the cache
+                    self.built.expr_hist = uproot_browser.plot.apply_expr(
+                        histogram.copy(), self.expr, item
+                    )
+                    self.built.expr = self.expr
+                histogram = self.built.expr_hist
             return make_image(
                 histogram,
                 title=uproot_browser.plot.make_hist_title(item, histogram),
