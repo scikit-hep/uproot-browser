@@ -126,11 +126,60 @@ def _hist_to_histogram(
     return cast("hist.Hist[Any]", tree.to_hist())
 
 
+def _containing_tree(item: Any) -> Any:
+    """The TTree/RNTuple that ``item`` lives in, or ``item`` itself if it is one."""
+    if isinstance(item, (uproot.TTree, uproot.behaviors.RNTuple.RNTuple)):
+        return item
+    if isinstance(item, uproot.TBranch):
+        return item.tree
+    if isinstance(item, uproot.models.RNTuple.RField):
+        while isinstance(item.parent, uproot.models.RNTuple.RField):
+            item = item.parent
+        return item.parent
+    return None
+
+
+class _TreeView:
+    """Awkward-array view of the tree containing a selected object.
+
+    ``t`` in a plot expression can read any branch/field as an array
+    (``t["fTracks.fPx"]``) and still behave like the selected object
+    (``t.array()``, ``t.name``), so a cut such as
+    ``t["fPx"][t["fPy"] < 0]`` works on any TTree or RNTuple.
+    """
+
+    def __init__(self, item: Any) -> None:
+        self._item = item
+        self._tree = _containing_tree(item)
+
+    def __getitem__(self, name: str) -> Any:
+        tree = self._tree
+        if tree is None:
+            msg = f"{type(self._item).__name__} has no TTree/RNTuple to read branches from"
+            raise AttributeError(msg)
+        member = tree[name]
+        return member.array() if hasattr(member, "array") else member
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._item, name)
+
+    def keys(self) -> Any:
+        return () if self._tree is None else self._tree.keys()
+
+    def __repr__(self) -> str:
+        return f"_TreeView({self._item!r})"
+
+
+def tree_view(item: Any) -> _TreeView:
+    """The ``t`` object of a plot expression: ``item`` plus its tree's arrays."""
+    return _TreeView(item)
+
+
 def expr_namespace(histogram: hist.Hist[Any], tree: Any = None) -> dict[str, Any]:
     """The names an ``expr`` string can use: ``h``, ``t``, and the usual modules."""
     return {
         "h": histogram,
-        "t": tree,
+        "t": tree if tree is None else tree_view(tree),
         "ak": ak,
         "hist": hist,
         "np": np,
@@ -138,17 +187,42 @@ def expr_namespace(histogram: hist.Hist[Any], tree: Any = None) -> dict[str, Any
     }
 
 
+def _as_histogram(result: Any, *, bins: int) -> hist.Hist[Any]:
+    """Coerce an expression result to a histogram: pass through, or fill arrays."""
+    if isinstance(result, hist.Hist):
+        return result
+    if isinstance(result, (ak.Array, np.ndarray)):
+        array = ak.ravel(result)
+        # pylint: disable-next=unsubscriptable-object  # ak.ravel return is opaque to pylint
+        finite = array[np.isfinite(array)]
+        if len(finite) < 1:
+            msg = "Expression produced no finite values."
+            raise EmptyTreeError(msg)
+        # Explicit type: boost-histogram's numpy.histogram is not typed.
+        return cast(
+            "hist.Hist[Any]",
+            hist.numpy.histogram(finite, bins=bins, histogram=hist.Hist),
+        )
+    msg = (
+        "Expression must produce a hist.Hist or an awkward/numpy array, "
+        f"got {type(result).__name__}."
+    )
+    raise RuntimeError(msg)
+
+
 def apply_expr(
     histogram: hist.Hist[Any], expr: str, tree: Any = None
 ) -> hist.Hist[Any]:
     """
-    Evaluate the expression with the histogram bound to ``h`` and the source
-    object bound to ``t``, so a user can build a histogram from the data with
-    ``hist`` instead of slicing the default one.
+    Evaluate the expression with the histogram bound to ``h`` and ``t`` bound
+    to :func:`tree_view` of the source object, so a user can slice ``h``, build
+    a histogram from the data, or apply a cut such as
+    ``t["fPx"][t["fPy"] < 0]``. Array results are histogrammed automatically.
     """
     if expr:
         # pylint: disable-next=eval-used
-        histogram = eval(expr, expr_namespace(histogram, tree))
+        result = eval(expr, expr_namespace(histogram, tree))
+        histogram = _as_histogram(result, bins=len(histogram.axes[0]))
     return histogram
 
 

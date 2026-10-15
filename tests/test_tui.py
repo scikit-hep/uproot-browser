@@ -137,6 +137,30 @@ async def test_expr_replots_and_clears_flag() -> None:
         assert assert_canvas(pilot.app, item) != before_text
 
 
+async def test_branch_array_cut_replots() -> None:
+    """Branch-array cuts render through the same input as histogram slices."""
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        pilot.app.query_one("#tree-view", UprootTree).select_path("//T/event/fNtrack")
+        await settle_render(pilot)
+        view = pilot.app.view_widget
+        original = view.item
+        assert isinstance(original, Plotext)
+        before = assert_canvas(pilot.app, original)
+
+        expression = 't["fTracks.fPx"][t["fTracks.fPy"] < 0]'
+        view.plot_input.value = expression
+        view.plot_input.apply_expression()
+        await settle_render(pilot)
+
+        item = view.item
+        assert isinstance(item, Plotext)
+        assert item.selection == original.selection
+        assert item.expr == expression
+        assert assert_canvas(pilot.app, item) != before
+
+
 async def test_browse_empty() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-empty.root")

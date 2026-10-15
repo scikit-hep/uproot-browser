@@ -17,6 +17,7 @@ import uproot_browser.plot
 import uproot_browser.plot_mpl
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.image_plot import MPLPlot, make_image
+from uproot_browser.tui.left_panel import UprootTree
 from uproot_browser.tui.messages import RequestImage
 
 
@@ -154,6 +155,39 @@ async def test_image_expr() -> None:
         await pilot.pause()
         # still an image plot (the expression evaluated without error)
         assert isinstance(pilot.app.view_widget.item, MPLPlot)
+
+
+async def test_image_branch_array_cut() -> None:
+    """Image mode accepts cuts returning arrays and keeps its source cache."""
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root"), image=True
+    ).run_test() as pilot:
+        pilot.app.query_one("#tree-view", UprootTree).select_path("//T/event/fNtrack")
+        await pilot.pause()
+        await pilot.pause()
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        view = pilot.app.view_widget
+        original = view.item
+        assert isinstance(original, MPLPlot)
+        assert view.image_widget is not None
+        before = view.image_widget.image
+        assert before is not None
+
+        expression = 't["fTracks.fPx"][t["fTracks.fPy"] < 0]'
+        view.plot_input.value = expression
+        view.plot_input.apply_expression()
+        await pilot.pause()
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+
+        item = view.item
+        assert isinstance(item, MPLPlot)
+        assert item.expr == expression
+        assert item.built.hist is original.built.hist
+        assert view.image_widget.image is not None
+        assert view.image_widget.image is not before
+        assert not view.image_widget.loading
 
 
 async def test_image_hist_cached_across_expr_change(
