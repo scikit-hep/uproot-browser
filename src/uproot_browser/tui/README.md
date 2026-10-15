@@ -35,16 +35,15 @@ be plotted, you'll see a scrollable error traceback. If you think it should
 be plottable, feel free to open an issue. 2D histograms draw as heatmaps
 (text mode needs plotext 6 or newer; `--image` mode always supports them).
 
-To open the expression input, enable **Tools → Plot → Entry box**. Type an
+Press `e` to open the expression input, and `esc` to close it. Type an
 expression and press `enter` to apply it. The expression sees `h`, the default
 histogram, and `tree`, the containing TTree or RNTuple when available. Use the
 normal uproot API to read branches, for example `tree["branch"].array()`.
-The modules `ak`,
-`np`, and `hist` are also available. A `hist.Hist` result is drawn as is; an
-array result is flattened, filtered to finite values, and histogrammed with
-the default bin count. For example, a cut:
+The modules `ak`, `np`, and `hist` are also available. A `hist.Hist` result is
+drawn as is; an array result is flattened, filtered to finite values, and
+histogrammed with the default bin count. For example, a cut:
 
-```
+```python
 tree["fTracks.fPx"].array()[tree["fTracks.fPy"].array() < 0]
 ```
 
