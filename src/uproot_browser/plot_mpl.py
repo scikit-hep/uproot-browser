@@ -84,7 +84,7 @@ def plot(
 ) -> None:
     """
     Build and draw in one step. The optional ``expr`` is evaluated with the
-    histogram bound to ``h`` and the source object bound to ``t``
+    histogram bound to ``h`` and the containing TTree/RNTuple bound to ``tree``
     (e.g. ``h[::2j]``).
     """
     histogram = uproot_browser.plot.apply_expr(
