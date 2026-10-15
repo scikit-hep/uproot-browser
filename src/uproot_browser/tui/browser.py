@@ -75,7 +75,6 @@ class Browser(textual.app.App[None]):
     BINDINGS: ClassVar[list[textual.binding.BindingType]] = [
         textual.binding.Binding("b", "toggle_files", "Navbar"),
         textual.binding.Binding("r", "toggle_right_panel", "Right Panel"),
-        textual.binding.Binding("p", "toggle_right_panel", "Right Panel", show=False),
         textual.binding.Binding("/", "jump", "Jump"),
         textual.binding.Binding("q", "quit", "Quit"),
         textual.binding.Binding("d", "quit_with_dump", "Dump & Quit"),
@@ -201,6 +200,7 @@ class Browser(textual.app.App[None]):
         self.view_widget.plot_input.value = ""
         # Skip the watcher: it would re-render the old item
         self.set_reactive(Browser.axis_limits, NO_LIMITS)
+        self.query_one("#right-panel", RightPanel).clear()
         dark = self.current_theme.dark
         self.view_widget.item = (
             MPLPlot(

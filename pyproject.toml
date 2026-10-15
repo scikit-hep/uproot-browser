@@ -155,7 +155,7 @@ flake8-boolean-trap.extend-allowed-calls = ["textual.reactive.var"]
 
 [tool.ruff.lint.per-file-ignores]
 "noxfile.py" = ["T20"]
-"tests/*" = ["T20", "INP001", "SLF001"]
+"tests/*" = ["T20", "INP001"]
 "docs/*" = ["INP001"]
 "src/uproot_browser/__main__.py" = ["PLC0415"]    # Import outside toplevel
 "src/uproot_browser/tui/image_plot.py" = ["PLC0415"]    # Deferred [image] extra imports

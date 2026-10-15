@@ -120,10 +120,16 @@ class MPLPlot:
 
     def dump_source(self) -> str:
         msg = selection_source(self.selection)
-        expr_arg = f", expr={self.expr!r}" if self.expr else ""
+        args = ""
+        imports = ""
+        if self.expr:
+            args += f", expr={self.expr!r}"
+        if self.axis_limits != NO_LIMITS:
+            args += f", limits={self.axis_limits!r}"
+            imports = "from uproot_browser.axis import AxisLimits\n"
         return (
             msg
-            + f"\n\nimport matplotlib.pyplot as plt\nimport uproot_browser.plot_mpl\n\nuproot_browser.plot_mpl.plot(item{expr_arg})\nplt.show()"
+            + f"\n\nimport matplotlib.pyplot as plt\nimport uproot_browser.plot_mpl\n{imports}\nuproot_browser.plot_mpl.plot(item{args})\nplt.show()"
         )
 
     def dump_renderables(self) -> tuple[Any, ...]:

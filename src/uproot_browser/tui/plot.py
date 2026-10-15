@@ -6,6 +6,7 @@ __lazy_modules__ = {
     "operator",
     "rich",
     "rich.text",
+    "textwrap",
     "uproot_browser.exceptions",
     "uproot_browser.plot",
     "uproot_browser.plotext_compat",
@@ -17,6 +18,7 @@ import contextlib
 import dataclasses
 import functools
 import operator
+import textwrap
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
 import rich.text
@@ -112,12 +114,27 @@ def render_canvas(
     return str(fig.build())
 
 
-def make_dump(item: Any, *size: int, expr: str = "") -> str:
-    """Standalone Python source rebuilding the plotted histogram as ``h``."""
+def make_dump(
+    item: Any, *size: int, expr: str = "", limits: AxisLimits = NO_LIMITS
+) -> str:
+    """Standalone Python source rebuilding the plotted histogram as ``h``.
+
+    Typed axis limits are a display setting, not part of ``h``, so they add a
+    block that draws the plot the way the TUI did.
+    """
     width = size[0] - 5 if size else 100
     code = uproot_browser.plot.dump(item, width=width)
     if expr:
         code += f"\nh = {expr}"
+    if limits != NO_LIMITS:
+        code += textwrap.dedent(f"""
+
+            import uproot_browser.plot
+            import uproot_browser.plotext_compat
+            from uproot_browser.axis import AxisLimits
+            fig = uproot_browser.plotext_compat.make_figure()
+            uproot_browser.plot.plot(item, fig=fig, width={width}, expr={expr!r}, limits={limits!r})
+            print(fig.build())""")
     return code
 
 
@@ -158,7 +175,7 @@ class Plotext:
         selected = resolve_selection(self.upfile, self.selection)
         size = self.size or ()
         with contextlib.suppress(RuntimeError):
-            msg += f"\n{make_dump(selected, *size, expr=self.expr)}"
+            msg += f"\n{make_dump(selected, *size, expr=self.expr, limits=self.axis_limits)}"
         return msg
 
     def dump_renderables(self) -> tuple[Any, ...]:

@@ -22,6 +22,8 @@ LIMIT_IDS = ("x-min", "x-max", "y-min", "y-max")
 class RightPanel(textual.containers.Container):
     """Typed X/Y range controls and image scale for the active plot."""
 
+    status = ""  # the last message shown in #axis-status
+
     @property
     def browser(self) -> Browser:
         return cast("Browser", self.app)
@@ -59,9 +61,12 @@ class RightPanel(textual.containers.Container):
         value = self.query_one(f"#{control_id}", textual.widgets.Input).value.strip()
         if not value:
             return None
-        parsed = float(value)
+        try:
+            parsed = float(value)
+        except ValueError:
+            parsed = math.nan
         if not math.isfinite(parsed):
-            msg = "Axis limits must be finite numbers."
+            msg = f"Axis limits must be finite numbers, not {value!r}."
             raise ValueError(msg)
         return parsed
 
@@ -74,6 +79,7 @@ class RightPanel(textual.containers.Container):
         return lower, upper
 
     def _set_status(self, message: str, *, error: bool = False) -> None:
+        self.status = message
         status = self.query_one("#axis-status", textual.widgets.Label)
         status.update(message)
         status.set_class(error, "-error")
@@ -87,9 +93,14 @@ class RightPanel(textual.containers.Container):
         self.browser.axis_limits = limits
         self._set_status("Applied.")
 
-    def _reset_ranges(self) -> None:
+    def clear(self) -> None:
+        """Blank the fields and status (the limits no longer apply)."""
         for control_id in LIMIT_IDS:
             self.query_one(f"#{control_id}", textual.widgets.Input).value = ""
+        self._set_status("")
+
+    def _reset_ranges(self) -> None:
+        self.clear()
         self.browser.axis_limits = AxisLimits()
         self._set_status("Automatic ranges restored.")
 

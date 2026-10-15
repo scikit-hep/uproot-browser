@@ -15,6 +15,7 @@ import uproot
 
 import uproot_browser.plot
 import uproot_browser.plot_mpl
+from uproot_browser.axis import AxisLimits
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.image_plot import MPLPlot, make_image
 from uproot_browser.tui.messages import RequestImage
@@ -148,6 +149,15 @@ async def test_image_expr() -> None:
         # Dump & Quit source for the image mode carries the expression
         assert "uproot_browser.plot_mpl.plot(item, expr='h[::2j]')" in (
             item.dump_source()
+        )
+        pilot.app.axis_limits = AxisLimits(y=(None, 15.0))
+        await pilot.pause()
+        item = pilot.app.view_widget.item
+        assert isinstance(item, MPLPlot)
+        assert "from uproot_browser.axis import AxisLimits" in item.dump_source()
+        assert (
+            "uproot_browser.plot_mpl.plot(item, expr='h[::2j]', limits=AxisLimits(x=(None, None), y=(None, 15.0)))"
+            in item.dump_source()
         )
 
         await pilot.app.workers.wait_for_complete()

@@ -35,7 +35,7 @@ uproot-browser currently provides the following features (get help with `-h` or 
 - `plot` can be used to display a plot.
 - `tree` can be used to display a tree.
 - `browse` provides a right-side axis panel with typed X and Y range controls.
-- The right-side panel can be shown or hidden with `r` (`p` is also accepted as an alias).
+- The right-side panel can be shown or hidden with `r`.
 - Image-mode render scaling is available from the right-side panel.
 
 
