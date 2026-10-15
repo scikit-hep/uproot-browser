@@ -206,11 +206,11 @@ def test_tree_bracket_path_link(tmp_path: pathlib.Path) -> None:
         ("uproot-Event.root", "T/event/fH", "h[::2j]"),
         ("uproot-hepdata-example.root", "hpxpy", ""),
         ("ntpl001_staff_rntuple_v1-0-0-0.root", "Staff/Age", "h[::2j]"),
-        # `t` is the selected object, for building a histogram from the data
+        # Build a custom histogram from the containing tree's branch arrays.
         (
             "uproot-Event.root",
             "T/event/fNtrack",
-            "hist.Hist.new.Reg(10, 0, 100).Double().fill(t.array())",
+            'hist.Hist.new.Reg(10, 0, 100).Double().fill(tree["fNtrack"].array())',
         ),
         # `tree` exposes the containing uproot tree, so a cut expression
         # still runs from the dumped source
@@ -249,7 +249,7 @@ def test_dump_is_runnable(filename: str, selection: str, expr: str) -> None:
     actual = namespace["h"]
     assert isinstance(actual, hist.Hist)
     if expr:
-        assert namespace["t"] is item
+        assert "t" not in namespace
         assert namespace["tree"] is uproot_browser.plot.containing_tree(item)
     expected = uproot_browser.plot.apply_expr(
         uproot_browser.plot.to_histogram(item, bins=100), expr, item
@@ -427,12 +427,14 @@ def test_to_histogram_rejects_string_field() -> None:
 
 
 def test_apply_expr_binds_tree() -> None:
-    """``t`` is the plotted object, so an expression can build its own histogram."""
+    """The containing tree supplies arrays for custom histogram binning."""
     item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
     default = uproot_browser.plot.to_histogram(item)
 
     result = uproot_browser.plot.apply_expr(
-        default, "hist.Hist.new.Reg(7, 0, 1000).Double().fill(t.array())", item
+        default,
+        'hist.Hist.new.Reg(7, 0, 1000).Double().fill(tree["fNtrack"].array())',
+        item,
     )
 
     assert result.axes[0].size == 7
@@ -493,16 +495,24 @@ def test_apply_expr_rejects_non_data() -> None:
 def test_expression_objects_use_uproot_api(
     filename: str, tree_name: str, selection: str | None
 ) -> None:
-    """Expressions receive the original objects and retain sub-branch lookup."""
+    """Expressions receive the containing tree and retain sub-branch lookup."""
     with uproot.open(data_path(filename)) as upfile:
         tree = upfile[tree_name]
         item = tree if selection is None else tree[selection]
         default = hist.Hist.new.Reg(4, 0, 4).Double()
-        expression = f"h if id(t) == {id(item)} and id(tree) == {id(tree)} else None"
+        expression = f"h if id(tree) == {id(tree)} else None"
         assert uproot_browser.plot.apply_expr(default, expression, item) is default
         assert uproot_browser.plot.containing_tree(tree) is tree
         if selection == "fTracks":
             result = uproot_browser.plot.apply_expr(
-                default, 't["fTracks.fPx"].array()', item
+                default, 'tree["fTracks"]["fTracks.fPx"].array()', item
             )
             assert result.sum() > 0
+
+
+def test_apply_expr_does_not_bind_selected_object_alias() -> None:
+    with uproot.open(data_path("uproot-Event.root")) as upfile:
+        item = upfile["T/event/fNtrack"]
+        default = uproot_browser.plot.to_histogram(item)
+        with pytest.raises(NameError, match="'t'"):
+            uproot_browser.plot.apply_expr(default, "t", item)
