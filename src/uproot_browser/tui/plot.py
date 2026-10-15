@@ -11,6 +11,7 @@ __lazy_modules__ = {
     "uproot_browser.plotext_compat",
     f"{__spec__.parent}.error",
     f"{__spec__.parent}.messages",
+    f"{__spec__.parent}.right.axis",
 }
 
 import contextlib

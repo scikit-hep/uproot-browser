@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import dataclasses
 
-
 AxisRange = tuple[float | None, float | None]
 
 

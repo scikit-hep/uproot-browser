@@ -21,8 +21,8 @@ from typing import TYPE_CHECKING, Any
 
 from .messages import RequestImage
 from .plot import resolve_selection, run_posting_errors, selection_source
-from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND, as_hex
 from .right.axis import AxisLimits
+from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND, as_hex
 
 if TYPE_CHECKING:
     import hist

@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "math",
+    "textual.app",
+    f"{__spec__.parent.rsplit('.', 1)[0]}.tools",
+    f"{__spec__.parent}.axis",
+}
+
 import math
 from typing import TYPE_CHECKING, cast
 
@@ -37,7 +44,9 @@ class AxisControls(textual.containers.Container):
         yield textual.widgets.Button("Reset to automatic", id="axis-reset")
         app = cast("Browser", self.app)
         if app.image:
-            with textual.containers.Vertical(classes="axis-section image-scale-section"):
+            with textual.containers.Vertical(
+                classes="axis-section image-scale-section"
+            ):
                 yield textual.widgets.Label("Render scale", classes="axis-label")
                 yield textual.widgets.Select(
                     [(f"{scale:g}×", scale) for scale in IMAGE_SCALES],
@@ -49,7 +58,9 @@ class AxisControls(textual.containers.Container):
     def _parse_range(self, minimum_id: str, maximum_id: str) -> AxisRange:
         values: list[float | None] = []
         for control_id in (minimum_id, maximum_id):
-            value = self.query_one(f"#{control_id}", textual.widgets.Input).value.strip()
+            value = self.query_one(
+                f"#{control_id}", textual.widgets.Input
+            ).value.strip()
             parsed = float(value) if value else None
             if parsed is not None and not math.isfinite(parsed):
                 msg = "Axis limits must be finite numbers."

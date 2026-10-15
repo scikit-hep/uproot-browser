@@ -214,7 +214,9 @@ async def test_image_scale_tool() -> None:
         await pilot.press("down", "down", "down", "enter")
         await pilot.pause()
 
-        pilot.app.query_one("#right-panel #image-scale-select", textual.widgets.Select).value = 2.0
+        pilot.app.query_one(
+            "#right-panel #image-scale-select", textual.widgets.Select
+        ).value = 2.0
         await pilot.pause()
         item = pilot.app.view_widget.item
         assert isinstance(item, MPLPlot)

@@ -58,7 +58,6 @@ class Tools(textual.containers.Container):
         self.app.theme = str(event.value)
 
 
-
 class Info(textual.containers.Container):
     def compose(self) -> textual.app.ComposeResult:
         with textual.widgets.Collapsible(title="uproot-browser", collapsed=False):
