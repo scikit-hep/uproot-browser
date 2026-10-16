@@ -97,6 +97,20 @@ async def test_right_panel_toggle() -> None:
         assert panel.display
 
 
+async def test_entry_box_toggle() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        entry_box = pilot.app.query_one("#plot-input-container")
+        assert not entry_box.display
+
+        await pilot.press("e")
+        assert entry_box.display
+
+        await pilot.press("e")
+        assert not entry_box.display
+
+
 async def test_browse_plot() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
@@ -269,25 +283,29 @@ async def test_theme_select_tracks_theme() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
-        # Activate the Tools tab and wait for the Select to settle (Tools.on_mount
-        # sets up the watcher that keeps it in sync with the theme).
-        pilot.app.query_one(
-            "#left-view", textual.widgets.TabbedContent
-        ).active = "tab-2"
         await wait_until(
             pilot,
             lambda: (
-                bool(pilot.app.query(textual.widgets.Select))
-                and pilot.app.query_one(textual.widgets.Select).value
+                bool(pilot.app.query("#right-panel #theme-select"))
+                and pilot.app.query_one(
+                    "#right-panel #theme-select", textual.widgets.Select
+                ).value
                 != textual.widgets.Select.BLANK
             ),
         )
-        select = pilot.app.query_one(textual.widgets.Select)
+        select = pilot.app.query_one(
+            "#right-panel #theme-select", textual.widgets.Select
+        )
         assert select.value == pilot.app.theme
+        tabs = pilot.app.query_one("#left-view", textual.widgets.TabbedContent)
+        assert len(tabs.query(textual.widgets.TabPane)) == 2
 
         pilot.app.theme = "nord"
         await wait_until(pilot, lambda: select.value == "nord")
         assert select.value == "nord"
+
+        select.value = "textual-light"
+        await wait_until(pilot, lambda: pilot.app.theme == "textual-light")
 
 
 async def test_jump_opens_and_lists_all() -> None:

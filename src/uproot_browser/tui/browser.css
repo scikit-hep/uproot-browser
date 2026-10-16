@@ -35,10 +35,6 @@ Label {
   padding-bottom: 1;
 }
 
-Switch {
-  dock: right;
-}
-
 #logo {
     content-align: center middle;
     height: 100%;
@@ -119,11 +115,15 @@ Browser.-hide-right-panel #right-panel {
     margin-right: 1;
 }
 
-#axis-buttons Button:last-of-type {
+#axis-buttons Button:last-child {
     margin-right: 0;
 }
 
 #image-scale-select {
+    width: 100%;
+}
+
+#theme-select {
     width: 100%;
 }
 
@@ -157,15 +157,6 @@ Browser.-hide-right-panel #right-panel {
 
 Info {
     overflow: scroll;
-}
-
-Tools {
-    overflow: scroll;
-}
-
-/* Horizontal defaults to 1fr and would swallow the rest of the panel */
-Tools Horizontal {
-    height: auto;
 }
 
 CollapsibleTitle {

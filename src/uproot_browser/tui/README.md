@@ -30,11 +30,10 @@ be plotted, you'll see a scrollable error traceback. If you think it should
 be plottable, feel free to open an issue. 2D histograms draw as heatmaps
 (text mode needs plotext 6 or newer; `--image` mode always supports them).
 
-## Tools
+## Panels
 
-The panel on the left (which can be hidden/shown with `b` has tabs; the `Tree`
-tab is the default, but you can also select `Tools`, which has a theme
-selector, and an Info tab, which gives the versions of installed packages.
+The panel on the left can be hidden or shown with `b`. It has `Tree` and `Info`
+tabs; the theme selector is in the right panel with the plot controls.
 
 
 ## Leaving
