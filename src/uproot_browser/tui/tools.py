@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-__lazy_modules__ = {"importlib", "importlib.metadata", "textual.app"}
+__lazy_modules__ = {"importlib", "importlib.metadata", "textual.app", "textual.widgets"}
 
 import importlib.metadata
 
