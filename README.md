@@ -36,6 +36,7 @@ uproot-browser currently provides the following features (get help with `-h` or 
 - `tree` can be used to display a tree.
 - `browse` provides a right-side axis panel with typed X and Y range controls.
 - The right-side panel can be shown or hidden with `r`.
+- The plot expression entry box can be shown or hidden with `e`.
 - Image-mode render scaling is available from the right-side panel.
 
 
@@ -55,10 +56,10 @@ uproot-browser browse --testdata uproot-Event.root
 
 When a plottable object is selected in `browse`, the right-side **Axis scaling** panel provides typed fields for the X and Y limits. Press **Enter** in a field or choose **Apply ranges** to update the plot. Leave a field blank to use the automatic range, or choose **Reset to automatic** to clear both axes.
 
-The existing image render scale control is also located in this panel when using `browse --image`. The Tree, Tools, and Info tabs remain on the left. Use the following keyboard shortcuts from the bottom footer:
+The render scale control (in `browse --image`) and theme selector are also located in this panel. The Tree and Info tabs remain on the left. Use the following keyboard shortcuts from the bottom footer:
 
 ```text
-b  Navbar       r  Right Panel       q  Quit       d  Dump & Quit
+b  Navbar       r  Right Panel       e  Entry Box       q  Quit       d  Dump & Quit
 ```
 
 **`plot` command:**

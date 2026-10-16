@@ -54,6 +54,19 @@ class RightPanel(textual.containers.Container):
                     value=self.browser.image_scale,
                     id="image-scale-select",
                 )
+        with textual.widgets.Collapsible(title="Theme", collapsed=False):
+            yield textual.widgets.Select(
+                [(theme, theme) for theme in self.app.available_themes],
+                allow_blank=False,
+                value=self.app.theme,
+                id="theme-select",
+            )
+
+    def on_mount(self) -> None:
+        self.watch(self.app, "theme", self._sync_theme)
+
+    def _sync_theme(self, theme: str) -> None:
+        self.query_one("#theme-select", textual.widgets.Select).value = theme
 
     def _parse_limit(self, control_id: str) -> float | None:
         value = self.query_one(f"#{control_id}", textual.widgets.Input).value.strip()
@@ -118,3 +131,8 @@ class RightPanel(textual.containers.Container):
         assert isinstance(event.value, float)
         # pylint: disable-next=attribute-defined-outside-init
         self.browser.image_scale = event.value
+
+    @textual.on(textual.widgets.Select.Changed, "#theme-select")
+    def theme_changed(self, event: textual.widgets.Select.Changed) -> None:
+        # pylint: disable-next=attribute-defined-outside-init
+        self.app.theme = str(event.value)
