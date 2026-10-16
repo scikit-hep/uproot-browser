@@ -29,6 +29,8 @@ import awkward as ak
 import hist
 import numpy as np
 import uproot
+import uproot.behaviors.RNTuple
+import uproot.behaviors.TBranch
 import uproot.behaviors.TH1
 import uproot.interpretation.jagged
 import uproot.interpretation.numerical
@@ -88,13 +90,18 @@ def branch_hist(
             operator.add, (h.to_hist() for h in arr)
         )
         return histogram
-    array = tree.array()
+    return _fill_finite(
+        tree.array(), bins=bins, empty_msg=f"Branch {tree.name} is empty."
+    )
+
+
+def _fill_finite(array: Any, *, bins: int, empty_msg: str) -> hist.Hist[Any]:
+    """Flatten ``array``, drop non-finite values, and fill a regular histogram."""
     values = ak.ravel(array)
     # pylint: disable-next=unsubscriptable-object  # ak.ravel return is opaque to pylint
     finite = values[np.isfinite(values)]
     if len(finite) < 1:
-        msg = f"Branch {tree.name} is empty."
-        raise EmptyTreeError(msg)
+        raise EmptyTreeError(empty_msg)
     filled: hist.Hist[Any] = hist.numpy.histogram(
         finite, bins=bins, histogram=hist.Hist
     )
@@ -127,12 +134,53 @@ def _hist_to_histogram(
     return cast("hist.Hist[Any]", tree.to_hist())
 
 
-def apply_expr(histogram: hist.Hist[Any], expr: str) -> hist.Hist[Any]:
-    """Evaluate the slice expression with the histogram bound to ``h``."""
-    if expr:
-        # pylint: disable-next=eval-used
-        histogram = eval(expr, {"h": histogram})
-    return histogram
+@functools.singledispatch
+def containing_tree(item: Any) -> Any:  # noqa: ARG001
+    """The TTree/RNTuple that ``item`` lives in (itself, if it is one), else None."""
+    return None
+
+
+@containing_tree.register(uproot.behaviors.TBranch.HasBranches)
+def _branch_tree(item: uproot.behaviors.TBranch.HasBranches) -> Any:
+    return item.tree
+
+
+@containing_tree.register(uproot.behaviors.RNTuple.HasFields)
+def _field_tree(item: uproot.behaviors.RNTuple.HasFields) -> Any:
+    return item.ntuple
+
+
+def apply_expr(histogram: hist.Hist[Any], expr: str, item: Any) -> hist.Hist[Any]:
+    """
+    Evaluate with ``h`` as the histogram and ``tree`` as the containing
+    TTree/RNTuple, using uproot's normal API, e.g.
+    ``tree["fPx"].array()[tree["fPy"].array() < 0]``. An array result is
+    histogrammed with the bin count of ``h``.
+    """
+    if not expr:
+        return histogram
+    namespace = {
+        "h": histogram,
+        "tree": containing_tree(item),
+        "ak": ak,
+        "hist": hist,
+        "np": np,
+    }
+    # pylint: disable-next=eval-used
+    result = eval(expr, namespace)
+    if isinstance(result, hist.Hist):
+        return result
+    if isinstance(result, (ak.Array, np.ndarray)):
+        return _fill_finite(
+            result,
+            bins=len(histogram.axes[0]),
+            empty_msg="Expression produced no finite values.",
+        )
+    msg = (
+        "Expression must produce a hist.Hist or an awkward/numpy array, "
+        f"got {type(result).__name__}."
+    )
+    raise RuntimeError(msg)
 
 
 def _bin_ticks(
@@ -235,7 +283,7 @@ def plot(
     Support new types by registering a :func:`to_histogram` overload.
     """
     histogram = to_histogram(tree, bins=width)
-    _draw_hist(fig, tree, apply_expr(histogram, expr), limits=limits)
+    _draw_hist(fig, tree, apply_expr(histogram, expr, tree), limits=limits)
 
 
 def _model_is_histogram(model: Any) -> bool:

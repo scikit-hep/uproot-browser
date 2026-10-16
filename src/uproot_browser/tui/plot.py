@@ -125,7 +125,22 @@ def make_dump(
     width = size[0] - 5 if size else 100
     code = uproot_browser.plot.dump(item, width=width)
     if expr:
-        code += f"\nh = {expr}"
+        # Self-contained: the exported script must not need uproot_browser.
+        code += textwrap.dedent(f"""
+
+            import awkward as ak
+            import hist
+            import numpy as np
+
+            tree = getattr(item, "tree", getattr(item, "ntuple", None))
+
+            result = {expr}
+            if not isinstance(result, hist.Hist):
+                values = ak.ravel(result)
+                result = hist.numpy.histogram(
+                    values[np.isfinite(values)], bins=len(h.axes[0]), histogram=hist.Hist
+                )
+            h = result""")
     if limits != NO_LIMITS:
         code += textwrap.dedent(f"""
 
