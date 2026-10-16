@@ -115,7 +115,7 @@ Browser.-hide-right-panel #right-panel {
     margin-right: 1;
 }
 
-#axis-buttons Button:last-child {
+#axis-buttons Button:last-of-type {
     margin-right: 0;
 }
 
