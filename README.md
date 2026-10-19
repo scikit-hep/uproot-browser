@@ -64,19 +64,8 @@ b  Navbar       r  Right Panel       q  Quit       d  Dump & Quit
 
 ### Tree navigation
 
-Use Up/Down or `k`/`j` to move through visible rows. Press Space to expand or
-collapse a node, `l` to expand it, and `h` to collapse it or its parent. Click
-an object or press Enter to plot it. Use `/` to search by name and F1 for help.
-
-Type a positive count (up to four digits) before Down/Up or `j`/`k` to repeat a
-move. For example, with `fFlag` highlighted in the expanded sample event tree,
-`2` followed by Down moves past `fH` to `fHighPt`. Press Enter to plot the new
-selection. Movement stops at the first or last visible row.
-
-The pending count appears as `Move: 2` in a separate row immediately above
-the footer, leaving the Tree tab label unchanged. The row disappears after a
-move, another key, or focus leaving the tree. When space permits, scrolling
-keeps two rows of context above and below the cursor.
+Use Up/Down or `k`/`j` to move through the tree, and type a count first to
+repeat a move (`12j`). Press F1 in the browser for all keys.
 
 **`plot` command:**
 
@@ -206,18 +195,6 @@ uproot-browser tree --testdata uproot-Event.root
 ## Development
 
 [![pre-commit.ci status][pre-commit-badge]][pre-commit-link]
-
-From a source checkout, set up the environment, run the tests, and launch the
-browser with sample data:
-
-```bash
-uv sync
-uv run pytest
-uv run uproot-browser browse --testdata uproot-Event.root
-```
-
-To browse your own data, replace `--testdata uproot-Event.root` with the path
-to an existing ROOT file.
 
 See [CONTRIBUTING.md](https://github.com/scikit-hep/uproot-browser/blob/main/.github/CONTRIBUTING.md) for details on how to set up a development environment.
 

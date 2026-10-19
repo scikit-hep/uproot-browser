@@ -124,7 +124,15 @@ class Browser(textual.app.App[None]):
         yield textual.widgets.Static(id="navigation-count")
 
     def on_mount(self, _event: textual.events.Mount) -> None:
-        self.query_one("#tree-view").focus()
+        tree = self.query_one("#tree-view", UprootTree)
+        tree.focus()
+        self.watch(tree, "count", self._show_count)
+
+    def _show_count(self, count: str) -> None:
+        status = self.query_one("#navigation-count", textual.widgets.Static)
+        if count:
+            status.update(f"Move: {count}")
+        status.display = bool(count)
 
     def watch_show_tree(self, show_tree: bool) -> None:  # noqa: FBT001
         """Called when show_tree is modified."""

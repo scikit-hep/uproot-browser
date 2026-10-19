@@ -1,13 +1,10 @@
 from __future__ import annotations
 
 __lazy_modules__ = {
-    "contextlib",
     "pathlib",
     "rich",
     "rich.panel",
     "rich.text",
-    "textual.css",
-    "textual.css.query",
     "textual.events",
     "textual.widget",
     "textual.widgets.tree",
@@ -17,7 +14,6 @@ __lazy_modules__ = {
     f"{__spec__.parent}.messages",
 }
 
-import contextlib
 import functools
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -25,12 +21,12 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import rich.panel
 import rich.text
 import textual.binding
-import textual.css.query
 import textual.events
 import textual.widget
 import textual.widgets
 import textual.widgets.tree
 import uproot
+from textual.reactive import var
 
 import uproot_browser.plot
 
@@ -57,11 +53,13 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         textual.binding.Binding("l", "cursor_in", "Cursor in", show=False),
     ]
 
+    count = var("")
+    """Pending vim-style count prefix."""
+
     def __init__(self, path: str, **args: Any) -> None:
         self.upfile = uproot.open(path)
         file_path = Path(self.upfile.file_path)
         data = UprootEntry("/", self.upfile)
-        self._count = ""
         super().__init__(name=str(file_path), data=data, label=file_path.stem, **args)
 
     @functools.cached_property
@@ -127,36 +125,28 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
             )
         super().scroll_to_line(line, animate=animate)
 
-    def _set_count(self, count: str) -> None:
-        """Store the pending count and show it above the footer."""
-        self._count = count
-        with contextlib.suppress(textual.css.query.NoMatches):
-            status = self.screen.query_one("#navigation-count", textual.widgets.Static)
-            status.update(f"Move: {count}" if count else "")
-            status.display = bool(count)
-
     def _take_count(self) -> int:
         """Consume the pending count, defaulting to 1."""
-        count = int(self._count or 1)
-        self._set_count("")
+        count = int(self.count or 1)
+        self.count = ""
         return count
 
     def on_key(self, event: textual.events.Key) -> None:
         """Collect a vim-style count prefix for the cursor motions."""
         character = event.character
         if character is not None and (
-            character in "123456789" or (character == "0" and self._count)
+            character in "123456789" or (character == "0" and self.count)
         ):
-            if len(self._count) < MAX_COUNT_DIGITS:
-                self._set_count(self._count + character)
+            if len(self.count) < MAX_COUNT_DIGITS:
+                self.count += character
             event.stop()
             event.prevent_default()
         elif event.key not in COUNT_MOTIONS and not event.key.endswith(MODIFIERS):
-            self._set_count("")
+            self.count = ""
 
     def on_blur(self) -> None:
         """Discard pending navigation when focus leaves the tree."""
-        self._set_count("")
+        self.count = ""
 
     def render_label(
         self,
