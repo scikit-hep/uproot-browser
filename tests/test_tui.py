@@ -363,7 +363,8 @@ async def test_jump_cancel() -> None:
         assert pilot.app.view_widget.item is None
 
 
-async def test_count_prefix_motion() -> None:
+@pytest.mark.parametrize(("down", "up"), [("down", "up"), ("j", "k")])
+async def test_count_prefix_motion(down: str, up: str) -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
@@ -372,17 +373,49 @@ async def test_count_prefix_motion() -> None:
         await pilot.pause()
         assert tree.cursor_line == 3
 
-        await pilot.press("1", "2", "j")
+        await pilot.press("1", "2", down)
         await pilot.pause()
         assert tree.cursor_line == 15
+        assert not pilot.app.query_one("#navigation-count").display
 
-        await pilot.press("5", "k")
+        await pilot.press("5", up)
         await pilot.pause()
         assert tree.cursor_line == 10
 
         await pilot.press("k")  # no count: single step
         await pilot.pause()
         assert tree.cursor_line == 9
+
+
+async def test_count_prefix_after_click() -> None:
+    async with Browser(skhep_testdata.data_path("uproot-Event.root")).run_test(
+        size=(160, 50)
+    ) as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        await pilot.press(*EXPAND_EVENT)
+        await pilot.pause()
+        assert tree.cursor_node is not None
+        flag = next(
+            node
+            for node in tree.cursor_node.children
+            if node.data is not None and node.data.path == LEAF_PATH
+        )
+        label = tree._get_label_region(flag.line)  # noqa: SLF001
+        assert label is not None
+        offset = tree.content_region.offset - tree.region.offset
+        await pilot.click(
+            tree,
+            offset=(label.x + label.width // 2 + offset.x, label.y + offset.y),
+        )
+        await pilot.pause()
+        assert tree.cursor_node is flag
+
+        await pilot.press("2", "down")
+        await pilot.pause()
+        assert tree.cursor_node is not None
+        assert tree.cursor_node.data is not None
+        assert tree.cursor_node.data.path == "//T/event/fHighPt"
+        assert not pilot.app.query_one("#navigation-count").display
 
 
 async def test_count_prefix_shown_and_reset() -> None:
@@ -396,18 +429,68 @@ async def test_count_prefix_shown_and_reset() -> None:
 
         await pilot.press("4")
         await pilot.pause()
-        assert tabs.get_tab("tree-tab").label_text == "Tree 4"
+        assert tabs.get_tab("tree-tab").label_text == "Tree"
+        status = pilot.app.query_one("#navigation-count", textual.widgets.Static)
+        assert status.display
+        region = textual.geometry.Region(0, 0, *status.content_size)
+        assert (
+            "".join(line.text for line in status.render_lines(region)).strip()
+            == "Move: 4"
+        )
+        footer = pilot.app.query_one(textual.widgets.Footer)
+        assert status.region.bottom == footer.region.y
+        assert status.region.height == 1
 
         await pilot.press("left_shift")  # bare modifiers keep the count
         await pilot.pause()
-        assert tabs.get_tab("tree-tab").label_text == "Tree 4"
+        assert status.display
 
         await pilot.press("x")  # any other key discards the count
         await pilot.pause()
         assert tabs.get_tab("tree-tab").label_text == "Tree"
+        assert not status.display
 
         line = tree.cursor_line
         await pilot.press("j")
+        await pilot.pause()
+        assert tree.cursor_line == line + 1
+
+
+async def test_count_prefix_keeps_layout() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        views = [pilot.app.query_one(f"#{name}") for name in ("left-view", "plot-view")]
+        before = [view.region for view in views]
+        tree_height = tree.scrollable_content_region.height
+
+        await pilot.press("2")
+        await pilot.pause()
+        assert pilot.app.query_one("#navigation-count").display
+        assert [view.region for view in views] == before
+        assert tree.scrollable_content_region.height == tree_height
+
+
+async def test_count_prefix_cleared_on_blur() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        status = pilot.app.query_one("#navigation-count", textual.widgets.Static)
+        assert not status.display
+        await pilot.press("down", "2")
+        await pilot.pause()
+        assert status.display
+
+        pilot.app.set_focus(None)
+        await pilot.pause()
+        assert not status.display
+
+        tree.focus()
+        await pilot.pause()
+        line = tree.cursor_line
+        await pilot.press("down")
         await pilot.pause()
         assert tree.cursor_line == line + 1
 

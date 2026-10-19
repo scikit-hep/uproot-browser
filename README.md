@@ -37,6 +37,7 @@ uproot-browser currently provides the following features (get help with `-h` or 
 - `browse` provides a right-side axis panel with typed X and Y range controls.
 - The right-side panel can be shown or hidden with `r`.
 - Image-mode render scaling is available from the right-side panel.
+- `browse` supports counted tree navigation with arrow keys or `j`/`k`, with the pending count displayed above the footer.
 
 
 ## Examples
@@ -60,6 +61,11 @@ The existing image render scale control is also located in this panel when using
 ```text
 b  Navbar       r  Right Panel       q  Quit       d  Dump & Quit
 ```
+
+### Tree navigation
+
+Use Up/Down or `k`/`j` to move through the tree, and type a count first to
+repeat a move (`12j`). Press F1 in the browser for all keys.
 
 **`plot` command:**
 

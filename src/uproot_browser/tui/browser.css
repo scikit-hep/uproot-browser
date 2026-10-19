@@ -172,6 +172,22 @@ CollapsibleTitle {
    text-style: bold;
 }
 
+Screen {
+    layers: default overlay;
+}
+
+#navigation-count {
+    display: none;
+    /* Own layer, so showing it does not resize the panels. */
+    layer: overlay;
+    dock: bottom;
+    /* Docked above the footer row, not over it. */
+    margin-bottom: 1;
+    height: 1;
+    padding: 0 1;
+    background: $surface;
+}
+
 Footer {
     background: $secondary-lighten-2;
 }
