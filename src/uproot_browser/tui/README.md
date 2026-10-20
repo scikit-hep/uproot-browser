@@ -35,11 +35,15 @@ be plotted, you'll see a scrollable error traceback. If you think it should
 be plottable, feel free to open an issue. 2D histograms draw as heatmaps
 (text mode needs plotext 6 or newer; `--image` mode always supports them).
 
-## Tools
+Press `e` to show the entry box below the plot. The histogram is `h`, and you
+can slice it, for example `h[::2j]`. Press `enter` or the `Plot` button to apply
+the expression, and `esc` to close the box.
 
-The panel on the left (which can be hidden/shown with `b` has tabs; the `Tree`
-tab is the default, but you can also select `Tools`, which has a theme
-selector, and an Info tab, which gives the versions of installed packages.
+## Panels
+
+The panel on the left can be hidden or shown with `b`. It has `Tree` and `Info`
+tabs. The panel on the right can be hidden or shown with `r`. It has the axis
+ranges, the image scale (with `--image`), and the theme selector.
 
 
 ## Leaving

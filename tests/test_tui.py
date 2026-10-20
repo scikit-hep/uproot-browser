@@ -12,6 +12,7 @@ import textual.widgets
 from uproot_browser.axis import AxisLimits
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.error import Error
+from uproot_browser.tui.help import HelpScreen
 from uproot_browser.tui.jump import JumpScreen
 from uproot_browser.tui.left_panel import SCROLLOFF, UprootTree
 from uproot_browser.tui.plot import Plotext
@@ -95,6 +96,74 @@ async def test_right_panel_toggle() -> None:
         await pilot.press("r")
         assert pilot.app.show_right_panel
         assert panel.display
+
+
+async def test_entry_box_toggle() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        entry_box = pilot.app.query_one("#plot-input-container")
+        plot_input = pilot.app.view_widget.plot_input
+        assert not entry_box.display
+
+        await settled_plot(pilot)
+        await pilot.press("e")
+        assert pilot.app.show_entry_box
+        assert entry_box.display
+        assert plot_input.has_focus
+
+        # Typing "e" in the box must not close it; escape does
+        await pilot.press("e")
+        assert entry_box.display
+        assert plot_input.value == "e"
+
+        await pilot.press("escape")
+        assert not pilot.app.show_entry_box
+        assert not entry_box.display
+        assert pilot.app.query_one("#tree-view").has_focus
+
+        await pilot.press("e", "tab")
+        assert not plot_input.has_focus
+        await pilot.press("e")
+        assert not entry_box.display
+
+
+async def test_entry_box_toggle_without_plot_keeps_focus() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view")
+        assert tree.has_focus
+
+        # The entry box is part of the plot window, which is not shown yet
+        await pilot.press("e")
+        assert pilot.app.show_entry_box
+        assert tree.has_focus
+
+
+async def test_entry_box_toggle_rerenders_plot() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        item = await settled_plot(pilot)
+        assert item.size is not None
+        _, height = item.size
+
+        await pilot.press("e")
+        await wait_until(pilot, lambda: item.size is not None and item.size[1] < height)
+        assert item.size is not None
+        assert item.size[1] < height
+
+
+async def test_help_blocks_panel_keys() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        await pilot.press("f1", "e", "r", "b", "d")
+        assert isinstance(pilot.app.screen, HelpScreen)
+        assert not pilot.app.show_entry_box
+        assert pilot.app.show_right_panel
+        assert pilot.app.show_tree
 
 
 async def test_browse_plot() -> None:
@@ -269,25 +338,17 @@ async def test_theme_select_tracks_theme() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
-        # Activate the Tools tab and wait for the Select to settle (Tools.on_mount
-        # sets up the watcher that keeps it in sync with the theme).
-        pilot.app.query_one(
-            "#left-view", textual.widgets.TabbedContent
-        ).active = "tab-2"
-        await wait_until(
-            pilot,
-            lambda: (
-                bool(pilot.app.query(textual.widgets.Select))
-                and pilot.app.query_one(textual.widgets.Select).value
-                != textual.widgets.Select.BLANK
-            ),
-        )
-        select = pilot.app.query_one(textual.widgets.Select)
+        select = pilot.app.query_one("#theme-select", textual.widgets.Select)
+        await wait_until(pilot, lambda: select.value != textual.widgets.Select.BLANK)
         assert select.value == pilot.app.theme
 
         pilot.app.theme = "nord"
         await wait_until(pilot, lambda: select.value == "nord")
         assert select.value == "nord"
+
+        select.value = "textual-light"
+        await wait_until(pilot, lambda: pilot.app.theme == "textual-light")
+        assert pilot.app.theme == "textual-light"
 
 
 async def test_jump_opens_and_lists_all() -> None:

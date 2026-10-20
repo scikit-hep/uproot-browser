@@ -51,7 +51,7 @@ from .left_panel import UprootTree
 from .plot import Plotext, PlotItem, selection_source
 from .right_panel import RightPanel
 from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND
-from .tools import Info, Tools
+from .tools import Info
 from .viewer import ViewWidget
 
 # Registered under our own names to avoid overriding plotext's built-in themes.
@@ -75,6 +75,7 @@ class Browser(textual.app.App[None]):
     BINDINGS: ClassVar[list[textual.binding.BindingType]] = [
         textual.binding.Binding("b", "toggle_files", "Navbar"),
         textual.binding.Binding("r", "toggle_right_panel", "Right Panel"),
+        textual.binding.Binding("e", "toggle_entry_box", "Entry Box"),
         textual.binding.Binding("/", "jump", "Jump"),
         textual.binding.Binding("q", "quit", "Quit"),
         textual.binding.Binding("d", "quit_with_dump", "Dump & Quit"),
@@ -85,6 +86,7 @@ class Browser(textual.app.App[None]):
 
     show_tree = var(True)
     show_right_panel = var(True)
+    show_entry_box = var(False)
     image_scale = var(1.5)
     axis_limits = var(NO_LIMITS)
 
@@ -108,12 +110,6 @@ class Browser(textual.app.App[None]):
             with textual.widgets.TabbedContent(id="left-view"):
                 with textual.widgets.TabPane("Tree", id="tree-tab"):
                     yield UprootTree(self.path, id="tree-view")
-                with textual.widgets.TabPane("Tools"):
-                    # Not lazy: lazy-mounting a Select races its internal mount
-                    # (SelectCurrent.update queries "#label" before that child is
-                    # mounted), which crashes on slow runners. Tools is cheap to
-                    # build anyway; only the Info tab is worth deferring.
-                    yield Tools()
                 with textual.widgets.TabPane("Info"):
                     yield textual.lazy.Lazy(Info())
             # main_panel
@@ -159,6 +155,22 @@ class Browser(textual.app.App[None]):
     def action_toggle_right_panel(self) -> None:
         """Toggle the typed axis controls and render scale panel."""
         self.show_right_panel = not self.show_right_panel
+
+    def action_toggle_entry_box(self) -> None:
+        """Toggle the plot expression entry box, focusing it when shown."""
+        self.show_entry_box = not self.show_entry_box
+        plot_input = self.view_widget.plot_input
+        if self.show_entry_box:
+            # The box lives in the plot window, which is hidden without a plot
+            if isinstance(self.view_widget.item, PlotItem):
+                plot_input.focus()
+        elif plot_input.has_focus:
+            self.query_one("#tree-view").focus()
+
+    def watch_show_entry_box(self, show: bool) -> None:  # noqa: FBT001
+        """Called when the entry box visibility changes."""
+        self.view_widget.input_container.set_class(show, "-show-container")
+        self.view_widget.call_after_refresh(self.view_widget.request_render)
 
     def watch_show_right_panel(self, show: bool) -> None:  # noqa: FBT001
         """Called when the right panel visibility changes."""
