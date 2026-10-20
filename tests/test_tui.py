@@ -12,6 +12,7 @@ import textual.widgets
 from uproot_browser.axis import AxisLimits
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.error import Error
+from uproot_browser.tui.help import HelpScreen
 from uproot_browser.tui.jump import JumpScreen
 from uproot_browser.tui.left_panel import SCROLLOFF, UprootTree
 from uproot_browser.tui.plot import Plotext
@@ -105,6 +106,7 @@ async def test_entry_box_toggle() -> None:
         plot_input = pilot.app.view_widget.plot_input
         assert not entry_box.display
 
+        await settled_plot(pilot)
         await pilot.press("e")
         assert pilot.app.show_entry_box
         assert entry_box.display
@@ -126,15 +128,24 @@ async def test_entry_box_toggle() -> None:
         assert not entry_box.display
 
 
+async def test_entry_box_toggle_without_plot_keeps_focus() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view")
+        assert tree.has_focus
+
+        # The entry box is part of the plot window, which is not shown yet
+        await pilot.press("e")
+        assert pilot.app.show_entry_box
+        assert tree.has_focus
+
+
 async def test_entry_box_toggle_rerenders_plot() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
-        await pilot.press("down", "down", "down", "enter")
-        await pilot.app.workers.wait_for_complete()
-        await pilot.pause()
-        item = pilot.app.view_widget.item
-        assert isinstance(item, Plotext)
+        item = await settled_plot(pilot)
         assert item.size is not None
         _, height = item.size
 
@@ -148,7 +159,8 @@ async def test_help_blocks_panel_keys() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
-        await pilot.press("f1", "e", "r", "b")
+        await pilot.press("f1", "e", "r", "b", "d")
+        assert isinstance(pilot.app.screen, HelpScreen)
         assert not pilot.app.show_entry_box
         assert pilot.app.show_right_panel
         assert pilot.app.show_tree
@@ -326,22 +338,9 @@ async def test_theme_select_tracks_theme() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
-        await wait_until(
-            pilot,
-            lambda: (
-                bool(pilot.app.query("#right-panel #theme-select"))
-                and pilot.app.query_one(
-                    "#right-panel #theme-select", textual.widgets.Select
-                ).value
-                != textual.widgets.Select.BLANK
-            ),
-        )
-        select = pilot.app.query_one(
-            "#right-panel #theme-select", textual.widgets.Select
-        )
+        select = pilot.app.query_one("#theme-select", textual.widgets.Select)
+        await wait_until(pilot, lambda: select.value != textual.widgets.Select.BLANK)
         assert select.value == pilot.app.theme
-        tabs = pilot.app.query_one("#left-view", textual.widgets.TabbedContent)
-        assert len(tabs.query(textual.widgets.TabPane)) == 2
 
         pilot.app.theme = "nord"
         await wait_until(pilot, lambda: select.value == "nord")

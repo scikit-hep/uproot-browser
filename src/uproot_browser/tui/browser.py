@@ -152,7 +152,9 @@ class Browser(textual.app.App[None]):
         self.show_entry_box = not self.show_entry_box
         plot_input = self.view_widget.plot_input
         if self.show_entry_box:
-            plot_input.focus()
+            # The box lives in the plot window, which is hidden without a plot
+            if isinstance(self.view_widget.item, PlotItem):
+                plot_input.focus()
         elif plot_input.has_focus:
             self.query_one("#tree-view").focus()
 
