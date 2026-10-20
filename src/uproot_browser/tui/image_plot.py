@@ -20,6 +20,7 @@ import warnings
 from typing import TYPE_CHECKING, Any
 
 from uproot_browser.axis import NO_LIMITS, AxisLimits
+from uproot_browser.plot import ExprCache
 
 from .messages import RequestImage
 from .plot import resolve_selection, run_posting_errors, selection_source
@@ -78,7 +79,7 @@ def make_image(
 
 @dataclasses.dataclass(slots=True)
 class _HistCache:
-    """One-slot cache for the resolved item and its pre-expr histogram.
+    """One-slot cache for the resolved item and its histogram.
 
     Shared by reference across ``dataclasses.replace``, so a build finished by
     an already-superseded render worker still lands in the current item's
@@ -101,6 +102,7 @@ class MPLPlot:
     axis_limits: AxisLimits = NO_LIMITS
     # theme/scale/expr/resize re-renders only redraw instead of re-reading data
     built: _HistCache = dataclasses.field(default_factory=_HistCache)
+    cache: ExprCache = dataclasses.field(default_factory=ExprCache)
 
     def display(self, view: ViewWidget) -> None:
         view.current = "image-window"
@@ -151,7 +153,9 @@ class MPLPlot:
                 self.built.hist = histogram
             if self.expr:
                 # copy so an in-place expr cannot corrupt the cache
-                histogram = uproot_browser.plot.apply_expr(histogram.copy(), self.expr)
+                histogram = uproot_browser.plot.apply_expr(
+                    histogram.copy(), self.expr, item, cache=self.cache
+                )
             return make_image(
                 histogram,
                 title=uproot_browser.plot.make_hist_title(item, histogram),

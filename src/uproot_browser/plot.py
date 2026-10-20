@@ -5,7 +5,9 @@ Display tools for making plots via plotext.
 from __future__ import annotations
 
 __lazy_modules__ = {
+    "ast",
     "awkward",
+    "boost_histogram",
     "hist",
     "math",
     "numpy",
@@ -19,6 +21,8 @@ __lazy_modules__ = {
     "uproot_browser.exceptions",
 }
 
+import ast
+import dataclasses
 import functools
 import math
 import operator
@@ -26,9 +30,12 @@ import textwrap
 from typing import TYPE_CHECKING, Any, cast
 
 import awkward as ak
+import boost_histogram as bh
 import hist
 import numpy as np
 import uproot
+import uproot.behaviors.RNTuple
+import uproot.behaviors.TBranch
 import uproot.behaviors.TH1
 import uproot.interpretation.jagged
 import uproot.interpretation.numerical
@@ -88,13 +95,21 @@ def branch_hist(
             operator.add, (h.to_hist() for h in arr)
         )
         return histogram
-    array = tree.array()
+    return _fill_finite(
+        tree.array(), bins=bins, empty_msg=f"Branch {tree.name} is empty."
+    )
+
+
+def _fill_finite(array: Any, *, bins: int, empty_msg: str) -> hist.Hist[Any]:
+    """Flatten ``array``, drop non-finite values, and fill a regular histogram."""
+    if isinstance(array, np.ndarray) and array.dtype == object:
+        # uproot gives this for a jagged branch with library="np"
+        array = ak.from_iter(array)
     values = ak.ravel(array)
     # pylint: disable-next=unsubscriptable-object  # ak.ravel return is opaque to pylint
     finite = values[np.isfinite(values)]
     if len(finite) < 1:
-        msg = f"Branch {tree.name} is empty."
-        raise EmptyTreeError(msg)
+        raise EmptyTreeError(empty_msg)
     filled: hist.Hist[Any] = hist.numpy.histogram(
         finite, bins=bins, histogram=hist.Hist
     )
@@ -127,12 +142,142 @@ def _hist_to_histogram(
     return cast("hist.Hist[Any]", tree.to_hist())
 
 
-def apply_expr(histogram: hist.Hist[Any], expr: str) -> hist.Hist[Any]:
-    """Evaluate the slice expression with the histogram bound to ``h``."""
-    if expr:
-        # pylint: disable-next=eval-used
-        histogram = eval(expr, {"h": histogram})
-    return histogram
+@functools.singledispatch
+def containing_tree(item: Any) -> Any:  # noqa: ARG001
+    """The TTree/RNTuple that ``item`` lives in (itself, if it is one), else None."""
+    return None
+
+
+@containing_tree.register(uproot.behaviors.TBranch.HasBranches)
+def _branch_tree(item: uproot.behaviors.TBranch.HasBranches) -> Any:
+    return item.tree
+
+
+@containing_tree.register(uproot.behaviors.RNTuple.HasFields)
+def _field_tree(item: uproot.behaviors.RNTuple.HasFields) -> Any:
+    return item.ntuple
+
+
+@functools.singledispatch
+def containing_tree_source(item: Any) -> str | None:  # noqa: ARG001
+    """Source for :func:`containing_tree` applied to ``item``, or None."""
+    return None
+
+
+@containing_tree_source.register(uproot.behaviors.TBranch.HasBranches)
+def _branch_tree_source(item: uproot.behaviors.TBranch.HasBranches) -> str:  # noqa: ARG001
+    return "item.tree"
+
+
+@containing_tree_source.register(uproot.behaviors.RNTuple.HasFields)
+def _field_tree_source(item: uproot.behaviors.RNTuple.HasFields) -> str:  # noqa: ARG001
+    return "item.ntuple"
+
+
+@dataclasses.dataclass(slots=True)
+class ExprCache:
+    """One-slot cache of an expression's raw result, keyed on the expression.
+
+    Plot items share one by reference across copies, so a redraw (resize,
+    theme, limits) does not read the tree again. The single attribute keeps a
+    write atomic for concurrent render workers.
+    """
+
+    entry: tuple[str, Any] | None = None
+
+
+def _uses_h(expr: str) -> bool:
+    """Does the expression read ``h``, which changes with the bin count?"""
+    return any(
+        isinstance(node, ast.Name) and node.id == "h"
+        for node in ast.walk(ast.parse(expr, mode="eval"))
+    )
+
+
+def evaluate_expr(expr: str, namespace: dict[str, Any]) -> Any:
+    # pylint: disable-next=eval-used
+    return eval(expr, namespace)
+
+
+def apply_expr(
+    histogram: hist.Hist[Any], expr: str, item: Any, *, cache: ExprCache | None = None
+) -> hist.Hist[Any]:
+    """
+    Evaluate with ``h`` as the histogram and ``tree`` as the containing
+    TTree/RNTuple (only when there is one), using uproot's normal API, e.g.
+    ``tree["fPx"].array()[tree["fPy"].array() < 0]``. An array result is
+    histogrammed with the bin count of ``h``.
+
+    With a ``cache``, the result of an expression that does not use ``h`` is
+    kept and only rebinned on later calls.
+    """
+    if not expr:
+        return histogram
+    if cache is not None and cache.entry is not None and cache.entry[0] == expr:
+        result = cache.entry[1]
+    else:
+        namespace = {"h": histogram, "ak": ak, "hist": hist, "np": np}
+        tree = containing_tree(item)
+        if tree is not None:
+            namespace["tree"] = tree
+        result = evaluate_expr(expr, namespace)
+        if cache is not None and not _uses_h(expr):
+            cache.entry = (expr, result)
+    return _result_to_histogram(result, bins=len(histogram.axes[0]))
+
+
+def _result_to_histogram(result: Any, *, bins: int) -> hist.Hist[Any]:
+    """Coerce an expression result into a hist.Hist. Mirrored in :func:`dump_expr`."""
+    if hasattr(result, "to_hist"):
+        result = result.to_hist()
+    if isinstance(result, hist.Hist):
+        return result
+    if isinstance(result, bh.Histogram):
+        return hist.Hist(result)
+    if isinstance(result, (ak.Array, np.ndarray)):
+        return _fill_finite(
+            result,
+            bins=bins,
+            empty_msg="Expression produced no finite values.",
+        )
+    msg = (
+        "Expression must produce a hist.Hist or an awkward/numpy array, "
+        f"got {type(result).__name__}."
+    )
+    raise RuntimeError(msg)
+
+
+def dump_expr(item: Any, expr: str) -> str:
+    """Self-contained source that applies ``expr`` to ``h`` like :func:`apply_expr`."""
+    tree_source = containing_tree_source(item)
+    tree_line = "" if tree_source is None else f"tree = {tree_source}\n\n"
+    imports = textwrap.dedent("""\
+        import awkward as ak
+        import boost_histogram as bh
+        import hist
+        import numpy as np
+
+        """)
+    body = textwrap.dedent(f"""\
+        result = {expr}
+        if hasattr(result, "to_hist"):
+            result = result.to_hist()
+        if isinstance(result, bh.Histogram) and not isinstance(result, hist.Hist):
+            result = hist.Hist(result)
+        if isinstance(result, (ak.Array, np.ndarray)):
+            if isinstance(result, np.ndarray) and result.dtype == object:
+                result = ak.from_iter(result)
+            values = ak.ravel(result)
+            finite = values[np.isfinite(values)]
+            if len(finite) < 1:
+                msg = "Expression produced no finite values."
+                raise ValueError(msg)
+            result = hist.numpy.histogram(finite, bins=len(h.axes[0]), histogram=hist.Hist)
+        if not isinstance(result, hist.Hist):
+            msg = f"Expression must produce a hist.Hist or an awkward/numpy array, got {{type(result).__name__}}."
+            raise TypeError(msg)
+        h = result""")
+    return imports + tree_line + body
 
 
 def _bin_ticks(
@@ -209,9 +354,10 @@ def _draw_hist_1d(
     fig.title(make_hist_title(tree, histogram))
 
 
-def _draw_hist(
+def draw_hist(
     fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any], *, limits: AxisLimits
 ) -> None:
+    """Draw an already-built histogram into the figure, titled for ``tree``."""
     match len(histogram.axes):
         case 1:
             _draw_hist_1d(fig, tree, histogram, limits=limits)
@@ -229,13 +375,14 @@ def plot(
     width: int = 100,
     expr: str = "",
     limits: AxisLimits = NO_LIMITS,
+    cache: ExprCache | None = None,
 ) -> None:
     """
     Plot ``tree`` into the given plotext figure.
     Support new types by registering a :func:`to_histogram` overload.
     """
     histogram = to_histogram(tree, bins=width)
-    _draw_hist(fig, tree, apply_expr(histogram, expr), limits=limits)
+    draw_hist(fig, tree, apply_expr(histogram, expr, tree, cache=cache), limits=limits)
 
 
 def _model_is_histogram(model: Any) -> bool:

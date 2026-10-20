@@ -84,10 +84,11 @@ def plot(
 ) -> None:
     """
     Build and draw in one step. The optional ``expr`` is evaluated with the
-    histogram bound to ``h`` (e.g. ``h[::2j]``).
+    histogram bound to ``h`` and the containing TTree/RNTuple bound to ``tree``
+    (e.g. ``h[::2j]``).
     """
     histogram = uproot_browser.plot.apply_expr(
-        uproot_browser.plot.to_histogram(tree), expr
+        uproot_browser.plot.to_histogram(tree), expr, tree
     )
     draw_hist(
         histogram,
@@ -142,7 +143,7 @@ def make_image(
     Build and render to a PIL image in one step.
     """
     histogram = uproot_browser.plot.apply_expr(
-        uproot_browser.plot.to_histogram(tree), expr
+        uproot_browser.plot.to_histogram(tree), expr, tree
     )
     return render_image(
         histogram,
