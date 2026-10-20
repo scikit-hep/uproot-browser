@@ -25,15 +25,13 @@ import rich.text
 import uproot_browser.plot
 import uproot_browser.plotext_compat
 from uproot_browser.axis import NO_LIMITS, AxisLimits
-from uproot_browser.exceptions import EmptyTreeError
+from uproot_browser.exceptions import EmptyTreeError, ExpressionError
 
 from .error import Error
 from .messages import EmptyMessage, ErrorMessage, ExpressionErrorMessage, RequestPlot
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-    import hist
 
     from .browser import Browser
     from .viewer import ViewWidget
@@ -50,6 +48,8 @@ class PlotItem(Protocol):
     factory in `Browser` and a window in `ViewWidget`.
     """
 
+    app: Browser
+    selection: str
     expr: str
 
     def display(self, view: ViewWidget) -> None:
@@ -77,44 +77,20 @@ class PlotItem(Protocol):
         """Renderables to print above the source on Dump & Quit."""
 
 
-class ExpressionError(Exception):
-    """The plot expression failed; ``error`` is the original exception."""
+def run_posting_errors(source: PlotItem, fn: Callable[[], T]) -> T | None:
+    """Run ``fn``, posting a message to the app of ``source`` on failure.
 
-    def __init__(self, error: Exception) -> None:
-        super().__init__(error)
-        self.error = error
-
-
-def apply_expr(
-    histogram: hist.Hist[Any],
-    expr: str,
-    item: Any,
-    *,
-    cache: uproot_browser.plot.ExprCache | None = None,
-) -> hist.Hist[Any]:
-    """:func:`uproot_browser.plot.apply_expr`, raising :class:`ExpressionError`."""
-    try:
-        return uproot_browser.plot.apply_expr(histogram, expr, item, cache=cache)
-    except Exception as err:
-        raise ExpressionError(err) from err
-
-
-def run_posting_errors(
-    app: Browser, fn: Callable[[], T], source: PlotItem, selection: str = ""
-) -> T | None:
-    """Run ``fn``, posting a message to the app on failure.
-
-    ``selection`` travels with the error so Dump & Quit can show the branch.
+    The selection travels with the error so Dump & Quit can show the branch.
     A failed expression keeps ``source`` editable instead of replacing it.
     """
     try:
         return fn()
     except ExpressionError as err:
-        app.post_message(ExpressionErrorMessage(source, err.error))
+        source.app.post_message(ExpressionErrorMessage(source, err.__cause__ or err))
     except EmptyTreeError:
-        app.post_message(EmptyMessage())
+        source.app.post_message(EmptyMessage())
     except Exception as err:  # noqa: BLE001
-        app.post_message(ErrorMessage(Error(err, selection)))
+        source.app.post_message(ErrorMessage(Error(err, source.selection)))
     return None
 
 
@@ -143,9 +119,9 @@ def render_canvas(
     fig.clear()
     fig.theme(theme)
     fig.plot_size(*size)
-    histogram = uproot_browser.plot.to_histogram(item, bins=size[0] - 5)
-    histogram = apply_expr(histogram, expr, item, cache=cache)
-    uproot_browser.plot.draw_hist(fig, item, histogram, limits=limits)
+    uproot_browser.plot.plot(
+        item, fig=fig, width=size[0] - 5, expr=expr, limits=limits, cache=cache
+    )
     return str(fig.build())
 
 
@@ -259,4 +235,4 @@ class Plotext:
             )
             return rich.text.Text.from_ansi(canvas)
 
-        return run_posting_errors(self.app, build, self, self.selection)
+        return run_posting_errors(self, build)

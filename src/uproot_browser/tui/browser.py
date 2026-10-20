@@ -260,10 +260,17 @@ class Browser(textual.app.App[None]):
             severity="warning" if isinstance(error, EmptyTreeError) else "error",
         )
 
+    def _is_failed(self, item: PlotItem) -> bool:
+        if item is self._failed_item:
+            return True
+        # drop the reference so the item and its caches can be freed
+        self._failed_item = None
+        return False
+
     def on_request_plot(self) -> None:
         """Single render trigger: assigning a Plotext (or a resize) lands here."""
         item = self.view_widget.item
-        if not isinstance(item, Plotext) or item is self._failed_item:
+        if not isinstance(item, Plotext) or self._is_failed(item):
             return
         # The Static has a 1 cell padding, which content_size takes off already
         size = self.view_widget.plot_widget.content_size
@@ -289,7 +296,7 @@ class Browser(textual.app.App[None]):
     def on_request_image(self) -> None:
         """Single render trigger: assigning an MPLPlot (or a resize) lands here."""
         item = self.view_widget.item
-        if not isinstance(item, MPLPlot) or item is self._failed_item:
+        if not isinstance(item, MPLPlot) or self._is_failed(item):
             return
         size = self.view_widget.image_pixel_size()
         if size is not None:

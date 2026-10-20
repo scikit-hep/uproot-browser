@@ -33,7 +33,7 @@ class ErrorMessage(textual.message.Message, bubble=True):
 class ExpressionErrorMessage(textual.message.Message, bubble=True):
     """A failed expression whose selection and input should remain editable."""
 
-    def __init__(self, source: PlotItem, error: Exception) -> None:
+    def __init__(self, source: PlotItem, error: BaseException) -> None:
         self.source = source
         self.error = error
         super().__init__()

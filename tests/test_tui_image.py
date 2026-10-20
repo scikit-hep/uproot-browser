@@ -64,12 +64,25 @@ def _fail_build(*_args: object, **_kwargs: object) -> None:
     raise AssertionError(msg)
 
 
-async def _open_settled_plot(pilot: textual.pilot.Pilot[object]) -> MPLPlot:
-    """Select the first plottable branch and wait for the render to settle."""
-    await pilot.press("down", "down", "down", "enter")
+async def _settle(pilot: textual.pilot.Pilot[object]) -> None:
     await pilot.pause()
     await pilot.app.workers.wait_for_complete()
     await pilot.pause()
+
+
+async def _apply_expression(pilot: textual.pilot.Pilot[object], expr: str) -> None:
+    view = pilot.app.view_widget
+    view.input_container.add_class("-show-container")
+    await pilot.pause()
+    view.plot_input.value = expr
+    view.plot_input.apply_expression()
+    await _settle(pilot)
+
+
+async def _open_settled_plot(pilot: textual.pilot.Pilot[object]) -> MPLPlot:
+    """Select the first plottable branch and wait for the render to settle."""
+    await pilot.press("down", "down", "down", "enter")
+    await _settle(pilot)
     item = pilot.app.view_widget.item
     assert isinstance(item, MPLPlot)
     return item
@@ -268,17 +281,9 @@ async def test_image_expression_failure_can_be_corrected(expr: str) -> None:
     ).run_test() as pilot:
         pilot.app.query_one("#tree-view", UprootTree).select_path("//T/event/fNtrack")
         await pilot.pause()
-        await pilot.pause()
-        await pilot.app.workers.wait_for_complete()
-        await pilot.pause()
+        await _settle(pilot)
+        await _apply_expression(pilot, expr)
         view = pilot.app.view_widget
-        view.input_container.add_class("-show-container")
-        await pilot.pause()
-        view.plot_input.value = expr
-        view.plot_input.apply_expression()
-        await pilot.pause()
-        await pilot.app.workers.wait_for_complete()
-        await pilot.pause()
 
         assert isinstance(view.item, MPLPlot)
         assert view.current == "image-window"
@@ -290,9 +295,7 @@ async def test_image_expression_failure_can_be_corrected(expr: str) -> None:
 
         view.plot_input.value = 'tree["fNtrack"].array()[tree["fNtrack"].array() > 0]'
         view.plot_input.apply_expression()
-        await pilot.pause()
-        await pilot.app.workers.wait_for_complete()
-        await pilot.pause()
+        await _settle(pilot)
         assert isinstance(view.item, MPLPlot)
         assert view.item.expr == view.plot_input.value
         assert not view.plot_input.has_class("-needs-update")

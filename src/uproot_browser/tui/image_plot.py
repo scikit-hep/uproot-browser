@@ -23,7 +23,7 @@ from uproot_browser.axis import NO_LIMITS, AxisLimits
 from uproot_browser.plot import ExprCache
 
 from .messages import RequestImage
-from .plot import apply_expr, resolve_selection, run_posting_errors, selection_source
+from .plot import resolve_selection, run_posting_errors, selection_source
 from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND, as_hex
 
 if TYPE_CHECKING:
@@ -157,7 +157,7 @@ class MPLPlot:
                 self.built.hist = histogram
             if self.expr:
                 # copy so an in-place expr cannot corrupt the cache
-                histogram = apply_expr(
+                histogram = uproot_browser.plot.apply_expr(
                     histogram.copy(), self.expr, item, cache=self.cache
                 )
             return make_image(
@@ -169,4 +169,4 @@ class MPLPlot:
                 limits=self.axis_limits,
             )
 
-        return run_posting_errors(self.app, build, self, self.selection)
+        return run_posting_errors(self, build)

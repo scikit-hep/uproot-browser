@@ -685,18 +685,23 @@ async def test_dump_survives_render_failure(monkeypatch: pytest.MonkeyPatch) -> 
         assert items == []
 
 
+async def apply_failing_expression(pilot: textual.pilot.Pilot[None], expr: str) -> None:
+    view = pilot.app.view_widget
+    view.input_container.add_class("-show-container")
+    await settle_render(pilot)
+    view.plot_input.value = expr
+    view.plot_input.apply_expression()
+    await settle_render(pilot)
+
+
 @pytest.mark.parametrize("expr", ["42", "h[", "np.array([])"])
 async def test_expression_failure_can_be_corrected(expr: str) -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
         original = await settled_plot(pilot)
+        await apply_failing_expression(pilot, expr)
         view = pilot.app.view_widget
-        view.input_container.add_class("-show-container")
-        await settle_render(pilot)
-        view.plot_input.value = expr
-        view.plot_input.apply_expression()
-        await settle_render(pilot)
 
         assert isinstance(view.item, Plotext)
         assert view.item.selection == original.selection
@@ -728,15 +733,6 @@ async def test_superseded_expression_error_is_ignored() -> None:
         await pilot.pause()
         assert plot_text(pilot.app) == before
         assert not view.plot_input.has_class("-needs-update")
-
-
-async def apply_failing_expression(pilot: textual.pilot.Pilot[None], expr: str) -> None:
-    view = pilot.app.view_widget
-    view.input_container.add_class("-show-container")
-    await settle_render(pilot)
-    view.plot_input.value = expr
-    view.plot_input.apply_expression()
-    await settle_render(pilot)
 
 
 @pytest.mark.parametrize(
