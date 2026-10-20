@@ -4,6 +4,7 @@ from collections.abc import Callable
 import pytest
 import rich.console
 import rich.style
+import rich.text
 import skhep_testdata
 import textual.geometry
 import textual.pilot
@@ -727,3 +728,62 @@ async def test_superseded_expression_error_is_ignored() -> None:
         await pilot.pause()
         assert plot_text(pilot.app) == before
         assert not view.plot_input.has_class("-needs-update")
+
+
+async def apply_failing_expression(pilot: textual.pilot.Pilot[None], expr: str) -> None:
+    view = pilot.app.view_widget
+    view.input_container.add_class("-show-container")
+    await settle_render(pilot)
+    view.plot_input.value = expr
+    view.plot_input.apply_expression()
+    await settle_render(pilot)
+
+
+@pytest.mark.parametrize(
+    ("expr", "message"),
+    [
+        (
+            'int("[/x] h[bold]")',
+            "invalid literal for int() with base 10: '[/x] h[bold]'",
+        ),
+        ('exec("raise KeyError")', "KeyError"),
+    ],
+)
+async def test_expression_error_notification_text(expr: str, message: str) -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        await settled_plot(pilot)
+        await apply_failing_expression(pilot, expr)
+        (notification,) = pilot.app._notifications  # noqa: SLF001
+        # The message is shown as written, not parsed as markup.
+        assert rich.text.Text.from_markup(notification.message).plain == message
+
+
+async def test_expression_error_not_repeated_on_resize() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        await settled_plot(pilot)
+        await apply_failing_expression(pilot, "h[")
+        await pilot.resize_terminal(100, 40)
+        await pilot.pause(0.3)
+        await settle_render(pilot)
+        assert len(pilot.app._notifications) == 1  # noqa: SLF001
+
+
+async def test_draw_error_with_expression_shows_traceback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def raise_error(*_args: object, **_kwargs: object) -> None:
+        msg = "draw failed"
+        raise RuntimeError(msg)
+
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        await settled_plot(pilot)
+        monkeypatch.setattr(uproot_browser.plot, "draw_hist", raise_error)
+        await apply_failing_expression(pilot, "h[::2j]")
+        assert isinstance(pilot.app.view_widget.item, Error)
+        assert not pilot.app.view_widget.plot_input.has_class("-needs-update")

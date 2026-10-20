@@ -33,6 +33,8 @@ from .messages import EmptyMessage, ErrorMessage, ExpressionErrorMessage, Reques
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    import hist
+
     from .browser import Browser
     from .viewer import ViewWidget
 
@@ -65,6 +67,9 @@ class PlotItem(Protocol):
     def with_axis_limits(self, limits: AxisLimits) -> PlotItem:
         """A copy of this item with typed display limits."""
 
+    def show_expression_error(self, view: ViewWidget) -> None:
+        """Show in the view that this item's expression failed."""
+
     def dump_source(self) -> str:
         """Python source for Dump & Quit (appended after `uproot_file = ...`)."""
 
@@ -72,34 +77,45 @@ class PlotItem(Protocol):
         """Renderables to print above the source on Dump & Quit."""
 
 
-def run_posting_errors(
-    app: Browser,
-    fn: Callable[[], T],
-    selection: str = "",
+class ExpressionError(Exception):
+    """The plot expression failed; ``error`` is the original exception."""
+
+    def __init__(self, error: Exception) -> None:
+        super().__init__(error)
+        self.error = error
+
+
+def apply_expr(
+    histogram: hist.Hist[Any],
+    expr: str,
+    item: Any,
     *,
-    source: PlotItem | None = None,
+    cache: uproot_browser.plot.ExprCache | None = None,
+) -> hist.Hist[Any]:
+    """:func:`uproot_browser.plot.apply_expr`, raising :class:`ExpressionError`."""
+    try:
+        return uproot_browser.plot.apply_expr(histogram, expr, item, cache=cache)
+    except Exception as err:
+        raise ExpressionError(err) from err
+
+
+def run_posting_errors(
+    app: Browser, fn: Callable[[], T], source: PlotItem, selection: str = ""
 ) -> T | None:
-    """Run ``fn``, posting an Empty/Error message to the app on failure.
+    """Run ``fn``, posting a message to the app on failure.
 
     ``selection`` travels with the error so Dump & Quit can show the branch.
     A failed expression keeps ``source`` editable instead of replacing it.
     """
     try:
         return fn()
-    except EmptyTreeError as err:
-        app.post_message(
-            ExpressionErrorMessage(source, err)
-            if source is not None and source.expr
-            else EmptyMessage()
-        )
-        return None
+    except ExpressionError as err:
+        app.post_message(ExpressionErrorMessage(source, err.error))
+    except EmptyTreeError:
+        app.post_message(EmptyMessage())
     except Exception as err:  # noqa: BLE001
-        app.post_message(
-            ExpressionErrorMessage(source, err)
-            if source is not None and source.expr
-            else ErrorMessage(Error(err, selection))
-        )
-        return None
+        app.post_message(ErrorMessage(Error(err, selection)))
+    return None
 
 
 def selection_source(selection: str) -> str:
@@ -127,9 +143,9 @@ def render_canvas(
     fig.clear()
     fig.theme(theme)
     fig.plot_size(*size)
-    uproot_browser.plot.plot(
-        item, fig=fig, width=size[0] - 5, expr=expr, limits=limits, cache=cache
-    )
+    histogram = uproot_browser.plot.to_histogram(item, bins=size[0] - 5)
+    histogram = apply_expr(histogram, expr, item, cache=cache)
+    uproot_browser.plot.draw_hist(fig, item, histogram, limits=limits)
     return str(fig.build())
 
 
@@ -194,6 +210,11 @@ class Plotext:
     def with_axis_limits(self, limits: AxisLimits) -> Plotext:
         return dataclasses.replace(self, axis_limits=limits)
 
+    def show_expression_error(self, view: ViewWidget) -> None:
+        view.plot_widget.update(
+            "Expression could not be plotted. Edit the expression and try again."
+        )
+
     def dump_source(self) -> str:
         msg = selection_source(self.selection)
         selected = resolve_selection(self.upfile, self.selection)
@@ -238,4 +259,4 @@ class Plotext:
             )
             return rich.text.Text.from_ansi(canvas)
 
-        return run_posting_errors(self.app, build, self.selection, source=self)
+        return run_posting_errors(self.app, build, self, self.selection)

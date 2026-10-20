@@ -3,6 +3,7 @@ from __future__ import annotations
 __lazy_modules__ = {
     "dataclasses",
     "rich",
+    "rich.markup",
     "rich.syntax",
     "rich.text",
     "textual.containers",
@@ -29,6 +30,7 @@ if not __package__:
 import dataclasses
 from typing import TYPE_CHECKING, Any, ClassVar
 
+import rich.markup
 import rich.syntax
 import rich.text
 import textual.app
@@ -99,6 +101,8 @@ class Browser(textual.app.App[None]):
         self.image = image
         self._plot_rendered: tuple[Any, ...] | None = None
         self._image_rendered: tuple[Any, ...] | None = None
+        # re-rendering a failed expression would only fail again
+        self._failed_item: PlotItem | None = None
         super().__init__(**kwargs)
 
         self.view_widget = ViewWidget(id="plot-view", image=image)
@@ -244,25 +248,22 @@ class Browser(textual.app.App[None]):
         self.view_widget.item = message.err
 
     def on_expression_error_message(self, message: ExpressionErrorMessage) -> None:
-        if self.view_widget.item is not message.source:
+        item, error = message.source, message.error
+        if self.view_widget.item is not item:
             return
+        self._failed_item = item
         self.view_widget.plot_input.add_class("-needs-update")
-        if isinstance(message.source, Plotext):
-            self.view_widget.plot_widget.update(
-                "Expression could not be plotted. Edit the expression and try again."
-            )
+        item.show_expression_error(self.view_widget)
         self.notify(
-            str(message.error),
+            rich.markup.escape(str(error) or type(error).__name__),
             title="Plot expression",
-            severity="warning"
-            if isinstance(message.error, EmptyTreeError)
-            else "error",
+            severity="warning" if isinstance(error, EmptyTreeError) else "error",
         )
 
     def on_request_plot(self) -> None:
         """Single render trigger: assigning a Plotext (or a resize) lands here."""
         item = self.view_widget.item
-        if not isinstance(item, Plotext):
+        if not isinstance(item, Plotext) or item is self._failed_item:
             return
         # The Static has a 1 cell padding, which content_size takes off already
         size = self.view_widget.plot_widget.content_size
@@ -288,7 +289,7 @@ class Browser(textual.app.App[None]):
     def on_request_image(self) -> None:
         """Single render trigger: assigning an MPLPlot (or a resize) lands here."""
         item = self.view_widget.item
-        if not isinstance(item, MPLPlot):
+        if not isinstance(item, MPLPlot) or item is self._failed_item:
             return
         size = self.view_widget.image_pixel_size()
         if size is not None:
