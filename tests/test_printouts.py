@@ -232,6 +232,14 @@ def test_tree_bracket_path_link(tmp_path: pathlib.Path) -> None:
             "Staff/Age",
             'tree["Age"].array()[tree["Age"].array() > 20]',
         ),
+        # library="np" gives an object array for a jagged branch
+        (
+            "uproot-Event.root",
+            "T/event/fNtrack",
+            'tree["fTracks.fPx"].array(library="np")',
+        ),
+        # an uproot histogram converts through to_hist()
+        ("uproot-Event.root", "T/event/fNtrack", 'tree["fH"].array(library="np")[0]'),
     ],
 )
 def test_dump_is_runnable(filename: str, selection: str, expr: str) -> None:
@@ -253,13 +261,54 @@ def test_dump_is_runnable(filename: str, selection: str, expr: str) -> None:
     assert isinstance(actual, hist.Hist)
     if expr:
         assert "t" not in namespace
-        assert namespace["tree"] is uproot_browser.plot.containing_tree(item)
+        assert namespace.get("tree") is uproot_browser.plot.containing_tree(item)
     expected = uproot_browser.plot.apply_expr(
         uproot_browser.plot.to_histogram(item, bins=100), expr, item
     )
     np.testing.assert_array_equal(actual.values(flow=True), expected.values(flow=True))
     for actual_axis, expected_axis in zip(actual.axes, expected.axes, strict=True):
         np.testing.assert_array_equal(actual_axis.edges, expected_axis.edges)
+
+
+def test_dump_with_limits_draws_once() -> None:
+    """With limits, the dump draws ``h`` instead of re-evaluating the expression."""
+    item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
+    expr = 'tree["fTracks.fPx"].array()[tree["fTracks.fPy"].array() < 0]'
+    limits = AxisLimits(x=(-1.0, 1.0), y=(None, None))
+
+    code = uproot_browser.tui.plot.make_dump(item, 105, 30, expr=expr, limits=limits)
+
+    assert code.count(expr) == 1
+    assert "uproot_browser.plot.plot(" not in code
+    namespace: dict[str, object] = {"item": item, "print": lambda *_: None}
+    exec(code, namespace)
+    assert isinstance(namespace["h"], hist.Hist)
+
+
+@pytest.mark.parametrize(
+    ("expr", "match"),
+    [
+        ("42", r"hist\.Hist"),
+        ("np.array([np.nan])", "no finite values"),
+    ],
+)
+def test_dump_expr_errors_match_tui(expr: str, match: str) -> None:
+    """The dumped script fails the way the TUI did, not inside awkward."""
+    item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
+    default = uproot_browser.plot.to_histogram(item)
+    with pytest.raises(Exception, match=match):
+        uproot_browser.plot.apply_expr(default, expr, item)
+
+    code = uproot_browser.tui.plot.make_dump(item, 105, 30, expr=expr)
+    with pytest.raises(Exception, match=match):
+        exec(code, {"item": item})
+
+
+def test_dump_without_tree_omits_tree() -> None:
+    """A histogram in a directory has no containing tree to bind."""
+    item = uproot.open(data_path("uproot-Event.root"))["hstat"]
+    code = uproot_browser.tui.plot.make_dump(item, 105, 30, expr="h[::2j]")
+    assert "tree" not in code
 
 
 def test_make_hist_title_counts_profile_entries() -> None:
@@ -559,3 +608,87 @@ def test_apply_expr_does_not_bind_selected_object_alias() -> None:
         default = uproot_browser.plot.to_histogram(item)
         with pytest.raises(NameError, match="'t'"):
             uproot_browser.plot.apply_expr(default, "t", item)
+
+
+def test_apply_expr_object_array() -> None:
+    """A numpy object array (jagged branch read with library="np") is flattened."""
+    item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
+    default = uproot_browser.plot.to_histogram(item)
+
+    result = uproot_browser.plot.apply_expr(
+        default, 'tree["fTracks.fPx"].array(library="np")', item
+    )
+    direct = uproot_browser.plot.apply_expr(
+        default, 'tree["fTracks.fPx"].array()', item
+    )
+
+    np.testing.assert_array_equal(result.values(flow=True), direct.values(flow=True))
+
+
+@pytest.mark.parametrize(
+    "expr",
+    [
+        'tree["fH"].array(library="np")[0]',
+        "__import__('boost_histogram').Histogram(h)",
+    ],
+)
+def test_apply_expr_converts_to_hist(expr: str) -> None:
+    """Objects that convert to hist.Hist are accepted, not rejected."""
+    item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
+    default = uproot_browser.plot.to_histogram(item)
+
+    result = uproot_browser.plot.apply_expr(default, expr, item)
+
+    assert isinstance(result, hist.Hist)
+    assert result.sum() > 0
+
+
+def test_apply_expr_no_tree_outside_tree() -> None:
+    """A histogram in a directory does not bind ``tree`` at all."""
+    item = uproot.open(data_path("uproot-Event.root"))["hstat"]
+    default = uproot_browser.plot.to_histogram(item)
+
+    with pytest.raises(NameError, match="tree"):
+        uproot_browser.plot.apply_expr(default, 'tree["fNtrack"].array()', item)
+
+
+def test_expr_cache_reuses_tree_results(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An expression that does not use ``h`` is evaluated once per cache."""
+    item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
+    default = uproot_browser.plot.to_histogram(item)
+    cache = uproot_browser.plot.ExprCache()
+    expr = 'tree["fTracks.fPx"].array()'
+
+    first = uproot_browser.plot.apply_expr(default, expr, item, cache=cache)
+    monkeypatch.setattr(uproot_browser.plot, "evaluate_expr", _fail_eval)
+    second = uproot_browser.plot.apply_expr(default, expr, item, cache=cache)
+    np.testing.assert_array_equal(first.values(), second.values())
+
+    # a different bin count rebins the cached array
+    rebinned = uproot_browser.plot.apply_expr(
+        uproot_browser.plot.to_histogram(item, bins=7), expr, item, cache=cache
+    )
+    assert rebinned.axes[0].size == 7
+
+    # a different expression is a miss
+    with pytest.raises(AssertionError, match="evaluated"):
+        uproot_browser.plot.apply_expr(default, "h", item, cache=cache)
+
+
+def test_expr_cache_skips_h_expressions() -> None:
+    """An expression using ``h`` depends on the bin count, so it is not cached."""
+    item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
+    cache = uproot_browser.plot.ExprCache()
+    wide = uproot_browser.plot.to_histogram(item, bins=100)
+    narrow = uproot_browser.plot.to_histogram(item, bins=10)
+
+    uproot_browser.plot.apply_expr(wide, "h[::2j]", item, cache=cache)
+    result = uproot_browser.plot.apply_expr(narrow, "h[::2j]", item, cache=cache)
+
+    assert result.axes[0].size == 5
+    assert cache.entry is None
+
+
+def _fail_eval(*_args: object, **_kwargs: object) -> None:
+    msg = "expression was evaluated"
+    raise AssertionError(msg)

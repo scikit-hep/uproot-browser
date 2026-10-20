@@ -8,7 +8,6 @@ __lazy_modules__ = {
     "rich.text",
     "textwrap",
     "uproot_browser.exceptions",
-    "uproot_browser.plot",
     "uproot_browser.plotext_compat",
     f"{__spec__.parent}.error",
     f"{__spec__.parent}.messages",
@@ -103,14 +102,21 @@ def resolve_selection(tree: Any, selection: str) -> Any:
 
 
 def render_canvas(
-    item: Any, theme: str, *size: int, expr: str, limits: AxisLimits
+    item: Any,
+    theme: str,
+    *size: int,
+    expr: str,
+    limits: AxisLimits,
+    cache: uproot_browser.plot.ExprCache | None = None,
 ) -> str:
     """Build the plotext canvas string for an item."""
     fig = uproot_browser.plotext_compat.make_figure()
     fig.clear()
     fig.theme(theme)
     fig.plot_size(*size)
-    uproot_browser.plot.plot(item, fig=fig, width=size[0] - 5, expr=expr, limits=limits)
+    uproot_browser.plot.plot(
+        item, fig=fig, width=size[0] - 5, expr=expr, limits=limits, cache=cache
+    )
     return str(fig.build())
 
 
@@ -126,21 +132,7 @@ def make_dump(
     code = uproot_browser.plot.dump(item, width=width)
     if expr:
         # Self-contained: the exported script must not need uproot_browser.
-        code += textwrap.dedent(f"""
-
-            import awkward as ak
-            import hist
-            import numpy as np
-
-            tree = getattr(item, "tree", getattr(item, "ntuple", None))
-
-            result = {expr}
-            if not isinstance(result, hist.Hist):
-                values = ak.ravel(result)
-                result = hist.numpy.histogram(
-                    values[np.isfinite(values)], bins=len(h.axes[0]), histogram=hist.Hist
-                )
-            h = result""")
+        code += f"\n\n{uproot_browser.plot.dump_expr(item, expr)}"
     if limits != NO_LIMITS:
         code += textwrap.dedent(f"""
 
@@ -148,7 +140,7 @@ def make_dump(
             import uproot_browser.plotext_compat
             from uproot_browser.axis import AxisLimits
             fig = uproot_browser.plotext_compat.make_figure()
-            uproot_browser.plot.plot(item, fig=fig, width={width}, expr={expr!r}, limits={limits!r})
+            uproot_browser.plot.draw_hist(fig, item, h, limits={limits!r})
             print(fig.build())""")
     return code
 
@@ -163,6 +155,10 @@ class Plotext:
     expr: str = ""
     size: tuple[int, int] | None = None
     axis_limits: AxisLimits = NO_LIMITS
+    # shared by reference across copies, so a redraw reuses the expression result
+    cache: uproot_browser.plot.ExprCache = dataclasses.field(
+        default_factory=uproot_browser.plot.ExprCache
+    )
 
     @property
     def theme(self) -> str:
@@ -200,7 +196,12 @@ class Plotext:
         try:
             selected = resolve_selection(self.upfile, self.selection)
             canvas = render_canvas(
-                selected, self.theme, *size, expr=self.expr, limits=self.axis_limits
+                selected,
+                self.theme,
+                *size,
+                expr=self.expr,
+                limits=self.axis_limits,
+                cache=self.cache,
             )
         except Exception:  # noqa: BLE001
             # The render worker can still be in flight, so this item can be one
@@ -215,7 +216,12 @@ class Plotext:
         def build() -> rich.text.Text:
             item = resolve_selection(self.upfile, self.selection)
             canvas = render_canvas(
-                item, self.theme, *size, expr=self.expr, limits=self.axis_limits
+                item,
+                self.theme,
+                *size,
+                expr=self.expr,
+                limits=self.axis_limits,
+                cache=self.cache,
             )
             return rich.text.Text.from_ansi(canvas)
 

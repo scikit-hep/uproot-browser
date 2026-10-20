@@ -9,6 +9,7 @@ import textual.geometry
 import textual.pilot
 import textual.widgets
 
+import uproot_browser.plot
 from uproot_browser.axis import AxisLimits
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.error import Error
@@ -276,6 +277,34 @@ async def test_expr_replots_and_clears_flag(expr: str) -> None:
         await wait_until(pilot, lambda: plot_text(pilot.app) != before_text, delay=0.05)
 
         assert assert_canvas(pilot.app, item) != before_text
+
+
+async def test_expr_cached_across_theme_change(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A redraw reuses the evaluated tree expression instead of re-reading data."""
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        pilot.app.query_one("#tree-view", UprootTree).select_path("//T/event/fNtrack")
+        await settle_render(pilot)
+        plot_input = pilot.app.view_widget.plot_input
+        plot_input.value = (
+            'tree["fTracks.fPx"].array()[tree["fTracks.fPy"].array() < 0]'
+        )
+        plot_input.apply_expression()
+        await settle_render(pilot)
+        assert isinstance(pilot.app.view_widget.item, Plotext)
+
+        def fail_eval(*_args: object, **_kwargs: object) -> None:
+            msg = "expression was evaluated"
+            raise AssertionError(msg)
+
+        monkeypatch.setattr(uproot_browser.plot, "evaluate_expr", fail_eval)
+        pilot.app.theme = "textual-light"
+        await settle_render(pilot)
+        # a re-evaluation would have raised, replacing the item with an Error
+        item = pilot.app.view_widget.item
+        assert isinstance(item, Plotext)
+        assert_canvas(pilot.app, item)
 
 
 async def test_browse_empty() -> None:

@@ -56,7 +56,8 @@ uproot-browser browse --testdata uproot-Event.root
 To transform a plot, select a numeric branch or field and press `e` to
 open the entry box. Enter one Python expression and press `enter`.
 The expression sees `h`, the default histogram, and `tree`, the containing
-TTree or RNTuple. The modules `ak`, `np`, and `hist` are also available.
+TTree or RNTuple (only when the selected object is inside one). The modules
+`ak`, `np`, and `hist` are also available.
 
 For example, with a branch selected from `uproot-Event.root`, this plots track
 momentum values with a cut using the normal uproot API:
@@ -66,7 +67,11 @@ tree["fTracks.fPx"].array()[tree["fTracks.fPy"].array() < 0]
 ```
 
 Array results are flattened, filtered to finite values, and histogrammed with
-the default bin count. Histogram expressions such as `h[::2j]` also work.
+the bin count of `h`: the plot width in `browse`, and 50 in `browse --image`.
+Fill your own `hist.Hist` in the expression to choose the binning. Histogram
+expressions such as `h[::2j]` also work, as do objects with a `to_hist()`
+method. The result of an expression that does not use `h` is cached, so a
+resize or theme change does not read the tree again.
 
 ### Browse controls
 
