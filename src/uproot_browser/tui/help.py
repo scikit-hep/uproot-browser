@@ -26,6 +26,8 @@ class HelpScreen(textual.screen.ModalScreen[None]):
     BINDINGS: ClassVar[list[textual.binding.BindingType]] = [
         textual.binding.Binding("d", "", "Nothing", show=False),
         textual.binding.Binding("b", "", "Nothing", show=False),
+        textual.binding.Binding("e", "", "Nothing", show=False),
+        textual.binding.Binding("r", "", "Nothing", show=False),
         textual.binding.Binding("f1", "", "Nothing", show=False),
         textual.binding.Binding("q", "done", "Done", show=True),
         textual.binding.Binding("escape", "done", "Done", show=True),

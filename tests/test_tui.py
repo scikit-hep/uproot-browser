@@ -102,13 +102,56 @@ async def test_entry_box_toggle() -> None:
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
         entry_box = pilot.app.query_one("#plot-input-container")
+        plot_input = pilot.app.view_widget.plot_input
         assert not entry_box.display
 
+        await pilot.press("e")
+        assert pilot.app.show_entry_box
+        assert entry_box.display
+        assert plot_input.has_focus
+
+        # Typing "e" in the box must not close it; escape does
         await pilot.press("e")
         assert entry_box.display
+        assert plot_input.value == "e"
 
+        await pilot.press("escape")
+        assert not pilot.app.show_entry_box
+        assert not entry_box.display
+        assert pilot.app.query_one("#tree-view").has_focus
+
+        await pilot.press("e", "tab")
+        assert not plot_input.has_focus
         await pilot.press("e")
         assert not entry_box.display
+
+
+async def test_entry_box_toggle_rerenders_plot() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        await pilot.press("down", "down", "down", "enter")
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        item = pilot.app.view_widget.item
+        assert isinstance(item, Plotext)
+        assert item.size is not None
+        _, height = item.size
+
+        await pilot.press("e")
+        await wait_until(pilot, lambda: item.size is not None and item.size[1] < height)
+        assert item.size is not None
+        assert item.size[1] < height
+
+
+async def test_help_blocks_panel_keys() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        await pilot.press("f1", "e", "r", "b")
+        assert not pilot.app.show_entry_box
+        assert pilot.app.show_right_panel
+        assert pilot.app.show_tree
 
 
 async def test_browse_plot() -> None:
@@ -306,6 +349,7 @@ async def test_theme_select_tracks_theme() -> None:
 
         select.value = "textual-light"
         await wait_until(pilot, lambda: pilot.app.theme == "textual-light")
+        assert pilot.app.theme == "textual-light"
 
 
 async def test_jump_opens_and_lists_all() -> None:

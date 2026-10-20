@@ -10,9 +10,10 @@ __lazy_modules__ = {
     f"{__spec__.parent}.plot",
 }
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import textual.app
+import textual.binding
 import textual.containers
 import textual.events
 import textual.reactive
@@ -35,6 +36,10 @@ class PlotButton(textual.widgets.Button):
 
 
 class PlotInput(textual.widgets.Input):
+    BINDINGS: ClassVar[list[textual.binding.BindingType]] = [
+        textual.binding.Binding("escape", "app.toggle_entry_box", "Close", show=False),
+    ]
+
     def watch_value(self, value: str) -> None:
         plot = self.app.query_one("#plot-view", ViewWidget)
         if isinstance(plot.item, PlotItem):

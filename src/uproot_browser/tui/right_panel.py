@@ -20,7 +20,7 @@ LIMIT_IDS = ("x-min", "x-max", "y-min", "y-max")
 
 
 class RightPanel(textual.containers.Container):
-    """Typed X/Y range controls and image scale for the active plot."""
+    """Typed X/Y range controls, image scale, and theme selector."""
 
     status = ""  # the last message shown in #axis-status
 

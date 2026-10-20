@@ -103,7 +103,7 @@ async def test_image_size_matches_visible_area() -> None:
         await _open_settled_plot(pilot)
 
         # the entry box docks inside the image window and makes the pane shorter
-        pilot.app.query_one("#plot-input-container").add_class("-show-container")
+        pilot.app.show_entry_box = True
         await pilot.pause()
         pilot.app.view_widget.post_message(RequestImage())
         await pilot.pause()

@@ -86,6 +86,7 @@ class Browser(textual.app.App[None]):
 
     show_tree = var(True)
     show_right_panel = var(True)
+    show_entry_box = var(False)
     image_scale = var(1.5)
     axis_limits = var(NO_LIMITS)
 
@@ -147,9 +148,17 @@ class Browser(textual.app.App[None]):
         self.show_right_panel = not self.show_right_panel
 
     def action_toggle_entry_box(self) -> None:
-        """Toggle the plot expression entry box."""
-        entry_box = self.view_widget.input_container
-        entry_box.toggle_class("-show-container")
+        """Toggle the plot expression entry box, focusing it when shown."""
+        self.show_entry_box = not self.show_entry_box
+        plot_input = self.view_widget.plot_input
+        if self.show_entry_box:
+            plot_input.focus()
+        elif plot_input.has_focus:
+            self.query_one("#tree-view").focus()
+
+    def watch_show_entry_box(self, show: bool) -> None:  # noqa: FBT001
+        """Called when the entry box visibility changes."""
+        self.view_widget.input_container.set_class(show, "-show-container")
         self.view_widget.call_after_refresh(self.view_widget.request_render)
 
     def watch_show_right_panel(self, show: bool) -> None:  # noqa: FBT001
