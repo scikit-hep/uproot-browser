@@ -35,7 +35,7 @@ uproot-browser currently provides the following features (get help with `-h` or 
 - `plot` can be used to display a plot.
 - `tree` can be used to display a tree.
 - `browse` provides a right-side axis panel with typed X and Y range controls.
-- The right-side panel can be shown or hidden with `r`.
+- The right-side panel can be shown or hidden with `t` (tools).
 - The plot expression entry box can be shown or hidden with `e`.
 - Image-mode render scaling is available from the right-side panel.
 - `browse` supports counted tree navigation with arrow keys or `j`/`k`, with the pending count displayed above the footer.
@@ -80,7 +80,7 @@ When a plottable object is selected in `browse`, the right-side **Axis scaling**
 The render scale control (in `browse --image`) and theme selector are also located in this panel. The Tree and Info tabs remain on the left. Use the following keyboard shortcuts from the bottom footer:
 
 ```text
-b  Navbar       r  Right Panel       e  Entry Box       q  Quit       d  Dump & Quit
+b  Navbar       t  Tools             e  Entry Box       q  Quit       d  Dump & Quit
 ```
 
 ### Tree navigation
