@@ -93,11 +93,11 @@ async def test_right_panel_toggle() -> None:
         panel = pilot.app.query_one("#right-panel")
         assert panel.display
 
-        await pilot.press("r")
+        await pilot.press("t")
         assert not pilot.app.show_right_panel
         assert not panel.display
 
-        await pilot.press("r")
+        await pilot.press("t")
         assert pilot.app.show_right_panel
         assert panel.display
 
@@ -163,7 +163,7 @@ async def test_help_blocks_panel_keys() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
-        await pilot.press("f1", "e", "r", "b", "d")
+        await pilot.press("f1", "e", "t", "b", "d")
         assert isinstance(pilot.app.screen, HelpScreen)
         assert not pilot.app.show_entry_box
         assert pilot.app.show_right_panel

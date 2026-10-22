@@ -78,7 +78,7 @@ class Browser(textual.app.App[None]):
     CSS_PATH = "browser.css"
     BINDINGS: ClassVar[list[textual.binding.BindingType]] = [
         textual.binding.Binding("b", "toggle_files", "Navbar"),
-        textual.binding.Binding("r", "toggle_right_panel", "Right Panel"),
+        textual.binding.Binding("t", "toggle_right_panel", "Tools"),
         textual.binding.Binding("e", "toggle_entry_box", "Entry Box"),
         textual.binding.Binding("/", "jump", "Jump"),
         textual.binding.Binding("q", "quit", "Quit"),
