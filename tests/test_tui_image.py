@@ -64,12 +64,25 @@ def _fail_build(*_args: object, **_kwargs: object) -> None:
     raise AssertionError(msg)
 
 
-async def _open_settled_plot(pilot: textual.pilot.Pilot[object]) -> MPLPlot:
-    """Select the first plottable branch and wait for the render to settle."""
-    await pilot.press("down", "down", "down", "enter")
+async def _settle(pilot: textual.pilot.Pilot[object]) -> None:
     await pilot.pause()
     await pilot.app.workers.wait_for_complete()
     await pilot.pause()
+
+
+async def _apply_expression(pilot: textual.pilot.Pilot[object], expr: str) -> None:
+    view = pilot.app.view_widget
+    view.input_container.add_class("-show-container")
+    await pilot.pause()
+    view.plot_input.value = expr
+    view.plot_input.apply_expression()
+    await _settle(pilot)
+
+
+async def _open_settled_plot(pilot: textual.pilot.Pilot[object]) -> MPLPlot:
+    """Select the first plottable branch and wait for the render to settle."""
+    await pilot.press("down", "down", "down", "enter")
+    await _settle(pilot)
     item = pilot.app.view_widget.item
     assert isinstance(item, MPLPlot)
     return item
@@ -257,3 +270,33 @@ async def test_image_scale_select_only_in_image_mode() -> None:
     ).run_test() as pilot:
         await pilot.pause()
         assert not pilot.app.query("#right-panel #image-scale-select")
+
+
+@pytest.mark.parametrize(
+    "expr", ["42", 'tree["fNtrack"].array()[tree["fNtrack"].array() > 1e99]']
+)
+async def test_image_expression_failure_can_be_corrected(expr: str) -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root"), image=True
+    ).run_test() as pilot:
+        pilot.app.query_one("#tree-view", UprootTree).select_path("//T/event/fNtrack")
+        await pilot.pause()
+        await _settle(pilot)
+        await _apply_expression(pilot, expr)
+        view = pilot.app.view_widget
+
+        assert isinstance(view.item, MPLPlot)
+        assert view.current == "image-window"
+        assert view.plot_input.region.height > 0
+        assert view.plot_input.has_class("-needs-update")
+        assert view.image_widget is not None
+        assert view.image_widget.image is None
+        assert not view.image_widget.loading
+
+        view.plot_input.value = 'tree["fNtrack"].array()[tree["fNtrack"].array() > 0]'
+        view.plot_input.apply_expression()
+        await _settle(pilot)
+        assert isinstance(view.item, MPLPlot)
+        assert view.item.expr == view.plot_input.value
+        assert not view.plot_input.has_class("-needs-update")
+        assert view.image_widget.image is not None

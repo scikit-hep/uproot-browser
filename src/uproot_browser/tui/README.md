@@ -47,6 +47,10 @@ histogrammed with the default bin count. For example, a cut:
 tree["fTracks.fPx"].array()[tree["fTracks.fPy"].array() < 0]
 ```
 
+Invalid expressions and cuts with no finite results show a notification while
+keeping the selection and input available for correction. Clear the expression
+and apply it to restore the default histogram.
+
 ## Panels
 
 The panel on the left can be hidden or shown with `b`. It has `Tree` and `Info`

@@ -44,7 +44,7 @@ import uproot.model
 import uproot.models.RNTuple
 
 from uproot_browser.axis import NO_LIMITS, AxisLimits, AxisRange
-from uproot_browser.exceptions import EmptyTreeError
+from uproot_browser.exceptions import EmptyTreeError, ExpressionError
 
 if TYPE_CHECKING:
     from uproot_browser.plotext_compat import PlotextFigure
@@ -210,20 +210,25 @@ def apply_expr(
 
     With a ``cache``, the result of an expression that does not use ``h`` is
     kept and only rebinned on later calls.
+
+    Any failure is raised as :class:`ExpressionError` from the original error.
     """
     if not expr:
         return histogram
-    if cache is not None and cache.entry is not None and cache.entry[0] == expr:
-        result = cache.entry[1]
-    else:
-        namespace = {"h": histogram, "ak": ak, "hist": hist, "np": np}
-        tree = containing_tree(item)
-        if tree is not None:
-            namespace["tree"] = tree
-        result = evaluate_expr(expr, namespace)
-        if cache is not None and not _uses_h(expr):
-            cache.entry = (expr, result)
-    return _result_to_histogram(result, bins=len(histogram.axes[0]))
+    try:
+        if cache is not None and cache.entry is not None and cache.entry[0] == expr:
+            result = cache.entry[1]
+        else:
+            namespace = {"h": histogram, "ak": ak, "hist": hist, "np": np}
+            tree = containing_tree(item)
+            if tree is not None:
+                namespace["tree"] = tree
+            result = evaluate_expr(expr, namespace)
+            if cache is not None and not _uses_h(expr):
+                cache.entry = (expr, result)
+        return _result_to_histogram(result, bins=len(histogram.axes[0]))
+    except Exception as err:
+        raise ExpressionError(str(err)) from err
 
 
 def _result_to_histogram(result: Any, *, bins: int) -> hist.Hist[Any]:

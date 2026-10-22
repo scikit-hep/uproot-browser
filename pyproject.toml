@@ -74,6 +74,7 @@ dev = [
   "ipython >=6",
   "textual-dev",
   {include-group = "test"},
+  "uproot-browser[image]",
 ]
 
 [tool.uv]

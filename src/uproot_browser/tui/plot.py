@@ -25,10 +25,10 @@ import rich.text
 import uproot_browser.plot
 import uproot_browser.plotext_compat
 from uproot_browser.axis import NO_LIMITS, AxisLimits
-from uproot_browser.exceptions import EmptyTreeError
+from uproot_browser.exceptions import EmptyTreeError, ExpressionError
 
 from .error import Error
-from .messages import EmptyMessage, ErrorMessage, RequestPlot
+from .messages import EmptyMessage, ErrorMessage, ExpressionErrorMessage, RequestPlot
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -48,6 +48,8 @@ class PlotItem(Protocol):
     factory in `Browser` and a window in `ViewWidget`.
     """
 
+    app: Browser
+    selection: str
     expr: str
 
     def display(self, view: ViewWidget) -> None:
@@ -65,6 +67,9 @@ class PlotItem(Protocol):
     def with_axis_limits(self, limits: AxisLimits) -> PlotItem:
         """A copy of this item with typed display limits."""
 
+    def show_expression_error(self, view: ViewWidget) -> None:
+        """Show in the view that this item's expression failed."""
+
     def dump_source(self) -> str:
         """Python source for Dump & Quit (appended after `uproot_file = ...`)."""
 
@@ -72,21 +77,21 @@ class PlotItem(Protocol):
         """Renderables to print above the source on Dump & Quit."""
 
 
-def run_posting_errors(
-    app: Browser, fn: Callable[[], T], selection: str = ""
-) -> T | None:
-    """Run ``fn``, posting an Empty/Error message to the app on failure.
+def run_posting_errors(source: PlotItem, fn: Callable[[], T]) -> T | None:
+    """Run ``fn``, posting a message to the app of ``source`` on failure.
 
-    ``selection`` travels with the error so Dump & Quit can show the branch.
+    The selection travels with the error so Dump & Quit can show the branch.
+    A failed expression keeps ``source`` editable instead of replacing it.
     """
     try:
         return fn()
+    except ExpressionError as err:
+        source.app.post_message(ExpressionErrorMessage(source, err.__cause__ or err))
     except EmptyTreeError:
-        app.post_message(EmptyMessage())
-        return None
+        source.app.post_message(EmptyMessage())
     except Exception as err:  # noqa: BLE001
-        app.post_message(ErrorMessage(Error(err, selection)))
-        return None
+        source.app.post_message(ErrorMessage(Error(err, source.selection)))
+    return None
 
 
 def selection_source(selection: str) -> str:
@@ -181,6 +186,11 @@ class Plotext:
     def with_axis_limits(self, limits: AxisLimits) -> Plotext:
         return dataclasses.replace(self, axis_limits=limits)
 
+    def show_expression_error(self, view: ViewWidget) -> None:
+        view.plot_widget.update(
+            "Expression could not be plotted. Edit the expression and try again."
+        )
+
     def dump_source(self) -> str:
         msg = selection_source(self.selection)
         selected = resolve_selection(self.upfile, self.selection)
@@ -225,4 +235,4 @@ class Plotext:
             )
             return rich.text.Text.from_ansi(canvas)
 
-        return run_posting_errors(self.app, build, self.selection)
+        return run_posting_errors(self, build)

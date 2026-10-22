@@ -120,6 +120,10 @@ class MPLPlot:
     def with_axis_limits(self, limits: AxisLimits) -> MPLPlot:
         return dataclasses.replace(self, axis_limits=limits)
 
+    def show_expression_error(self, view: ViewWidget) -> None:
+        assert view.image_widget is not None
+        view.image_widget.image = None
+
     def dump_source(self) -> str:
         msg = selection_source(self.selection)
         args = ""
@@ -165,4 +169,4 @@ class MPLPlot:
                 limits=self.axis_limits,
             )
 
-        return run_posting_errors(self.app, build, self.selection)
+        return run_posting_errors(self, build)

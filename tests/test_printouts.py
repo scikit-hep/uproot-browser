@@ -19,6 +19,7 @@ import uproot_browser.plotext_compat
 import uproot_browser.tree
 import uproot_browser.tui.plot
 from uproot_browser.axis import AxisLimits
+from uproot_browser.exceptions import ExpressionError
 from uproot_browser.tree import UprootEntry, print_tree, process_item
 
 if TYPE_CHECKING:
@@ -571,8 +572,9 @@ def test_apply_expr_rejects_non_data() -> None:
     item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
     default = uproot_browser.plot.to_histogram(item)
 
-    with pytest.raises(RuntimeError, match=r"hist\.Hist"):
+    with pytest.raises(ExpressionError, match=r"hist\.Hist") as excinfo:
         uproot_browser.plot.apply_expr(default, "42", item)
+    assert isinstance(excinfo.value.__cause__, RuntimeError)
 
 
 @pytest.mark.parametrize(
@@ -606,8 +608,9 @@ def test_apply_expr_does_not_bind_selected_object_alias() -> None:
     with uproot.open(data_path("uproot-Event.root")) as upfile:
         item = upfile["T/event/fNtrack"]
         default = uproot_browser.plot.to_histogram(item)
-        with pytest.raises(NameError, match="'t'"):
+        with pytest.raises(ExpressionError, match="'t'") as excinfo:
             uproot_browser.plot.apply_expr(default, "t", item)
+        assert isinstance(excinfo.value.__cause__, NameError)
 
 
 def test_apply_expr_object_array() -> None:
@@ -648,8 +651,9 @@ def test_apply_expr_no_tree_outside_tree() -> None:
     item = uproot.open(data_path("uproot-Event.root"))["hstat"]
     default = uproot_browser.plot.to_histogram(item)
 
-    with pytest.raises(NameError, match="tree"):
+    with pytest.raises(ExpressionError, match="tree") as excinfo:
         uproot_browser.plot.apply_expr(default, 'tree["fNtrack"].array()', item)
+    assert isinstance(excinfo.value.__cause__, NameError)
 
 
 def test_expr_cache_reuses_tree_results(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -671,7 +675,7 @@ def test_expr_cache_reuses_tree_results(monkeypatch: pytest.MonkeyPatch) -> None
     assert rebinned.axes[0].size == 7
 
     # a different expression is a miss
-    with pytest.raises(AssertionError, match="evaluated"):
+    with pytest.raises(ExpressionError, match="evaluated"):
         uproot_browser.plot.apply_expr(default, "h", item, cache=cache)
 
 

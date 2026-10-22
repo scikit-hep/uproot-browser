@@ -3,6 +3,7 @@ from __future__ import annotations
 __lazy_modules__ = {
     "dataclasses",
     "rich",
+    "rich.markup",
     "rich.syntax",
     "rich.text",
     "textual.containers",
@@ -10,6 +11,7 @@ __lazy_modules__ = {
     "textual.lazy",
     "textual.widgets",
     "textual.worker",
+    "uproot_browser.exceptions",
     f"{__spec__.parent}.error",
     f"{__spec__.parent}.header",
     f"{__spec__.parent}.help",
@@ -28,6 +30,7 @@ if not __package__:
 import dataclasses
 from typing import TYPE_CHECKING, Any, ClassVar
 
+import rich.markup
 import rich.syntax
 import rich.text
 import textual.app
@@ -40,6 +43,7 @@ import textual.worker
 from textual.reactive import var
 
 from uproot_browser.axis import NO_LIMITS, AxisLimits
+from uproot_browser.exceptions import EmptyTreeError
 
 from ..plotext_compat import add_theme
 from .error import Error
@@ -65,7 +69,7 @@ add_theme(
 add_theme("uproot_dark", canvas=DARK_BACKGROUND, text=(DARK_TEXT, DARK_BACKGROUND))
 
 if TYPE_CHECKING:
-    from .messages import ErrorMessage, UprootSelected
+    from .messages import ErrorMessage, ExpressionErrorMessage, UprootSelected
 
 
 class Browser(textual.app.App[None]):
@@ -97,6 +101,8 @@ class Browser(textual.app.App[None]):
         self.image = image
         self._plot_rendered: tuple[Any, ...] | None = None
         self._image_rendered: tuple[Any, ...] | None = None
+        # re-rendering a failed expression would only fail again
+        self._failed_item: PlotItem | None = None
         super().__init__(**kwargs)
 
         self.view_widget = ViewWidget(id="plot-view", image=image)
@@ -241,10 +247,30 @@ class Browser(textual.app.App[None]):
     def on_error_message(self, message: ErrorMessage) -> None:
         self.view_widget.item = message.err
 
+    def on_expression_error_message(self, message: ExpressionErrorMessage) -> None:
+        item, error = message.source, message.error
+        if self.view_widget.item is not item:
+            return
+        self._failed_item = item
+        self.view_widget.plot_input.add_class("-needs-update")
+        item.show_expression_error(self.view_widget)
+        self.notify(
+            rich.markup.escape(str(error) or type(error).__name__),
+            title="Plot expression",
+            severity="warning" if isinstance(error, EmptyTreeError) else "error",
+        )
+
+    def _is_failed(self, item: PlotItem) -> bool:
+        if item is self._failed_item:
+            return True
+        # drop the reference so the item and its caches can be freed
+        self._failed_item = None
+        return False
+
     def on_request_plot(self) -> None:
         """Single render trigger: assigning a Plotext (or a resize) lands here."""
         item = self.view_widget.item
-        if not isinstance(item, Plotext):
+        if not isinstance(item, Plotext) or self._is_failed(item):
             return
         # The Static has a 1 cell padding, which content_size takes off already
         size = self.view_widget.plot_widget.content_size
@@ -270,7 +296,7 @@ class Browser(textual.app.App[None]):
     def on_request_image(self) -> None:
         """Single render trigger: assigning an MPLPlot (or a resize) lands here."""
         item = self.view_widget.item
-        if not isinstance(item, MPLPlot):
+        if not isinstance(item, MPLPlot) or self._is_failed(item):
             return
         size = self.view_widget.image_pixel_size()
         if size is not None:
