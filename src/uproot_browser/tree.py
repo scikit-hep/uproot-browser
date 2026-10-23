@@ -30,10 +30,15 @@ __all__ = (
     "MetaDict",
     "UprootEntry",
     "console",
+    "get_children",
+    "is_dir",
+    "lookup",
     "make_tree",
     "open_path",
+    "open_source",
     "print_tree",
     "process_item",
+    "source_path",
     "split_spec",
 )
 
@@ -187,16 +192,44 @@ def split_spec(spec: str) -> tuple[str, str]:
     return spec, ""
 
 
+def _is_cdf(name: str) -> bool:
+    return "://" not in name and Path(name).suffix.lower() == ".cdf"
+
+
+def _cdf_module() -> Any:
+    try:
+        import uproot_browser.cdf  # noqa: PLC0415
+    except ModuleNotFoundError as err:
+        msg = "Install the [cdf] extra (cdflib and xarray) to open CDF files"
+        raise ModuleNotFoundError(msg) from err
+    return uproot_browser.cdf
+
+
 def open_path(spec: str) -> Any:
     """
-    Like uproot.open, but a local directory opens as a LocalDirectory. A
-    ``directory:key`` spec selects a key inside it.
+    Like uproot.open, but a local directory opens as a LocalDirectory and a
+    CDF file as an xarray Dataset (with the [cdf] extra). A ``path:key`` spec
+    selects a key inside it.
     """
     name, key = split_spec(spec)
     if Path(name).is_dir():
         directory = LocalDirectory(Path(name))
         return directory[key] if key else directory
+    if _is_cdf(name):
+        dataset = _cdf_module().open_cdf(name)
+        return dataset[key] if key else dataset
     return uproot.open(spec)
+
+
+def open_source(spec: str) -> str:
+    """Python source that opens ``spec`` as ``uproot_file``, like :func:`open_path`."""
+    name, _ = split_spec(spec)
+    if Path(name).is_dir():
+        return f"import uproot_browser.tree\nuproot_file = uproot_browser.tree.open_path({spec!r})"
+    if _is_cdf(name):
+        source: str = _cdf_module().open_cdf_source(name)
+        return source
+    return f"import uproot\nuproot_file = uproot.open({spec!r})"
 
 
 @functools.singledispatch
@@ -219,8 +252,23 @@ def _(
     return len(item) > 0
 
 
-def get_children(item: SupportsRecursiveKeys) -> set[str]:
-    return {key.partition(";")[0] for key in item.keys(recursive=False)}
+@functools.singledispatch
+def get_children(item: Any) -> set[str]:
+    """The keys of the direct children of a container; specialize per format."""
+    keys: SupportsRecursiveKeys = item
+    return {key.partition(";")[0] for key in keys.keys(recursive=False)}
+
+
+@functools.singledispatch
+def lookup(item: Any, key: str) -> Any:
+    """Get the child at ``key`` (a tree path); specialize per format."""
+    return item[key]
+
+
+@functools.singledispatch
+def source_path(item: Any) -> str:
+    """The path of the file a top-level object was read from."""
+    return str(item.file_path)
 
 
 @dataclasses.dataclass
@@ -252,7 +300,7 @@ class UprootEntry:
         children = []
         for key in sorted(get_children(self.item)):
             try:
-                item = self.item[key]
+                item = lookup(self.item, key)
             except Exception as err:  # noqa: BLE001
                 classname_of = getattr(self.item, "classname_of", None)
                 classname = classname_of(key) if classname_of else ""

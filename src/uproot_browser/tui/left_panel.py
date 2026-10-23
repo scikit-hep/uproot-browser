@@ -27,7 +27,7 @@ from textual.reactive import var
 
 import uproot_browser.plot
 
-from ..tree import LocalDirectory, LocalFile, UprootEntry, open_path
+from ..tree import LocalDirectory, LocalFile, UprootEntry, open_path, source_path
 from .jump import Candidate
 from .messages import UprootSelected
 
@@ -68,7 +68,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
 
     def __init__(self, path: str, **args: Any) -> None:
         self.upfile = open_path(path)
-        file_path = Path(self.upfile.file_path)
+        file_path = Path(source_path(self.upfile))
         data = UprootEntry("/", self.upfile)
         self._candidates: dict[str, list[Candidate]] = {}
         super().__init__(name=str(file_path), data=data, label=file_path.stem, **args)
