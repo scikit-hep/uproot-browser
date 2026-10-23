@@ -152,6 +152,7 @@ class MPLPlot:
     def make_image(self) -> PIL.Image.Image | None:
         def build() -> PIL.Image.Image:
             import uproot_browser.plot
+            import uproot_browser.plot_mpl
 
             item = self.built.item
             if item is None:
@@ -159,7 +160,10 @@ class MPLPlot:
                 self.built.item = item
             histogram = self.built.hist
             if histogram is None:
-                with warnings.catch_warnings():
+                with (
+                    uproot_browser.plot_mpl.RENDER_LOCK,
+                    warnings.catch_warnings(),
+                ):
                     warnings.simplefilter("ignore")
                     histogram = uproot_browser.plot.to_histogram(item)
                 self.built.hist = histogram

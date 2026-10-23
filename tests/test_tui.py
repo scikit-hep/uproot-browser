@@ -1,3 +1,4 @@
+import concurrent.futures
 import io
 from collections.abc import Callable
 
@@ -9,6 +10,7 @@ import skhep_testdata
 import textual.geometry
 import textual.pilot
 import textual.widgets
+import uproot
 
 import uproot_browser.plot
 import uproot_browser.plotext_compat
@@ -20,7 +22,7 @@ from uproot_browser.tui.help import HelpScreen
 from uproot_browser.tui.jump import JumpScreen
 from uproot_browser.tui.left_panel import SCROLLOFF, UprootTree
 from uproot_browser.tui.messages import ExpressionErrorMessage
-from uproot_browser.tui.plot import Plotext
+from uproot_browser.tui.plot import Plotext, render_canvas
 from uproot_browser.tui.right_panel import RightPanel
 
 LEAF_PATH = "//T/event/fFlag"
@@ -57,6 +59,14 @@ async def settle_render(pilot: textual.pilot.Pilot[None]) -> None:
     """Let a request reach the render worker, then wait for the canvas."""
     await pilot.pause()  # the request is posted after a refresh
     await pilot.pause()  # process RequestPlot → spawn the render worker
+    # A slow runner can need more cycles; the size is set as the worker starts
+    await wait_until(
+        pilot,
+        lambda: (
+            not isinstance(item := pilot.app.view_widget.item, Plotext)
+            or item.size is not None
+        ),
+    )
     await pilot.app.workers.wait_for_complete()  # block on the thread
     await pilot.pause()  # drain the update the worker posted
 
@@ -72,6 +82,15 @@ async def jump_to(pilot: textual.pilot.Pilot[None], path: str) -> None:
             and tree.cursor_node.data is not None
             and tree.cursor_node.data.path == path
         ),
+    )
+
+
+async def expand_event(pilot: textual.pilot.Pilot[None]) -> None:
+    """Open //T/event and wait for its children, which load lazily."""
+    tree = pilot.app.query_one("#tree-view", UprootTree)
+    await pilot.press(*EXPAND_EVENT)
+    await wait_until(
+        pilot, lambda: tree.cursor_node is not None and bool(tree.cursor_node.children)
     )
 
 
@@ -500,8 +519,7 @@ async def test_count_prefix_motion(down: str, up: str) -> None:
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
         tree = pilot.app.query_one("#tree-view", UprootTree)
-        await pilot.press(*EXPAND_EVENT)
-        await pilot.pause()
+        await expand_event(pilot)
         assert tree.cursor_line == 3
 
         await pilot.press("1", "2", down)
@@ -523,8 +541,7 @@ async def test_count_prefix_after_click() -> None:
         size=(160, 50)
     ) as pilot:
         tree = pilot.app.query_one("#tree-view", UprootTree)
-        await pilot.press(*EXPAND_EVENT)
-        await pilot.pause()
+        await expand_event(pilot)
         assert tree.cursor_node is not None
         flag = node_at(tree.cursor_node, LEAF_PATH)
         await click_label(pilot, flag)
@@ -544,8 +561,7 @@ async def test_count_prefix_shown_and_reset() -> None:
     ).run_test() as pilot:
         tree = pilot.app.query_one("#tree-view", UprootTree)
         tabs = pilot.app.query_one("#left-view", textual.widgets.TabbedContent)
-        await pilot.press(*EXPAND_EVENT)
-        await pilot.pause()
+        await expand_event(pilot)
 
         await pilot.press("4")
         await pilot.pause()
@@ -620,8 +636,7 @@ async def test_scrolloff_keeps_context_visible() -> None:
         size=(80, 24)
     ) as pilot:
         tree = pilot.app.query_one("#tree-view", UprootTree)
-        await pilot.press(*EXPAND_EVENT)
-        await pilot.pause()
+        await expand_event(pilot)
         height = tree.scrollable_content_region.height
         assert tree.last_line > height  # the tree must overflow for this to matter
 
@@ -939,10 +954,23 @@ async def test_shift_click_needs_numeric_cursor() -> None:
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
         tree = pilot.app.query_one("#tree-view", UprootTree)
-        await pilot.press(*EXPAND_EVENT)  # the cursor stays on //T/event
-        await pilot.pause()
+        await expand_event(pilot)  # the cursor stays on //T/event
         flag = node_at(tree.cursor_node, LEAF_PATH)
         await click_label(pilot, flag, shift=True)
         assert tree.marks == []
         assert pilot.app.view_widget.item is None
         assert pilot.app._notifications  # noqa: SLF001
+
+
+def test_render_canvas_is_thread_safe() -> None:
+    # A cancelled thread worker keeps running, so two renders can overlap
+    # on plotext's shared global figure.
+    item = uproot.open(skhep_testdata.data_path("uproot-Event.root"))["hstat"]
+
+    def render() -> str:
+        return render_canvas(item, "dark", 80, 24, expr="", limits=AxisLimits())
+
+    expected = render()
+    with concurrent.futures.ThreadPoolExecutor(8) as pool:
+        results = list(pool.map(lambda _: render(), range(200)))
+    assert results == [expected] * 200

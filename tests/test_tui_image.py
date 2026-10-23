@@ -1,3 +1,4 @@
+import concurrent.futures
 import functools
 
 import pytest
@@ -311,3 +312,16 @@ async def test_image_expression_failure_can_be_corrected(expr: str) -> None:
         assert view.item.expr == view.plot_input.value
         assert not view.plot_input.has_class("-needs-update")
         assert view.image_widget.image is not None
+
+
+def test_render_image_is_thread_safe() -> None:
+    # catch_warnings and style contexts change global state, so overlapping
+    # renders could leak a warning that the render should silence.
+    tree = uproot.open(skhep_testdata.data_path("uproot-Event.root"))["T"]
+    histogram = uproot_browser.plot.to_histogram(tree["event/fNtrack"])
+
+    def render(_: int) -> tuple[int, int]:
+        return uproot_browser.plot_mpl.render_image(histogram, "t", size=(100, 80)).size
+
+    with concurrent.futures.ThreadPoolExecutor(8) as pool:
+        assert list(pool.map(render, range(100))) == [(100, 80)] * 100

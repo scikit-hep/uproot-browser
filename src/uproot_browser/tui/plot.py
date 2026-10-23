@@ -18,6 +18,7 @@ import dataclasses
 import functools
 import operator
 import textwrap
+import threading
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
 import rich.text
@@ -127,6 +128,11 @@ def resolve_item(upfile: Any, selection: str, y_selection: str = "") -> Any:
 PAIR_ITEM_SOURCE = "import uproot_browser.plot\nitem = uproot_browser.plot.BranchPair(x_item, y_item)\n"
 
 
+# plotext draws on one global figure, and a cancelled thread worker keeps
+# running, so renders must not overlap.
+_PLOTEXT_LOCK = threading.Lock()
+
+
 def render_canvas(
     item: Any,
     theme: str,
@@ -136,14 +142,15 @@ def render_canvas(
     cache: uproot_browser.plot.ExprCache | None = None,
 ) -> str:
     """Build the plotext canvas string for an item."""
-    fig = uproot_browser.plotext_compat.make_figure()
-    fig.clear()
-    fig.theme(theme)
-    fig.plot_size(*size)
-    uproot_browser.plot.plot(
-        item, fig=fig, width=size[0] - 5, expr=expr, limits=limits, cache=cache
-    )
-    return str(fig.build())
+    with _PLOTEXT_LOCK:
+        fig = uproot_browser.plotext_compat.make_figure()
+        fig.clear()
+        fig.theme(theme)
+        fig.plot_size(*size)
+        uproot_browser.plot.plot(
+            item, fig=fig, width=size[0] - 5, expr=expr, limits=limits, cache=cache
+        )
+        return str(fig.build())
 
 
 def make_dump(
