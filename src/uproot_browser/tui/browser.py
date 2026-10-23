@@ -20,6 +20,7 @@ __lazy_modules__ = {
     f"{__spec__.parent}.left_panel",
     f"{__spec__.parent}.plot",
     f"{__spec__.parent}.right_panel",
+    f"{__spec__.parent}.splitter",
     f"{__spec__.parent}.tools",
     f"{__spec__.parent}.viewer",
 }
@@ -54,6 +55,7 @@ from .jump import JumpScreen
 from .left_panel import UprootTree
 from .plot import Plotext, PlotItem, selection_source
 from .right_panel import RightPanel
+from .splitter import Splitter
 from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND
 from .tools import Info
 from .viewer import ViewWidget
@@ -111,15 +113,17 @@ class Browser(textual.app.App[None]):
     def compose(self) -> textual.app.ComposeResult:
         """Compose our UI."""
         yield Header("uproot-browser")
-        with textual.containers.Container():
+        with textual.containers.Horizontal():
             # left_panel
             with textual.widgets.TabbedContent(id="left-view"):
                 with textual.widgets.TabPane("Tree", id="tree-tab"):
                     yield UprootTree(self.path, id="tree-view")
                 with textual.widgets.TabPane("Info"):
                     yield textual.lazy.Lazy(Info())
+            yield Splitter("#left-view", grow_left=True, id="left-splitter")
             # main_panel
             yield self.view_widget
+            yield Splitter("#right-panel", grow_left=False, id="right-splitter")
             yield RightPanel(id="right-panel")
 
         yield textual.widgets.Footer()
