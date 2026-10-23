@@ -61,6 +61,49 @@ async def settle_render(pilot: textual.pilot.Pilot[None]) -> None:
     await pilot.pause()  # drain the update the worker posted
 
 
+async def jump_to(pilot: textual.pilot.Pilot[None], path: str) -> None:
+    """Select ``path`` and wait for the cursor, which moves after a refresh."""
+    tree = pilot.app.query_one("#tree-view", UprootTree)
+    tree.select_path(path)
+    await wait_until(
+        pilot,
+        lambda: (
+            tree.cursor_node is not None
+            and tree.cursor_node.data is not None
+            and tree.cursor_node.data.path == path
+        ),
+    )
+
+
+def node_at(parent: object, path: str) -> object:
+    """The child of ``parent`` whose entry has ``path``."""
+    return next(
+        node
+        for node in parent.children  # type: ignore[attr-defined]
+        if node.data is not None and node.data.path == path
+    )
+
+
+def label_text(tree: UprootTree, node: object) -> str:
+    style = rich.style.Style()
+    return tree.render_label(node, style, style).plain  # type: ignore[arg-type]
+
+
+async def click_label(
+    pilot: textual.pilot.Pilot[None], node: object, **kwargs: bool
+) -> None:
+    tree = pilot.app.query_one("#tree-view", UprootTree)
+    label = tree._get_label_region(node.line)  # type: ignore[attr-defined]  # noqa: SLF001
+    assert label is not None
+    offset = tree.content_region.offset - tree.region.offset - tree.scroll_offset
+    await pilot.click(
+        tree,
+        offset=(label.x + label.width // 2 + offset.x, label.y + offset.y),
+        **kwargs,
+    )
+    await pilot.pause()
+
+
 async def settled_plot(pilot: textual.pilot.Pilot[None]) -> Plotext:
     """Select the first plottable branch and wait for the render to settle."""
     await pilot.press("down", "down", "down", "enter")
@@ -436,20 +479,7 @@ async def test_jump_expands_ancestors() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
-        tree = pilot.app.query_one("#tree-view", UprootTree)
-        tree.select_path(LEAF_PATH)
-        await wait_until(
-            pilot,
-            lambda: (
-                tree.cursor_node is not None
-                and tree.cursor_node.data is not None
-                and tree.cursor_node.data.path == LEAF_PATH
-            ),
-        )
-        node = tree.cursor_node
-        assert node is not None
-        assert node.data is not None
-        assert node.data.path == LEAF_PATH
+        await jump_to(pilot, LEAF_PATH)
 
 
 async def test_jump_cancel() -> None:
@@ -496,19 +526,8 @@ async def test_count_prefix_after_click() -> None:
         await pilot.press(*EXPAND_EVENT)
         await pilot.pause()
         assert tree.cursor_node is not None
-        flag = next(
-            node
-            for node in tree.cursor_node.children
-            if node.data is not None and node.data.path == LEAF_PATH
-        )
-        label = tree._get_label_region(flag.line)  # noqa: SLF001
-        assert label is not None
-        offset = tree.content_region.offset - tree.region.offset
-        await pilot.click(
-            tree,
-            offset=(label.x + label.width // 2 + offset.x, label.y + offset.y),
-        )
-        await pilot.pause()
+        flag = node_at(tree.cursor_node, LEAF_PATH)
+        await click_label(pilot, flag)
         assert tree.cursor_node is flag
 
         await pilot.press("2", "down")
@@ -817,52 +836,13 @@ async def test_splitter_drag_resizes_panels() -> None:
         assert view.region.width == total - 15
 
 
-async def jump_to(pilot: textual.pilot.Pilot[None], path: str) -> None:
-    """Select ``path`` and wait for the cursor, which moves after a refresh."""
-    tree = pilot.app.query_one("#tree-view", UprootTree)
-    tree.select_path(path)
-    await wait_until(
-        pilot,
-        lambda: (
-            tree.cursor_node is not None
-            and tree.cursor_node.data is not None
-            and tree.cursor_node.data.path == path
-        ),
-    )
-    assert tree.cursor_node is not None
-    assert tree.cursor_node.data is not None
-    assert tree.cursor_node.data.path == path
-
-
-def label_text(tree: UprootTree, node: object) -> str:
-    style = rich.style.Style()
-    return tree.render_label(node, style, style).plain  # type: ignore[arg-type]
-
-
-async def click_label(
-    pilot: textual.pilot.Pilot[None], node: object, **kwargs: bool
-) -> None:
-    tree = pilot.app.query_one("#tree-view", UprootTree)
-    label = tree._get_label_region(node.line)  # type: ignore[attr-defined]  # noqa: SLF001
-    assert label is not None
-    offset = tree.content_region.offset - tree.region.offset - tree.scroll_offset
-    await pilot.click(
-        tree,
-        offset=(label.x + label.width // 2 + offset.x, label.y + offset.y),
-        **kwargs,
-    )
-    await pilot.pause()
-
-
 async def test_click_toggles_directory() -> None:
     """A plain click on a tree opens it, and a second click closes it."""
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
         tree = pilot.app.query_one("#tree-view", UprootTree)
-        node = next(
-            n for n in tree.root.children if n.data is not None and n.data.path == "//T"
-        )
+        node = node_at(tree.root, "//T")
         assert not node.is_expanded
         await click_label(pilot, node)
         assert node.is_expanded
@@ -943,12 +923,7 @@ async def test_shift_click_pairs_with_cursor() -> None:
         await jump_to(pilot, "//T/event/fNtrack")
         x_node = tree.cursor_node
         assert x_node is not None
-        assert x_node.parent is not None
-        flag = next(
-            node
-            for node in x_node.parent.children
-            if node.data is not None and node.data.path == LEAF_PATH
-        )
+        flag = node_at(x_node.parent, LEAF_PATH)
         await click_label(pilot, flag, shift=True)
         await pilot.pause()
 
@@ -966,12 +941,7 @@ async def test_shift_click_needs_numeric_cursor() -> None:
         tree = pilot.app.query_one("#tree-view", UprootTree)
         await pilot.press(*EXPAND_EVENT)  # the cursor stays on //T/event
         await pilot.pause()
-        assert tree.cursor_node is not None
-        flag = next(
-            node
-            for node in tree.cursor_node.children
-            if node.data is not None and node.data.path == LEAF_PATH
-        )
+        flag = node_at(tree.cursor_node, LEAF_PATH)
         await click_label(pilot, flag, shift=True)
         assert tree.marks == []
         assert pilot.app.view_widget.item is None

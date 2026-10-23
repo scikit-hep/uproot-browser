@@ -160,15 +160,14 @@ def _pair_hist(pair: BranchPair, *, bins: int = 50) -> hist.Hist[Any]:
         if not array_plottable(item):
             msg = f"{item.name} ({item.typename}) does not hold numbers for a 2D plot"
             raise TypeError(msg)
-    x_array, y_array = pair.x.array(), pair.y.array()
-    if len(x_array) != len(y_array):
+    if pair.x.num_entries != pair.y.num_entries:
         msg = (
-            f"{pair.x.name} has {len(x_array)} entries, "
-            f"but {pair.y.name} has {len(y_array)}"
+            f"{pair.x.name} has {pair.x.num_entries} entries, "
+            f"but {pair.y.name} has {pair.y.num_entries}"
         )
         raise ValueError(msg)
     # A per-entry value broadcasts against a per-item (jagged) value
-    x_array, y_array = ak.broadcast_arrays(x_array, y_array)
+    x_array, y_array = ak.broadcast_arrays(pair.x.array(), pair.y.array())
     x = np.asarray(ak.ravel(x_array), dtype=float)
     y = np.asarray(ak.ravel(y_array), dtype=float)
     finite = np.isfinite(x) & np.isfinite(y)
@@ -364,11 +363,6 @@ def _set_lim(fig: PlotextFigure, axis: str, lim: AxisRange) -> None:
         fig.ruler(axis).lim(*lim)
 
 
-def _axis_title(axis: Any) -> str:
-    # hist gives "Axis N" as the label of an unnamed, unlabeled axis
-    return str(axis.name or axis.label)
-
-
 def _draw_hist_2d(
     fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any], *, limits: AxisLimits
 ) -> None:
@@ -382,8 +376,8 @@ def _draw_hist_2d(
     fig.ruler("y").ticks(*_bin_ticks(yaxis, ylim))
     _set_lim(fig, "x", xlim)
     _set_lim(fig, "y", ylim)
-    fig.label(_axis_title(xaxis), axis="x")
-    fig.label(_axis_title(yaxis), axis="y")
+    fig.label(xaxis.label, axis="x")
+    fig.label(yaxis.label, axis="y")
     fig.title(make_hist_title(tree, histogram))
 
 
@@ -412,7 +406,7 @@ def _draw_hist_1d(
         _set_lim(fig, "x", limits.x)
     lower, upper = limits.y
     fig.ruler("y").lim(0 if lower is None else lower, upper)
-    fig.label(axis.name, axis="x")
+    fig.label(axis.label, axis="x")
     fig.title(make_hist_title(tree, histogram))
 
 
@@ -467,17 +461,19 @@ def _leaf_interpretation(branch: uproot.TBranch) -> Any:
     return interpretation
 
 
+def _branch_numeric(branch: uproot.TBranch) -> bool:
+    interpretation = _leaf_interpretation(branch)
+    # AsStridedObjects is a Numerical, but yields records np.isfinite rejects
+    return isinstance(
+        interpretation, uproot.interpretation.numerical.Numerical
+    ) and not isinstance(interpretation, uproot.interpretation.objects.AsStridedObjects)
+
+
 def _branch_plottable(branch: uproot.TBranch) -> bool:
-    match _leaf_interpretation(branch):
-        case uproot.interpretation.objects.AsObjects(model=model):
-            return _model_is_histogram(model)
-        # AsStridedObjects is a Numerical, but yields records np.isfinite rejects
-        case uproot.interpretation.objects.AsStridedObjects():
-            return False
-        case uproot.interpretation.numerical.Numerical():
-            return True
-        case _:
-            return False
+    interpretation = _leaf_interpretation(branch)
+    if isinstance(interpretation, uproot.interpretation.objects.AsObjects):
+        return _model_is_histogram(interpretation.model)
+    return _branch_numeric(branch)
 
 
 _TEXT_ARRAYS = frozenset({"string", "bytestring"})
@@ -520,9 +516,7 @@ def array_plottable(item: Any) -> bool:
     if isinstance(item, uproot.models.RNTuple.RField):
         return _field_plottable(item)
     if isinstance(item, uproot.TBranch):
-        return _branch_plottable(item) and not isinstance(
-            _leaf_interpretation(item), uproot.interpretation.objects.AsObjects
-        )
+        return _branch_numeric(item)
     return False
 
 

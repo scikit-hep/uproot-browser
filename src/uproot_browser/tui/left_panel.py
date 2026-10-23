@@ -115,8 +115,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         if target_node.data.is_dir:
             target_node.expand()
         else:
-            self.clear_pair()
-            self.post_message(UprootSelected(self.upfile, target_node.data.path))
+            self._select(target_node.data.path)
 
     def scroll_to_line(self, line: int, animate: bool = True) -> None:  # noqa: FBT001, FBT002
         """Scroll to a line, keeping ``SCROLLOFF`` lines visible on both sides."""
@@ -161,10 +160,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
             return
         if self._pairable(x_node) and self._pairable(y_node):
             self.cursor_line = meta["line"]
-            self.clear_marks()
-            self.marks.append(x_node)
-            self.marks.append(y_node)
-            self._post_pair()
+            self._set_marks(x_node, y_node)
 
     def on_blur(self) -> None:
         """Discard pending navigation when focus leaves the tree."""
@@ -208,8 +204,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         item = event.node.data
         assert item
         if not item.is_dir:
-            self.clear_pair()
-            self.post_message(UprootSelected(self.upfile, item.path))
+            self._select(item.path)
 
     def on_tree_node_expanded(
         self, event: textual.widgets.Tree.NodeExpanded[UprootEntry]
@@ -241,16 +236,9 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         if node is None or node.data is None or node.data.is_dir:
             return
         if node in self.marks:
-            self.clear_marks()
-            return
-        if not self._pairable(node):
-            return
-        if len(self.marks) != 1:
-            self.clear_marks()
-        self.marks.append(node)
-        node.refresh()
-        if len(self.marks) == 2:
-            self._post_pair()
+            self._set_marks()
+        elif self._pairable(node):
+            self._set_marks(*self.marks[:1], node)
 
     def _pairable(self, node: textual.widgets.tree.TreeNode[UprootEntry]) -> bool:
         """Can ``node`` be one axis of a 2D plot? Warns if not."""
@@ -264,24 +252,24 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         )
         return False
 
-    def _post_pair(self) -> None:
-        """Plot the two marks in 2D."""
-        x_data, y_data = (mark.data for mark in self.marks)
-        assert x_data
-        assert y_data
-        for mark in self.marks:
-            mark.refresh()
-        self.post_message(UprootSelected(self.upfile, x_data.path, y_data.path))
+    def _set_marks(self, *nodes: textual.widgets.tree.TreeNode[UprootEntry]) -> None:
+        """Replace the marks (relabeling old and new); two marks plot in 2D."""
+        old, self.marks = self.marks, list(nodes)
+        for node in (*old, *nodes):
+            node.refresh()
+        if len(nodes) == 2:
+            x_node, y_node = nodes
+            assert x_node.data
+            assert y_node.data
+            self.post_message(
+                UprootSelected(self.upfile, x_node.data.path, y_node.data.path)
+            )
 
-    def clear_pair(self) -> None:
-        """Clear the marks of a plotted pair, which a new plot replaces."""
+    def _select(self, path: str) -> None:
+        """Plot one item, which replaces a plotted pair but keeps a lone x mark."""
         if len(self.marks) == 2:
-            self.clear_marks()
-
-    def clear_marks(self) -> None:
-        marks, self.marks = self.marks, []
-        for mark in marks:
-            mark.refresh()
+            self._set_marks()
+        self.post_message(UprootSelected(self.upfile, path))
 
     def action_cursor_in(self) -> None:
         node = self.cursor_node
