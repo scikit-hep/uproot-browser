@@ -34,6 +34,7 @@ uproot-browser currently provides the following features (get help with `-h` or 
 - `browse` can be used to display a TUI (text user interface), acts as default if no subcommand specified.
 - `plot` can be used to display a plot.
 - `tree` can be used to display a tree.
+- `browse` and `tree` also accept a directory, and show the ROOT files in it and in its subdirectories. Use `plot DIR:FILE.root/OBJECT` to plot an object in a file of a directory.
 - `browse` provides a right-side axis panel with typed X and Y range controls.
 - The right-side panel can be shown or hidden with `t` (tools).
 - Drag the bar next to a side panel to resize it.

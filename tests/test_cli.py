@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from click.testing import CliRunner
+from skhep_testdata import data_path
 
 from uproot_browser.__main__ import get_testdata, main
 
@@ -93,3 +94,22 @@ def test_plot_save(tmp_path: Path) -> None:
     with pil_image.open(out) as image:
         assert image.mode == "RGBA"
         assert image.getpixel((2, 2))[-1] == 0  # transparent background
+
+
+def test_tree_directory(root_dir: Path) -> None:
+    result = CliRunner().invoke(main, ["tree", str(root_dir)])
+    assert result.exit_code == 0, result.output
+    assert "b.root" in result.output
+    assert "hpx" in result.output
+
+
+def test_plot_directory_selection(root_dir: Path) -> None:
+    result = CliRunner().invoke(main, ["plot", f"{root_dir}:sub/b.root/hpx"])
+    assert result.exit_code == 0, result.output
+    assert "hpx" in result.output
+
+
+def test_colon_in_object_name() -> None:
+    """ROOT object names can hold colons; only the file path must exist."""
+    spec = f"{data_path('uproot-hepdata-example.root')}:h:a"
+    assert get_testdata(spec, testdata=False) == spec

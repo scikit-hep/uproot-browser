@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import io
 import math
 import re
 import shutil
@@ -783,3 +784,68 @@ def test_dump_pair_is_runnable(expr: str) -> None:
     assert isinstance(actual, hist.Hist)
     np.testing.assert_array_equal(actual.values(flow=True), expected.values(flow=True))
     assert [ax.label for ax in actual.axes] == [ax.label for ax in expected.axes]
+
+
+def test_local_directory_tree(root_dir: pathlib.Path) -> None:
+    root = root_dir
+    with uproot_browser.tree.open_path(str(root)) as directory:
+        assert isinstance(directory, uproot_browser.tree.LocalDirectory)
+        assert directory.keys() == ["a.root", "sub"]
+        paths = {e.path for e in UprootEntry("/", directory).walk()}
+        assert {"//a.root/hpx", "//sub/b.root/hpx"} <= paths
+
+        upfile, key = directory.locate("//sub/b.root/hpx")
+        assert upfile.file_path == str(root / "sub" / "b.root")
+        assert key == "hpx"
+        assert directory["//sub/b.root/hpx"].name == "hpx"
+
+    console = rich.console.Console(width=80, file=io.StringIO(), record=True)
+    print_tree(str(root), console=console)
+    out = console.export_text()
+    assert "a.root" in out
+    assert "b.root" in out
+    assert "notes.txt" not in out
+    assert "empty" not in out
+
+
+def test_local_directory_selection(root_dir: pathlib.Path) -> None:
+    item = uproot_browser.tree.open_path(f"{root_dir}:sub/b.root/hpx")
+    assert item.name == "hpx"
+
+
+def test_local_directory_unreadable_file(root_dir: pathlib.Path) -> None:
+    """A file that fails to open shows as failed; the other files still list."""
+    root = root_dir
+    (root / "bad.root").write_text("not ROOT")
+    with uproot_browser.tree.open_path(str(root)) as directory:
+        entries = {e.path: e for e in UprootEntry("/", directory).walk()}
+        bad = entries["//bad.root"]
+        assert isinstance(bad.item, uproot_browser.tree.LocalFile)
+        assert bad.item.error is not None
+        assert bad.meta()["label_icon"] == "‼️ "
+        assert "//sub/b.root/hpx" in entries
+
+    console = rich.console.Console(width=80, file=io.StringIO(), record=True)
+    print_tree(str(root), console=console)
+    out = console.export_text()
+    assert "bad.root" in out
+    assert "b.root" in out
+
+
+@pytest.mark.parametrize(
+    ("spec", "expected"),
+    [
+        ("{f}", ("{f}", "")),
+        ("{f}:hpx", ("{f}", "hpx")),
+        ("{f}:h:a", ("{f}", "h:a")),
+        ("{d}:sub/b.root/h:a", ("{d}", "sub/b.root/h:a")),
+        ("missing.root:h:a", ("missing.root:h:a", "")),
+    ],
+)
+def test_split_spec(
+    root_dir: pathlib.Path, spec: str, expected: tuple[str, str]
+) -> None:
+    fmt = {"f": root_dir / "a.root", "d": root_dir}
+    assert uproot_browser.tree.split_spec(spec.format(**fmt)) == tuple(
+        e.format(**fmt) for e in expected
+    )

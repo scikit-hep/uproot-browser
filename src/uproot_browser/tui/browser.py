@@ -12,6 +12,7 @@ __lazy_modules__ = {
     "textual.widgets",
     "textual.worker",
     "uproot_browser.exceptions",
+    "uproot_browser.tree",
     f"{__spec__.parent}.error",
     f"{__spec__.parent}.header",
     f"{__spec__.parent}.help",
@@ -45,6 +46,7 @@ from textual.reactive import var
 
 from uproot_browser.axis import NO_LIMITS, AxisLimits
 from uproot_browser.exceptions import EmptyTreeError
+from uproot_browser.tree import LocalDirectory
 
 from ..plotext_compat import add_theme
 from .error import Error
@@ -150,7 +152,7 @@ class Browser(textual.app.App[None]):
     def action_jump(self) -> None:
         """Open the fuzzy finder to jump to a branch/field."""
         tree = self.query_one("#tree-view", UprootTree)
-        self.push_screen(JumpScreen(tree.all_entries), self._on_jumped)
+        self.push_screen(JumpScreen(tree.jump_candidates()), self._on_jumped)
 
     def _on_jumped(self, path: str | None) -> None:
         if path is None:
@@ -189,9 +191,27 @@ class Browser(textual.app.App[None]):
     def dump_source(self) -> tuple[str, list[Any]]:
         """The Dump & Quit source, and the renderables to show above it."""
 
-        msg = f'\nimport uproot\nuproot_file = uproot.open("{self.path}")'
-
+        opener = "import uproot\nuproot_file = uproot.open"
+        path = self.path
         item = self.view_widget.item
+        root = self.query_one("#tree-view", UprootTree).upfile
+        if isinstance(root, LocalDirectory) and isinstance(item, (Error, PlotItem)):
+            upfile, selection = root.locate(item.selection)
+            y_upfile, y_selection = (
+                root.locate(item.y_selection) if item.y_selection else (upfile, "")
+            )
+            if y_upfile is upfile:
+                # Open only the file that holds the selection
+                path = upfile.file_path
+                changes = {"selection": selection, "y_selection": y_selection}
+                if not isinstance(item, Error):
+                    changes["upfile"] = upfile.file
+                item = dataclasses.replace(item, **changes)  # type: ignore[type-var]
+            else:
+                opener = "import uproot_browser.tree\nuproot_file = uproot_browser.tree.open_path"
+
+        msg = f'\n{opener}("{path}")'
+
         items: list[Any] = []
         if isinstance(item, Error):
             items = [item]

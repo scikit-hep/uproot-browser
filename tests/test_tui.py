@@ -1,5 +1,7 @@
 import concurrent.futures
 import io
+import pathlib
+import shutil
 from collections.abc import Callable
 
 import pytest
@@ -21,7 +23,7 @@ from uproot_browser.tui.error import Error
 from uproot_browser.tui.help import HelpScreen
 from uproot_browser.tui.jump import JumpScreen
 from uproot_browser.tui.left_panel import SCROLLOFF, UprootTree
-from uproot_browser.tui.messages import ExpressionErrorMessage
+from uproot_browser.tui.messages import ExpressionErrorMessage, UprootSelected
 from uproot_browser.tui.plot import Plotext, render_canvas
 from uproot_browser.tui.right_panel import RightPanel
 
@@ -455,7 +457,7 @@ async def test_jump_screen() -> None:
         # Grab the tree before opening the modal: older Textual scopes
         # app.query_one to the active screen, so #tree-view is unreachable
         # once the JumpScreen is on top.
-        expected = len(pilot.app.query_one("#tree-view", UprootTree).all_entries)
+        expected = len(pilot.app.query_one("#tree-view", UprootTree).jump_candidates())
         await pilot.press("/")
         assert isinstance(pilot.app.screen, JumpScreen)
         results = pilot.app.screen.query_one(
@@ -844,3 +846,73 @@ def test_render_canvas_is_thread_safe() -> None:
     with concurrent.futures.ThreadPoolExecutor(8) as pool:
         results = list(pool.map(lambda _: render(), range(200)))
     assert results == [expected] * 200
+
+
+async def test_browse_directory(tmp_path: pathlib.Path) -> None:
+    """A directory lists its ROOT files; the dump opens the selected file."""
+    shutil.copy(skhep_testdata.data_path("uproot-Event.root"), tmp_path / "a.root")
+    (tmp_path / "sub").mkdir()
+    nested = tmp_path / "sub" / "b.root"
+    shutil.copy(skhep_testdata.data_path("uproot-hepdata-example.root"), nested)
+
+    async with Browser(str(tmp_path)).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        assert [c.data.path for c in tree.root.children if c.data] == [
+            "//a.root",
+            "//sub",
+        ]
+        await jump_to(pilot, "//sub/b.root/hpx")
+        await settle_render(pilot)
+        item = pilot.app.view_widget.item
+        assert isinstance(item, Plotext)
+        assert_canvas(pilot.app, item)
+
+        msg, _ = pilot.app.dump_source()
+        assert f'uproot_file = uproot.open("{nested}")' in msg
+        assert 'item = uproot_file["hpx"]' in msg
+
+
+async def test_jump_directory_is_lazy(root_dir: pathlib.Path) -> None:
+    """Jump lists the files of a directory, and enters only the opened ones."""
+    async with Browser(str(root_dir)).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        assert [c.path for c in tree.jump_candidates()] == [
+            "//a.root",
+            "//sub",
+            "//sub/b.root",
+        ]
+        assert not tree.upfile["a.root"].is_open
+        assert not tree.upfile["sub/b.root"].is_open
+
+        await jump_to(pilot, "//sub/b.root/hpx")
+        await settle_render(pilot)
+        paths = [c.path for c in tree.jump_candidates()]
+        assert "//sub/b.root/hpx" in paths
+        assert not any(p.startswith("//a.root/") for p in paths)
+
+
+@pytest.mark.parametrize(("y_file", "same"), [("a.root", True), ("b.root", False)])
+async def test_dump_directory_pair(
+    tmp_path: pathlib.Path,
+    y_file: str,
+    same: bool,  # noqa: FBT001
+) -> None:
+    for name in ("a.root", "b.root"):
+        shutil.copy(skhep_testdata.data_path("uproot-Event.root"), tmp_path / name)
+
+    async with Browser(str(tmp_path)).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        x_path = "//a.root/T/event/fNtrack"
+        y_path = f"//{y_file}{LEAF_PATH[1:]}"
+        tree.post_message(UprootSelected(tree.upfile, x_path, y_path))
+        await settle_render(pilot)
+
+        msg, _ = pilot.app.dump_source()
+        if same:
+            assert f'uproot.open("{tmp_path / "a.root"}")' in msg
+            assert 'x_item = uproot_file["T/event/fNtrack"]' in msg
+            assert f'y_item = uproot_file["{LEAF_PATH.lstrip("/")}"]' in msg
+        else:
+            assert f'open_path("{tmp_path}")' in msg
+            assert 'x_item = uproot_file["a.root/T/event/fNtrack"]' in msg
+            assert f'y_item = uproot_file["{y_path.lstrip("/")}"]' in msg

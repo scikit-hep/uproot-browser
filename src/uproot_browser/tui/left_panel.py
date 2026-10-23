@@ -8,13 +8,11 @@ __lazy_modules__ = {
     "textual.events",
     "textual.widget",
     "textual.widgets.tree",
-    "uproot",
     "uproot_browser.plot",
     f"{__spec__.parent}.jump",
     f"{__spec__.parent}.messages",
 }
 
-import functools
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -25,22 +23,33 @@ import textual.events
 import textual.widget
 import textual.widgets
 import textual.widgets.tree
-import uproot
 from textual.reactive import var
 
 import uproot_browser.plot
 
-from ..tree import UprootEntry
+from ..tree import LocalDirectory, LocalFile, UprootEntry, open_path
 from .jump import Candidate
 from .messages import UprootSelected
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from rich.style import Style
 
 SCROLLOFF = 2  # lines kept visible past the cursor, like vim's 'scrolloff'
 MAX_COUNT_DIGITS = 4
 COUNT_MOTIONS = frozenset({"up", "down", "j", "k"})
 MODIFIERS = ("shift", "control", "alt", "super", "hyper", "meta")
+
+
+def make_candidate(entry: UprootEntry) -> Candidate:
+    return Candidate(
+        path=entry.path,
+        name=PurePosixPath(entry.path).name,
+        icon=entry.meta()["label_icon"],
+        is_dir=entry.is_dir,
+        plottable=uproot_browser.plot.plottable(entry.item),
+    )
 
 
 class UprootTree(textual.widgets.Tree[UprootEntry]):
@@ -58,27 +67,37 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
     """Pending vim-style count prefix."""
 
     def __init__(self, path: str, **args: Any) -> None:
-        self.upfile = uproot.open(path)
+        self.upfile = open_path(path)
         file_path = Path(self.upfile.file_path)
         data = UprootEntry("/", self.upfile)
+        self._candidates: dict[str, list[Candidate]] = {}
         super().__init__(name=str(file_path), data=data, label=file_path.stem, **args)
         self.marks: list[textual.widgets.tree.TreeNode[UprootEntry]] = []
         """The x (and y, once plotted) branches of a 2D plot."""
 
-    @functools.cached_property
-    def all_entries(self) -> list[Candidate]:
-        """All jump targets in the file, built once and cached."""
+    def jump_candidates(self) -> list[Candidate]:
+        """
+        All jump targets. The files of a directory are listed, but only
+        entered after they are opened, so a jump does not open every file.
+        """
         root = UprootEntry("/", self.upfile)
-        return [
-            Candidate(
-                path=entry.path,
-                name=PurePosixPath(entry.path).name,
-                icon=entry.meta()["label_icon"],
-                is_dir=entry.is_dir,
-                plottable=uproot_browser.plot.plottable(entry.item),
-            )
-            for entry in root.walk()
-        ]
+        if isinstance(self.upfile, LocalDirectory):
+            return list(self._directory_candidates(root))
+        return self._file_candidates(root)
+
+    def _directory_candidates(self, entry: UprootEntry) -> Iterator[Candidate]:
+        for child in entry.children:
+            yield make_candidate(child)
+            if not isinstance(child.item, LocalFile):
+                yield from self._directory_candidates(child)
+            elif child.item.is_open:
+                yield from self._file_candidates(child)
+
+    def _file_candidates(self, entry: UprootEntry) -> list[Candidate]:
+        """The jump targets in one file, built once and cached."""
+        if entry.path not in self._candidates:
+            self._candidates[entry.path] = [make_candidate(e) for e in entry.walk()]
+        return self._candidates[entry.path]
 
     def select_path(self, target: str) -> None:
         """Navigate to (and reveal) the node at ``target``, plotting leaves."""
