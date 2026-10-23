@@ -50,6 +50,7 @@ class PlotItem(Protocol):
 
     app: Browser
     selection: str
+    y_selection: str
     expr: str
 
     def display(self, view: ViewWidget) -> None:
@@ -90,13 +91,21 @@ def run_posting_errors(source: PlotItem, fn: Callable[[], T]) -> T | None:
     except EmptyTreeError:
         source.app.post_message(EmptyMessage())
     except Exception as err:  # noqa: BLE001
-        source.app.post_message(ErrorMessage(Error(err, source.selection)))
+        source.app.post_message(
+            ErrorMessage(Error(err, source.selection, source.y_selection))
+        )
     return None
 
 
-def selection_source(selection: str) -> str:
-    """The ``item = ...`` line naming the selected branch."""
-    return f'\nitem = uproot_file["{selection.lstrip("/")}"]'
+def selection_source(selection: str, y_selection: str = "") -> str:
+    """The ``item = ...`` line naming the selected branch, or ``x_item`` and
+    ``y_item`` for a 2D selection."""
+    if not y_selection:
+        return f'\nitem = uproot_file["{selection.lstrip("/")}"]'
+    return (
+        f'\nx_item = uproot_file["{selection.lstrip("/")}"]'
+        f'\ny_item = uproot_file["{y_selection.lstrip("/")}"]'
+    )
 
 
 def resolve_selection(tree: Any, selection: str) -> Any:
@@ -104,6 +113,18 @@ def resolve_selection(tree: Any, selection: str) -> Any:
     Apply a colon-separated selection to an uproot tree. Slashes are handled by uproot.
     """
     return functools.reduce(operator.getitem, selection.split(":"), tree)
+
+
+def resolve_item(upfile: Any, selection: str, y_selection: str = "") -> Any:
+    """The selected object, or a :class:`~uproot_browser.plot.BranchPair` for 2D."""
+    item = resolve_selection(upfile, selection)
+    if not y_selection:
+        return item
+    return uproot_browser.plot.BranchPair(item, resolve_selection(upfile, y_selection))
+
+
+# Binds ``item`` for dumped code that needs it after ``x_item``/``y_item``
+PAIR_ITEM_SOURCE = "import uproot_browser.plot\nitem = uproot_browser.plot.BranchPair(x_item, y_item)\n"
 
 
 def render_canvas(
@@ -139,6 +160,8 @@ def make_dump(
         # Self-contained: the exported script must not need uproot_browser.
         code += f"\n\n{uproot_browser.plot.dump_expr(item, expr)}"
     if limits != NO_LIMITS:
+        if isinstance(item, uproot_browser.plot.BranchPair):
+            code += f"\n\n{PAIR_ITEM_SOURCE}"
         code += textwrap.dedent(f"""
 
             import uproot_browser.plot
@@ -157,6 +180,7 @@ class Plotext:
     selection: str
     dark: bool
     app: Browser
+    y_selection: str = ""
     expr: str = ""
     size: tuple[int, int] | None = None
     axis_limits: AxisLimits = NO_LIMITS
@@ -192,8 +216,8 @@ class Plotext:
         )
 
     def dump_source(self) -> str:
-        msg = selection_source(self.selection)
-        selected = resolve_selection(self.upfile, self.selection)
+        msg = selection_source(self.selection, self.y_selection)
+        selected = resolve_item(self.upfile, self.selection, self.y_selection)
         size = self.size or ()
         with contextlib.suppress(RuntimeError):
             msg += f"\n{make_dump(selected, *size, expr=self.expr, limits=self.axis_limits)}"
@@ -204,7 +228,7 @@ class Plotext:
         # widget, and the exit console has a different size than the widget.
         size = self.size or (100, 30)
         try:
-            selected = resolve_selection(self.upfile, self.selection)
+            selected = resolve_item(self.upfile, self.selection, self.y_selection)
             canvas = render_canvas(
                 selected,
                 self.theme,
@@ -224,7 +248,7 @@ class Plotext:
         assert size
 
         def build() -> rich.text.Text:
-            item = resolve_selection(self.upfile, self.selection)
+            item = resolve_item(self.upfile, self.selection, self.y_selection)
             canvas = render_canvas(
                 item,
                 self.theme,

@@ -51,6 +51,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         textual.binding.Binding("j", "cursor_down", "Cursor Down", show=False),
         textual.binding.Binding("k", "cursor_up", "Cursor Up", show=False),
         textual.binding.Binding("l", "cursor_in", "Cursor in", show=False),
+        textual.binding.Binding("m", "mark", "Mark 2D"),
     ]
 
     count = var("")
@@ -61,6 +62,8 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         file_path = Path(self.upfile.file_path)
         data = UprootEntry("/", self.upfile)
         super().__init__(name=str(file_path), data=data, label=file_path.stem, **args)
+        self.marks: list[textual.widgets.tree.TreeNode[UprootEntry]] = []
+        """The x (and y, once plotted) branches of a 2D plot."""
 
     @functools.cached_property
     def all_entries(self) -> list[Candidate]:
@@ -112,6 +115,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         if target_node.data.is_dir:
             target_node.expand()
         else:
+            self.clear_pair()
             self.post_message(UprootSelected(self.upfile, target_node.data.path))
 
     def scroll_to_line(self, line: int, animate: bool = True) -> None:  # noqa: FBT001, FBT002
@@ -144,6 +148,24 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         elif event.key not in COUNT_MOTIONS and not event.key.endswith(MODIFIERS):
             self.count = ""
 
+    async def _on_click(self, event: textual.events.Click) -> None:
+        """Shift+click plots the branch at the cursor (x) against the clicked one (y)."""
+        meta = event.style.meta
+        if not event.shift or "line" not in meta or meta.get("toggle", False):
+            return
+        # Textual calls the handler of each class in the MRO; this stops Tree's
+        event.prevent_default()
+        x_node = self.cursor_node
+        y_node = self.get_node_at_line(meta["line"])
+        if x_node is None or y_node is None or x_node is y_node:
+            return
+        if self._pairable(x_node) and self._pairable(y_node):
+            self.cursor_line = meta["line"]
+            self.clear_marks()
+            self.marks.append(x_node)
+            self.marks.append(y_node)
+            self._post_pair()
+
     def on_blur(self) -> None:
         """Discard pending navigation when focus leaves the tree."""
         self.count = ""
@@ -160,6 +182,9 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         label_icon.stylize(base_style)
 
         label = rich.text.Text.assemble(label_icon, meta["label_text"])
+        if node in self.marks:
+            axis = "xy"[self.marks.index(node)]
+            label = rich.text.Text.assemble((f"{axis}: ", "bold"), label)
         label.stylize(style)
         if not node.data.is_dir and not uproot_browser.plot.plottable(node.data.item):
             label.stylize("dim")
@@ -183,6 +208,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         item = event.node.data
         assert item
         if not item.is_dir:
+            self.clear_pair()
             self.post_message(UprootSelected(self.upfile, item.path))
 
     def on_tree_node_expanded(
@@ -208,6 +234,54 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         else:
             self.cursor_line -= count
         self.scroll_to_line(self.cursor_line, animate=False)
+
+    def action_mark(self) -> None:
+        """Mark the x branch; marking a second one plots the pair in 2D."""
+        node = self.cursor_node
+        if node is None or node.data is None or node.data.is_dir:
+            return
+        if node in self.marks:
+            self.clear_marks()
+            return
+        if not self._pairable(node):
+            return
+        if len(self.marks) != 1:
+            self.clear_marks()
+        self.marks.append(node)
+        node.refresh()
+        if len(self.marks) == 2:
+            self._post_pair()
+
+    def _pairable(self, node: textual.widgets.tree.TreeNode[UprootEntry]) -> bool:
+        """Can ``node`` be one axis of a 2D plot? Warns if not."""
+        if node.data is not None and uproot_browser.plot.array_plottable(
+            node.data.item
+        ):
+            return True
+        self.app.notify(
+            "Only numeric branches and fields can be plotted in 2D.",
+            severity="warning",
+        )
+        return False
+
+    def _post_pair(self) -> None:
+        """Plot the two marks in 2D."""
+        x_data, y_data = (mark.data for mark in self.marks)
+        assert x_data
+        assert y_data
+        for mark in self.marks:
+            mark.refresh()
+        self.post_message(UprootSelected(self.upfile, x_data.path, y_data.path))
+
+    def clear_pair(self) -> None:
+        """Clear the marks of a plotted pair, which a new plot replaces."""
+        if len(self.marks) == 2:
+            self.clear_marks()
+
+    def clear_marks(self) -> None:
+        marks, self.marks = self.marks, []
+        for mark in marks:
+            mark.refresh()
 
     def action_cursor_in(self) -> None:
         node = self.cursor_node

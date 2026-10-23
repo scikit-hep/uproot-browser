@@ -11,6 +11,7 @@ import textual.pilot
 import textual.widgets
 
 import uproot_browser.plot
+import uproot_browser.plotext_compat
 from uproot_browser.axis import AxisLimits
 from uproot_browser.exceptions import EmptyTreeError
 from uproot_browser.tui.browser import Browser
@@ -814,3 +815,152 @@ async def test_splitter_drag_resizes_panels() -> None:
         await pilot.pause()
         assert right.region.width == right_width + 5
         assert view.region.width == total - 15
+
+
+def label_text(tree: UprootTree, node: object) -> str:
+    style = rich.style.Style()
+    return tree.render_label(node, style, style).plain  # type: ignore[arg-type]
+
+
+async def click_label(
+    pilot: textual.pilot.Pilot[None], node: object, **kwargs: bool
+) -> None:
+    tree = pilot.app.query_one("#tree-view", UprootTree)
+    label = tree._get_label_region(node.line)  # type: ignore[attr-defined]  # noqa: SLF001
+    assert label is not None
+    offset = tree.content_region.offset - tree.region.offset - tree.scroll_offset
+    await pilot.click(
+        tree,
+        offset=(label.x + label.width // 2 + offset.x, label.y + offset.y),
+        **kwargs,
+    )
+    await pilot.pause()
+
+
+async def test_click_toggles_directory() -> None:
+    """A plain click on a tree opens it, and a second click closes it."""
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        node = next(
+            n for n in tree.root.children if n.data is not None and n.data.path == "//T"
+        )
+        assert not node.is_expanded
+        await click_label(pilot, node)
+        assert node.is_expanded
+        await click_label(pilot, node)
+        assert not node.is_expanded
+
+
+async def test_mark_two_branches_plots_2d() -> None:
+    """Marking a second branch plots the pair; both keep their axis labels."""
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        tree.select_path("//T/event/fNtrack")
+        await pilot.pause()
+        await pilot.press("m")
+        x_node = tree.cursor_node
+        assert tree.marks == [x_node]
+        assert label_text(tree, x_node).startswith("x: ")
+        tree.select_path(LEAF_PATH)
+        await pilot.pause()
+        await pilot.press("m")
+        y_node = tree.cursor_node
+        await settle_render(pilot)
+
+        item = pilot.app.view_widget.item
+        if uproot_browser.plotext_compat.PLOTEXT_6:
+            assert isinstance(item, Plotext)
+            assert (item.selection, item.y_selection) == (
+                "//T/event/fNtrack",
+                LEAF_PATH,
+            )
+            text = plot_text(pilot.app)
+            assert "fNtrack" in text
+            assert "fFlag" in text
+        else:
+            assert isinstance(item, Error)
+            assert "plotext 6" in str(item.exc)
+        assert tree.marks == [x_node, y_node]
+        assert label_text(tree, x_node).startswith("x: ")
+        assert label_text(tree, y_node).startswith("y: ")
+        msg, _ = pilot.app.dump_source()
+        assert 'x_item = uproot_file["T/event/fNtrack"]' in msg
+        assert f'y_item = uproot_file["{LEAF_PATH.lstrip("/")}"]' in msg
+
+        # A single plot replaces the pair, but keeps a pending x mark
+        await pilot.press("enter")
+        await pilot.pause()
+        assert tree.marks == []
+        await pilot.press("m")
+        assert tree.marks == [y_node]
+        await pilot.press("enter")
+        await pilot.pause()
+        assert tree.marks == [y_node]
+
+
+async def test_mark_toggles_and_rejects_non_numeric() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        tree.select_path("//T/event/fNtrack")
+        await pilot.pause()
+        await pilot.press("m")
+        assert tree.marks
+        await pilot.press("m")
+        assert tree.marks == []
+
+        tree.select_path("//T/event/fEventName")
+        await pilot.pause()
+        await pilot.press("m")
+        assert tree.marks == []
+        assert pilot.app._notifications  # noqa: SLF001
+
+
+async def test_shift_click_pairs_with_cursor() -> None:
+    """Shift+click plots the branch at the cursor (x) against the clicked one (y)."""
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        tree.select_path("//T/event/fNtrack")
+        await pilot.pause()
+        x_node = tree.cursor_node
+        assert x_node is not None
+        assert x_node.parent is not None
+        flag = next(
+            node
+            for node in x_node.parent.children
+            if node.data is not None and node.data.path == LEAF_PATH
+        )
+        await click_label(pilot, flag, shift=True)
+        await pilot.pause()
+
+        assert tree.cursor_node is flag
+        assert tree.marks == [x_node, flag]
+        item = pilot.app.view_widget.item
+        assert item is not None
+        assert (item.selection, item.y_selection) == ("//T/event/fNtrack", LEAF_PATH)
+
+
+async def test_shift_click_needs_numeric_cursor() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        await pilot.press(*EXPAND_EVENT)  # the cursor stays on //T/event
+        await pilot.pause()
+        assert tree.cursor_node is not None
+        flag = next(
+            node
+            for node in tree.cursor_node.children
+            if node.data is not None and node.data.path == LEAF_PATH
+        )
+        await click_label(pilot, flag, shift=True)
+        assert tree.marks == []
+        assert pilot.app.view_widget.item is None
+        assert pilot.app._notifications  # noqa: SLF001

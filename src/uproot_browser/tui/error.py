@@ -12,6 +12,7 @@ import rich.traceback
 class Error:
     exc: BaseException
     selection: str = ""
+    y_selection: str = ""
 
     def __rich_console__(
         self, console: rich.console.Console, options: rich.console.ConsoleOptions

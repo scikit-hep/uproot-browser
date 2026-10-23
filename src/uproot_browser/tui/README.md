@@ -35,6 +35,13 @@ be plotted, you'll see a scrollable error traceback. If you think it should
 be plottable, feel free to open an issue. 2D histograms draw as heatmaps
 (text mode needs plotext 6 or newer; `--image` mode always supports them).
 
+To plot two numeric branches or fields against each other, press `m` on the
+first one (the x axis) to mark it, then press `m` on the second one (the y
+axis). The pair is filled into a 2D histogram, and the tree labels the two
+items with `x:` and `y:`. A per-entry value pairs with each value of a jagged
+branch from the same entry. Press `m` on a marked item to clear the marks.
+Shift+click plots the item at the cursor (x) against the clicked item (y).
+
 Press `e` to open the expression input, and `esc` to close it. Type an
 expression and press `enter` to apply it. The expression sees `h`, the default
 histogram, and `tree`, the containing TTree or RNTuple when available. Use the

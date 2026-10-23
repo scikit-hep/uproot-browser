@@ -142,6 +142,47 @@ def _hist_to_histogram(
     return cast("hist.Hist[Any]", tree.to_hist())
 
 
+@dataclasses.dataclass(frozen=True, slots=True)
+class BranchPair:
+    """Two branches/fields filled together into a 2D histogram (x, y)."""
+
+    x: Any
+    y: Any
+
+    @property
+    def name(self) -> str:
+        return f"{self.y.name} vs {self.x.name}"
+
+
+@to_histogram.register(BranchPair)
+def _pair_hist(pair: BranchPair, *, bins: int = 50) -> hist.Hist[Any]:
+    for item in (pair.x, pair.y):
+        if not array_plottable(item):
+            msg = f"{item.name} ({item.typename}) does not hold numbers for a 2D plot"
+            raise TypeError(msg)
+    x_array, y_array = pair.x.array(), pair.y.array()
+    if len(x_array) != len(y_array):
+        msg = (
+            f"{pair.x.name} has {len(x_array)} entries, "
+            f"but {pair.y.name} has {len(y_array)}"
+        )
+        raise ValueError(msg)
+    # A per-entry value broadcasts against a per-item (jagged) value
+    x_array, y_array = ak.broadcast_arrays(x_array, y_array)
+    x = np.asarray(ak.ravel(x_array), dtype=float)
+    y = np.asarray(ak.ravel(y_array), dtype=float)
+    finite = np.isfinite(x) & np.isfinite(y)
+    if not np.any(finite):
+        msg = f"{pair.name} has no finite values."
+        raise EmptyTreeError(msg)
+    filled: hist.Hist[Any] = hist.numpy.histogram2d(
+        x[finite], y[finite], bins=bins, histogram=hist.Hist
+    )
+    filled.axes[0].label = pair.x.name
+    filled.axes[1].label = pair.y.name
+    return filled
+
+
 @functools.singledispatch
 def containing_tree(item: Any) -> Any:  # noqa: ARG001
     """The TTree/RNTuple that ``item`` lives in (itself, if it is one), else None."""
@@ -158,6 +199,11 @@ def _field_tree(item: uproot.behaviors.RNTuple.HasFields) -> Any:
     return item.ntuple
 
 
+@containing_tree.register(BranchPair)
+def _pair_tree(item: BranchPair) -> Any:
+    return containing_tree(item.x)
+
+
 @functools.singledispatch
 def containing_tree_source(item: Any) -> str | None:  # noqa: ARG001
     """Source for :func:`containing_tree` applied to ``item``, or None."""
@@ -172,6 +218,12 @@ def _branch_tree_source(item: uproot.behaviors.TBranch.HasBranches) -> str:  # n
 @containing_tree_source.register(uproot.behaviors.RNTuple.HasFields)
 def _field_tree_source(item: uproot.behaviors.RNTuple.HasFields) -> str:  # noqa: ARG001
     return "item.ntuple"
+
+
+@containing_tree_source.register(BranchPair)
+def _pair_tree_source(item: BranchPair) -> str | None:
+    source = containing_tree_source(item.x)
+    return None if source is None else f"x_{source}"
 
 
 @dataclasses.dataclass(slots=True)
@@ -312,6 +364,11 @@ def _set_lim(fig: PlotextFigure, axis: str, lim: AxisRange) -> None:
         fig.ruler(axis).lim(*lim)
 
 
+def _axis_title(axis: Any) -> str:
+    # hist gives "Axis N" as the label of an unnamed, unlabeled axis
+    return str(axis.name or axis.label)
+
+
 def _draw_hist_2d(
     fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any], *, limits: AxisLimits
 ) -> None:
@@ -325,8 +382,8 @@ def _draw_hist_2d(
     fig.ruler("y").ticks(*_bin_ticks(yaxis, ylim))
     _set_lim(fig, "x", xlim)
     _set_lim(fig, "y", ylim)
-    fig.label(xaxis.name, axis="x")
-    fig.label(yaxis.name, axis="y")
+    fig.label(_axis_title(xaxis), axis="x")
+    fig.label(_axis_title(yaxis), axis="y")
     fig.title(make_hist_title(tree, histogram))
 
 
@@ -403,11 +460,15 @@ def _model_is_histogram(model: Any) -> bool:
     return False
 
 
-def _branch_plottable(branch: uproot.TBranch) -> bool:
+def _leaf_interpretation(branch: uproot.TBranch) -> Any:
     interpretation = branch.interpretation
     if isinstance(interpretation, uproot.interpretation.jagged.AsJagged):
-        interpretation = interpretation.content
-    match interpretation:
+        return interpretation.content
+    return interpretation
+
+
+def _branch_plottable(branch: uproot.TBranch) -> bool:
+    match _leaf_interpretation(branch):
         case uproot.interpretation.objects.AsObjects(model=model):
             return _model_is_histogram(model)
         # AsStridedObjects is a Numerical, but yields records np.isfinite rejects
@@ -454,6 +515,17 @@ def _field_plottable(field: uproot.models.RNTuple.RField) -> bool:
     return np.dtype(leaf.primitive).kind in "biuf"
 
 
+def array_plottable(item: Any) -> bool:
+    """Does ``item`` read as a numeric array (not histogram objects)?"""
+    if isinstance(item, uproot.models.RNTuple.RField):
+        return _field_plottable(item)
+    if isinstance(item, uproot.TBranch):
+        return _branch_plottable(item) and not isinstance(
+            _leaf_interpretation(item), uproot.interpretation.objects.AsObjects
+        )
+    return False
+
+
 def plottable(item: Any) -> bool:
     """
     True if :func:`plot` has an implementation for this object that can
@@ -466,6 +538,8 @@ def plottable(item: Any) -> bool:
         return _branch_plottable(item)
     if isinstance(item, uproot.models.RNTuple.RField):
         return _field_plottable(item)
+    if isinstance(item, BranchPair):
+        return array_plottable(item.x) and array_plottable(item.y)
     return to_histogram.dispatch(type(item)) is not to_histogram.dispatch(object)
 
 
@@ -521,3 +595,22 @@ def dump_hist(
     Source for rebuilding a 1-D histogram.
     """
     return "h = item.to_hist()"
+
+
+@dump.register
+def dump_pair(tree: BranchPair, *, width: int = 100) -> str:  # noqa: ARG001
+    """
+    Source for rebuilding a 2D histogram from branches bound to ``x_item`` and
+    ``y_item``.
+    """
+    return textwrap.dedent(f"""\
+        import awkward as ak
+        import hist
+        import numpy as np
+        x, y = ak.broadcast_arrays(x_item.array(), y_item.array())
+        x = np.asarray(ak.ravel(x), dtype=float)
+        y = np.asarray(ak.ravel(y), dtype=float)
+        finite = np.isfinite(x) & np.isfinite(y)
+        h = hist.numpy.histogram2d(x[finite], y[finite], bins={width}, histogram=hist.Hist)
+        h.axes[0].label = x_item.name
+        h.axes[1].label = y_item.name""")

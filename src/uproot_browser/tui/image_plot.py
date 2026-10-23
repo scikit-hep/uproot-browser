@@ -23,7 +23,12 @@ from uproot_browser.axis import NO_LIMITS, AxisLimits
 from uproot_browser.plot import ExprCache
 
 from .messages import RequestImage
-from .plot import resolve_selection, run_posting_errors, selection_source
+from .plot import (
+    PAIR_ITEM_SOURCE,
+    resolve_item,
+    run_posting_errors,
+    selection_source,
+)
 from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND, as_hex
 
 if TYPE_CHECKING:
@@ -96,6 +101,7 @@ class MPLPlot:
     selection: str
     dark: bool
     app: Browser
+    y_selection: str = ""
     size: tuple[int, int] | None = None
     scale: float = 1.0
     expr: str = ""
@@ -125,7 +131,9 @@ class MPLPlot:
         view.image_widget.image = None
 
     def dump_source(self) -> str:
-        msg = selection_source(self.selection)
+        msg = selection_source(self.selection, self.y_selection)
+        if self.y_selection:
+            msg += f"\n{PAIR_ITEM_SOURCE}"
         args = ""
         imports = ""
         if self.expr:
@@ -147,7 +155,7 @@ class MPLPlot:
 
             item = self.built.item
             if item is None:
-                item = resolve_selection(self.upfile, self.selection)
+                item = resolve_item(self.upfile, self.selection, self.y_selection)
                 self.built.item = item
             histogram = self.built.hist
             if histogram is None:
