@@ -783,3 +783,34 @@ async def test_draw_error_with_expression_shows_traceback(
         await apply_failing_expression(pilot, "h[::2j]")
         assert isinstance(pilot.app.view_widget.item, Error)
         assert not pilot.app.view_widget.plot_input.has_class("-needs-update")
+
+
+async def test_splitter_drag_resizes_panels() -> None:
+    async with Browser(skhep_testdata.data_path("uproot-Event.root")).run_test(
+        size=(120, 30)
+    ) as pilot:
+        await pilot.press("f")
+        await pilot.pause()
+        left = pilot.app.query_one("#left-view")
+        right = pilot.app.query_one("#right-panel")
+        view = pilot.app.query_one("#plot-view")
+        left_width = left.region.width
+        right_width = right.region.width
+        total = view.region.width
+
+        # Screen coordinates: the bar moves with the panel while dragging.
+        bar = pilot.app.query_one("#left-splitter").region
+        await pilot.mouse_down(offset=(bar.x, bar.y + 1))
+        await pilot.hover(offset=(bar.x + 10, bar.y + 1))
+        await pilot.mouse_up(offset=(bar.x + 10, bar.y + 1))
+        await pilot.pause()
+        assert left.region.width == left_width + 10
+        assert view.region.width == total - 10
+
+        bar = pilot.app.query_one("#right-splitter").region
+        await pilot.mouse_down(offset=(bar.x, bar.y + 1))
+        await pilot.hover(offset=(bar.x - 5, bar.y + 1))
+        await pilot.mouse_up(offset=(bar.x - 5, bar.y + 1))
+        await pilot.pause()
+        assert right.region.width == right_width + 5
+        assert view.region.width == total - 15

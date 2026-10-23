@@ -54,7 +54,8 @@ and apply it to restore the default histogram.
 ## Panels
 
 The panel on the left can be hidden or shown with `b`. It has `Tree` and `Info`
-tabs. The panel on the right can be hidden or shown with `t`. It has the axis
+tabs. The panel on the right can be hidden or shown with `t`. Drag the bar
+next to a panel to resize it. It has the axis
 ranges, the image scale (with `--image`), and the theme selector.
 
 
