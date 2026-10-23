@@ -696,3 +696,80 @@ def test_expr_cache_skips_h_expressions() -> None:
 def _fail_eval(*_args: object, **_kwargs: object) -> None:
     msg = "expression was evaluated"
     raise AssertionError(msg)
+
+
+def _pair(upfile: uproot.ReadOnlyDirectory, x: str, y: str) -> object:
+    return uproot_browser.plot.BranchPair(upfile[x], upfile[y])
+
+
+def test_pair_histogram_broadcasts_per_entry_values() -> None:
+    """A per-entry branch pairs with each value of a jagged branch."""
+    with uproot.open(data_path("uproot-Event.root")) as upfile:
+        pair = _pair(upfile, "T/event/fNtrack", "T/event/fTracks/fTracks.fPx")
+        histogram = uproot_browser.plot.to_histogram(pair, bins=20)
+        ntrack = upfile["T/event/fNtrack"].array()
+
+    assert [ax.label for ax in histogram.axes] == ["fNtrack", "fTracks.fPx"]
+    assert histogram.sum(flow=True) == np.sum(ntrack)
+    assert uproot_browser.plot.plottable(pair)
+
+
+@pytest.mark.parametrize(
+    ("x", "y"),
+    [
+        ("T/event/fNtrack", "T/event/fH"),  # histogram objects
+        ("T/event/fEventName", "T/event/fNtrack"),  # strings
+    ],
+)
+def test_pair_needs_numbers(x: str, y: str) -> None:
+    with uproot.open(data_path("uproot-Event.root")) as upfile:
+        pair = _pair(upfile, x, y)
+        assert not uproot_browser.plot.plottable(pair)
+        with pytest.raises(TypeError, match="2D plot"):
+            uproot_browser.plot.to_histogram(pair)
+
+
+def test_pair_needs_same_entries() -> None:
+    with (
+        uproot.open(data_path("uproot-Event.root")) as event,
+        uproot.open(data_path("uproot-HZZ.root")) as hzz,
+    ):
+        pair = uproot_browser.plot.BranchPair(
+            event["T/event/fNtrack"], hzz["events/NJet"]
+        )
+        with pytest.raises(ValueError, match="1000 entries, but NJet has 2421"):
+            uproot_browser.plot.to_histogram(pair)
+
+
+@pytest.mark.skipif(
+    not uproot_browser.plotext_compat.PLOTEXT_6, reason="heatmaps require plotext 6"
+)
+def test_plot_pair() -> None:
+    with uproot.open(data_path("uproot-Event.root")) as upfile:
+        pair = _pair(
+            upfile, "T/event/fTracks/fTracks.fPx", "T/event/fTracks/fTracks.fPy"
+        )
+        out = _render(pair, AxisLimits(), (80, 25))
+
+    assert "fTracks.fPy vs fTracks.fPx" in out
+    assert "█" in out
+
+
+@pytest.mark.parametrize("expr", ["", "h[::2j, :]"])
+def test_dump_pair_is_runnable(expr: str) -> None:
+    upfile = uproot.open(data_path("uproot-Event.root"))
+    pair = _pair(upfile, "T/event/fTracks/fTracks.fPx", "T/event/fTracks/fTracks.fPy")
+
+    code = uproot_browser.tui.plot.make_dump(pair, 105, 30, expr=expr)
+    assert "uproot_browser" not in code
+
+    namespace: dict[str, object] = {"x_item": pair.x, "y_item": pair.y}
+    exec(code, namespace)
+
+    expected = uproot_browser.plot.apply_expr(
+        uproot_browser.plot.to_histogram(pair, bins=100), expr, pair
+    )
+    actual = namespace["h"]
+    assert isinstance(actual, hist.Hist)
+    np.testing.assert_array_equal(actual.values(flow=True), expected.values(flow=True))
+    assert [ax.label for ax in actual.axes] == [ax.label for ax in expected.axes]

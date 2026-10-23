@@ -197,7 +197,7 @@ class Browser(textual.app.App[None]):
             items = [item]
             if item.selection:
                 # Show which branch produced the traceback
-                msg += selection_source(item.selection)
+                msg += selection_source(item.selection, item.y_selection)
         elif isinstance(item, PlotItem):
             msg += item.dump_source()
             items = list(item.dump_renderables())
@@ -239,10 +239,17 @@ class Browser(textual.app.App[None]):
                 message.path,
                 dark=dark,
                 app=self,
+                y_selection=message.y_path,
                 scale=self.image_scale,
             )
             if self.image
-            else Plotext(message.upfile, message.path, dark=dark, app=self)
+            else Plotext(
+                message.upfile,
+                message.path,
+                dark=dark,
+                app=self,
+                y_selection=message.y_path,
+            )
         )
 
     def on_empty_message(self) -> None:
@@ -281,7 +288,14 @@ class Browser(textual.app.App[None]):
         if not size.width or not size.height:
             return
         item.size = (size.width, size.height)
-        key = (item.selection, item.expr, item.dark, item.size, item.axis_limits)
+        key = (
+            item.selection,
+            item.y_selection,
+            item.expr,
+            item.dark,
+            item.size,
+            item.axis_limits,
+        )
         if key != self._plot_rendered:
             self._plot_rendered = key
             self.view_widget.plot_widget.update(rich.text.Text("... plotting ..."))
@@ -307,6 +321,7 @@ class Browser(textual.app.App[None]):
             item.size = size
         key = (
             item.selection,
+            item.y_selection,
             item.expr,
             item.dark,
             item.scale,

@@ -12,9 +12,10 @@ if TYPE_CHECKING:
 
 @rich.repr.auto
 class UprootSelected(textual.message.Message, bubble=True):
-    def __init__(self, upfile: Any, path: str) -> None:
+    def __init__(self, upfile: Any, path: str, y_path: str = "") -> None:
         self.upfile = upfile
         self.path = path
+        self.y_path = y_path
         super().__init__()
 
 
