@@ -20,6 +20,7 @@ __lazy_modules__ = {
 }
 
 import io
+import threading
 import warnings
 from typing import TYPE_CHECKING, Any
 
@@ -38,6 +39,11 @@ if TYPE_CHECKING:
 
 DPI = 100
 ASPECT_RATIO = 5 / 8  # height / width of the default figure
+
+
+# Warning filters and style contexts are process-global, and a cancelled
+# thread worker keeps running, so renders must not overlap.
+RENDER_LOCK = threading.Lock()
 
 
 def _draw_on(
@@ -121,7 +127,7 @@ def render_image(
         if size
         else (8.0, 8.0 * ASPECT_RATIO)
     )
-    with matplotlib.style.context(style):
+    with RENDER_LOCK, matplotlib.style.context(style):
         fig = matplotlib.figure.Figure(figsize=figsize, dpi=dpi)
         # hist sets the pyplot current axes for a 2D plot. Attach an Agg canvas
         # first, or pyplot attaches a GUI one, which a worker thread cannot do.
