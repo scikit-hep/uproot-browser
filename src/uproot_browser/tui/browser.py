@@ -46,7 +46,7 @@ from textual.reactive import var
 
 from uproot_browser.axis import NO_LIMITS, AxisLimits
 from uproot_browser.exceptions import EmptyTreeError
-from uproot_browser.tree import LocalDirectory
+from uproot_browser.tree import LocalDirectory, open_source
 
 from ..plotext_compat import add_theme
 from .error import Error
@@ -191,7 +191,6 @@ class Browser(textual.app.App[None]):
     def dump_source(self) -> tuple[str, list[Any]]:
         """The Dump & Quit source, and the renderables to show above it."""
 
-        opener = "import uproot\nuproot_file = uproot.open"
         path = self.path
         item = self.view_widget.item
         root = self.query_one("#tree-view", UprootTree).upfile
@@ -207,10 +206,8 @@ class Browser(textual.app.App[None]):
                 if not isinstance(item, Error):
                     changes["upfile"] = upfile.file
                 item = dataclasses.replace(item, **changes)  # type: ignore[type-var]
-            else:
-                opener = "import uproot_browser.tree\nuproot_file = uproot_browser.tree.open_path"
 
-        msg = f'\n{opener}("{path}")'
+        msg = f"\n{open_source(path)}"
 
         items: list[Any] = []
         if isinstance(item, Error):

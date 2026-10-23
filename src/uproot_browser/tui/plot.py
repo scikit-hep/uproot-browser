@@ -3,12 +3,12 @@ from __future__ import annotations
 __lazy_modules__ = {
     "contextlib",
     "functools",
-    "operator",
     "rich",
     "rich.text",
     "textwrap",
     "uproot_browser.exceptions",
     "uproot_browser.plotext_compat",
+    "uproot_browser.tree",
     f"{__spec__.parent}.error",
     f"{__spec__.parent}.messages",
 }
@@ -16,7 +16,6 @@ __lazy_modules__ = {
 import contextlib
 import dataclasses
 import functools
-import operator
 import textwrap
 import threading
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
@@ -25,6 +24,7 @@ import rich.text
 
 import uproot_browser.plot
 import uproot_browser.plotext_compat
+import uproot_browser.tree
 from uproot_browser.axis import NO_LIMITS, AxisLimits
 from uproot_browser.exceptions import EmptyTreeError, ExpressionError
 
@@ -111,9 +111,10 @@ def selection_source(selection: str, y_selection: str = "") -> str:
 
 def resolve_selection(tree: Any, selection: str) -> Any:
     """
-    Apply a colon-separated selection to an uproot tree. Slashes are handled by uproot.
+    Apply a colon-separated selection to a file. Slashes are handled by the
+    file's :func:`~uproot_browser.tree.lookup`.
     """
-    return functools.reduce(operator.getitem, selection.split(":"), tree)
+    return functools.reduce(uproot_browser.tree.lookup, selection.split(":"), tree)
 
 
 def resolve_item(upfile: Any, selection: str, y_selection: str = "") -> Any:

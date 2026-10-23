@@ -868,7 +868,7 @@ async def test_browse_directory(tmp_path: pathlib.Path) -> None:
         assert_canvas(pilot.app, item)
 
         msg, _ = pilot.app.dump_source()
-        assert f'uproot_file = uproot.open("{nested}")' in msg
+        assert f"uproot_file = uproot.open({str(nested)!r})" in msg
         assert 'item = uproot_file["hpx"]' in msg
 
 
@@ -909,10 +909,10 @@ async def test_dump_directory_pair(
 
         msg, _ = pilot.app.dump_source()
         if same:
-            assert f'uproot.open("{tmp_path / "a.root"}")' in msg
+            assert f"uproot.open({str(tmp_path / 'a.root')!r})" in msg
             assert 'x_item = uproot_file["T/event/fNtrack"]' in msg
             assert f'y_item = uproot_file["{LEAF_PATH.lstrip("/")}"]' in msg
         else:
-            assert f'open_path("{tmp_path}")' in msg
+            assert f"open_path({str(tmp_path)!r})" in msg
             assert 'x_item = uproot_file["a.root/T/event/fNtrack"]' in msg
             assert f'y_item = uproot_file["{y_path.lstrip("/")}"]' in msg

@@ -56,6 +56,10 @@ image = [
 testdata = [
   "scikit-hep-testdata >=0.5.0",
 ]
+cdf = [
+  "cdflib >=1.0",
+  "xarray >=2023.1",
+]
 
 [project.urls]
 homepage = "https://github.com/scikit-hep/uproot-browser"
@@ -69,6 +73,7 @@ test = [
   "pytest >=8",
   "pytest-asyncio >=0.24",
   "scikit-hep-testdata >=0.5.0",
+  "uproot-browser[cdf]",
 ]
 dev = [
   "ipython >=6",
@@ -106,7 +111,7 @@ warn_unused_configs = true
 strict = true
 
 [[tool.mypy.overrides]]
-module = ["plotext.*", "awkward.*", "uproot.*", "matplotlib.*", "skhep_testdata", "textual_image.*", "PIL.*"]
+module = ["plotext.*", "awkward.*", "uproot.*", "matplotlib.*", "skhep_testdata", "textual_image.*", "PIL.*", "cdflib.*"]
 ignore_missing_imports = true
 
 
