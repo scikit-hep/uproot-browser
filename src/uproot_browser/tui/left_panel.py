@@ -68,11 +68,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
 
     def __init__(self, path: str, **args: Any) -> None:
         self.upfile = open_path(path)
-        file_path = (
-            self.upfile.path
-            if isinstance(self.upfile, LocalDirectory)
-            else Path(self.upfile.file_path)
-        )
+        file_path = Path(self.upfile.file_path)
         data = UprootEntry("/", self.upfile)
         self._candidates: dict[str, list[Candidate]] = {}
         super().__init__(name=str(file_path), data=data, label=file_path.stem, **args)

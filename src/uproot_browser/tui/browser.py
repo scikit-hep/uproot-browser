@@ -191,7 +191,8 @@ class Browser(textual.app.App[None]):
     def dump_source(self) -> tuple[str, list[Any]]:
         """The Dump & Quit source, and the renderables to show above it."""
 
-        opener = f'import uproot\nuproot_file = uproot.open("{self.path}")'
+        opener = "import uproot\nuproot_file = uproot.open"
+        path = self.path
         item = self.view_widget.item
         root = self.query_one("#tree-view", UprootTree).upfile
         if isinstance(root, LocalDirectory) and isinstance(item, (Error, PlotItem)):
@@ -200,18 +201,16 @@ class Browser(textual.app.App[None]):
                 root.locate(item.y_selection) if item.y_selection else (upfile, "")
             )
             if y_upfile is upfile:
-                # The source opens the one file that holds the selection
-                opener = (
-                    f'import uproot\nuproot_file = uproot.open("{upfile.file_path}")'
-                )
+                # Open only the file that holds the selection
+                path = upfile.file_path
                 changes = {"selection": selection, "y_selection": y_selection}
                 if not isinstance(item, Error):
-                    changes["upfile"] = upfile
+                    changes["upfile"] = upfile.file
                 item = dataclasses.replace(item, **changes)  # type: ignore[type-var]
             else:
-                opener = f'import uproot_browser.tree\nuproot_file = uproot_browser.tree.open_path("{self.path}")'
+                opener = "import uproot_browser.tree\nuproot_file = uproot_browser.tree.open_path"
 
-        msg = f"\n{opener}"
+        msg = f'\n{opener}("{path}")'
 
         items: list[Any] = []
         if isinstance(item, Error):

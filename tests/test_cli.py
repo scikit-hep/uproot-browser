@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 from typing import TYPE_CHECKING
 
 import pytest
@@ -97,18 +96,15 @@ def test_plot_save(tmp_path: Path) -> None:
         assert image.getpixel((2, 2))[-1] == 0  # transparent background
 
 
-def test_tree_directory(tmp_path: Path) -> None:
-    (tmp_path / "sub").mkdir()
-    shutil.copy(data_path("uproot-hepdata-example.root"), tmp_path / "sub" / "b.root")
-    result = CliRunner().invoke(main, ["tree", str(tmp_path)])
+def test_tree_directory(root_dir: Path) -> None:
+    result = CliRunner().invoke(main, ["tree", str(root_dir)])
     assert result.exit_code == 0, result.output
     assert "b.root" in result.output
     assert "hpx" in result.output
 
 
-def test_plot_directory_selection(tmp_path: Path) -> None:
-    shutil.copy(data_path("uproot-hepdata-example.root"), tmp_path / "b.root")
-    result = CliRunner().invoke(main, ["plot", f"{tmp_path}:b.root/hpx"])
+def test_plot_directory_selection(root_dir: Path) -> None:
+    result = CliRunner().invoke(main, ["plot", f"{root_dir}:sub/b.root/hpx"])
     assert result.exit_code == 0, result.output
     assert "hpx" in result.output
 

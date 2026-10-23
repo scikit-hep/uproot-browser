@@ -786,19 +786,8 @@ def test_dump_pair_is_runnable(expr: str) -> None:
     assert [ax.label for ax in actual.axes] == [ax.label for ax in expected.axes]
 
 
-def make_root_dir(tmp_path: pathlib.Path) -> pathlib.Path:
-    """A directory with a ROOT file, a nested one, and entries to skip."""
-    shutil.copy(data_path("uproot-hepdata-example.root"), tmp_path / "a.root")
-    (tmp_path / "sub").mkdir()
-    shutil.copy(data_path("uproot-hepdata-example.root"), tmp_path / "sub" / "b.root")
-    (tmp_path / "empty").mkdir()
-    (tmp_path / "notes.txt").write_text("not ROOT")
-    (tmp_path / ".hidden.root").write_text("")
-    return tmp_path
-
-
-def test_local_directory_tree(tmp_path: pathlib.Path) -> None:
-    root = make_root_dir(tmp_path)
+def test_local_directory_tree(root_dir: pathlib.Path) -> None:
+    root = root_dir
     with uproot_browser.tree.open_path(str(root)) as directory:
         assert isinstance(directory, uproot_browser.tree.LocalDirectory)
         assert directory.keys() == ["a.root", "sub"]
@@ -819,19 +808,21 @@ def test_local_directory_tree(tmp_path: pathlib.Path) -> None:
     assert "empty" not in out
 
 
-def test_local_directory_selection(tmp_path: pathlib.Path) -> None:
-    root = make_root_dir(tmp_path)
-    item = uproot_browser.tree.open_path(f"{root}:sub/b.root/hpx")
+def test_local_directory_selection(root_dir: pathlib.Path) -> None:
+    item = uproot_browser.tree.open_path(f"{root_dir}:sub/b.root/hpx")
     assert item.name == "hpx"
 
 
-def test_local_directory_unreadable_file(tmp_path: pathlib.Path) -> None:
+def test_local_directory_unreadable_file(root_dir: pathlib.Path) -> None:
     """A file that fails to open shows as failed; the other files still list."""
-    root = make_root_dir(tmp_path)
+    root = root_dir
     (root / "bad.root").write_text("not ROOT")
     with uproot_browser.tree.open_path(str(root)) as directory:
         entries = {e.path: e for e in UprootEntry("/", directory).walk()}
-        assert isinstance(entries["//bad.root"].item, uproot_browser.tree.FailedEntry)
+        bad = entries["//bad.root"]
+        assert isinstance(bad.item, uproot_browser.tree.LocalFile)
+        assert bad.item.error is not None
+        assert bad.meta()["label_icon"] == "‼️ "
         assert "//sub/b.root/hpx" in entries
 
     console = rich.console.Console(width=80, file=io.StringIO(), record=True)
@@ -852,10 +843,9 @@ def test_local_directory_unreadable_file(tmp_path: pathlib.Path) -> None:
     ],
 )
 def test_split_spec(
-    tmp_path: pathlib.Path, spec: str, expected: tuple[str, str]
+    root_dir: pathlib.Path, spec: str, expected: tuple[str, str]
 ) -> None:
-    root = make_root_dir(tmp_path)
-    fmt = {"f": root / "a.root", "d": root}
+    fmt = {"f": root_dir / "a.root", "d": root_dir}
     assert uproot_browser.tree.split_spec(spec.format(**fmt)) == tuple(
         e.format(**fmt) for e in expected
     )

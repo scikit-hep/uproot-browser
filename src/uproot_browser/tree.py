@@ -69,11 +69,13 @@ class LocalFile:
     """A ROOT file in a LocalDirectory, opened on first access to its contents."""
 
     path: Path
+    error: Exception | None = dataclasses.field(default=None, init=False, repr=False)
+    """The exception of a failed open; the file then has no keys."""
     _file: Any = dataclasses.field(default=None, init=False, repr=False)
 
     @property
-    def name(self) -> str:
-        return self.path.name
+    def file_path(self) -> str:
+        return str(self.path)
 
     @property
     def is_open(self) -> bool:
@@ -82,11 +84,18 @@ class LocalFile:
     @property
     def file(self) -> Any:
         if self._file is None:
-            self._file = uproot.open(self.path)
+            try:
+                self._file = uproot.open(self.path)
+            except Exception as err:
+                self.error = err
+                raise
         return self._file
 
-    def keys(self, *, recursive: bool = False) -> Iterable[str]:
-        return self.file.keys(recursive=recursive)  # type: ignore[no-any-return]
+    def keys(self, **_: object) -> Iterable[str]:
+        try:
+            return self.file.keys(recursive=False)  # type: ignore[no-any-return]
+        except Exception:  # noqa: BLE001
+            return []
 
     def __getitem__(self, key: str) -> Any:
         return self.file[key]
@@ -110,14 +119,14 @@ class LocalDirectory:
     )
 
     @property
-    def name(self) -> str:
-        return self.path.name
+    def file_path(self) -> str:
+        return str(self.path)
 
-    def keys(self, *, recursive: bool = False) -> list[str]:  # noqa: ARG002
-        return self._keys
+    def keys(self, **_: object) -> list[str]:
+        return self._listing
 
     @functools.cached_property
-    def _keys(self) -> list[str]:
+    def _listing(self) -> list[str]:
         return sorted(
             p.name
             for p in self.path.iterdir()
@@ -128,26 +137,26 @@ class LocalDirectory:
             )
         )
 
-    def _child(self, name: str) -> Any:
+    def _resolve(self, key: str) -> tuple[Any, str]:
+        """The child named by the first part of a key, and the rest of the key."""
+        name, _, rest = key.strip("/").partition("/")
         if name not in self._files:
             child = self.path / name
             self._files[name] = (
                 LocalDirectory(child) if child.is_dir() else LocalFile(child)
             )
-        return self._files[name]
+        return self._files[name], rest
 
     def __getitem__(self, key: str) -> Any:
-        name, _, rest = key.strip("/").partition("/")
-        child = self._child(name)
+        child, rest = self._resolve(key)
         return child[rest] if rest else child
 
-    def locate(self, key: str) -> tuple[Any, str]:
-        """Split a key into the opened ROOT file and the key inside that file."""
-        name, _, rest = key.strip("/").partition("/")
-        child = self._child(name)
+    def locate(self, key: str) -> tuple[LocalFile, str]:
+        """Split a key into the LocalFile and the key inside that file."""
+        child, rest = self._resolve(key)
         if isinstance(child, LocalDirectory):
             return child.locate(rest)
-        return child.file, rest
+        return child, rest
 
     def close(self) -> None:
         for child in self._files.values():
@@ -169,9 +178,11 @@ def split_spec(spec: str) -> tuple[str, str]:
     if "://" in spec or Path(spec).exists():
         return spec, ""
     for i, char in enumerate(spec):
+        if char != ":":
+            continue
         path = Path(spec[:i])
         # Skip a Windows drive, like "C:"
-        if char == ":" and path.drive != spec[: i + 1] and path.exists():
+        if path.drive != spec[: i + 1] and path.exists():
             return spec[:i], spec[i + 1 :]
     return spec, ""
 
@@ -238,17 +249,8 @@ class UprootEntry:
         if not self.is_dir:
             return []
 
-        try:
-            keys = get_children(self.item)
-        except Exception as err:
-            # A file of a directory opens here; show it as failed
-            if not isinstance(self.item, LocalFile):
-                raise
-            self.item = FailedEntry(self.item.name, "TFile", err)
-            return []
-
         children = []
-        for key in sorted(keys):
+        for key in sorted(get_children(self.item)):
             try:
                 item = self.item[key]
             except Exception as err:  # noqa: BLE001
@@ -270,7 +272,7 @@ def make_tree(node: UprootEntry, *, tree: Tree | None = None) -> Tree:
     Given an object, build a rich.tree.Tree output.
     """
 
-    # Children first: a file that fails to open changes the label
+    # Children first: a file of a directory opens here, and that can fail
     children = node.children
     tree = Tree(**node.tree_args()) if tree is None else tree.add(**node.tree_args())
 
@@ -303,20 +305,24 @@ def _process_item_tfile(
     """
     path = Path(uproot_object.file_path)
 
-    if uproot_object.path:
-        # path is to a TDirectory on tree
-        path_name = uproot_object.path[-1]
-        link_text = f"file://{path}:/{'/'.join(uproot_object.path)}"
-    else:
-        # path is the top of the tree: the file
-        path_name = path.name
-        link_text = f"file://{path}"
+    if not uproot_object.path:
+        # The top of the tree: the file
+        return _path_meta(path, "📁 ")
 
-    label_text = Text(path_name, style=Style(link=link_text))
-
+    # A TDirectory in the file
+    link_text = f"file://{path}:/{'/'.join(uproot_object.path)}"
     return MetaDict(
         label_icon="📁 ",
-        label_text=label_text,
+        label_text=Text(uproot_object.path[-1], style=Style(link=link_text)),
+        guide_style="bold bright_blue",
+    )
+
+
+def _path_meta(path: Path, icon: str) -> MetaDict:
+    """Meta for a local file or directory: its name, linked to the path."""
+    return MetaDict(
+        label_icon=icon,
+        label_text=Text(path.name, style=Style(link=f"file://{path.resolve()}")),
         guide_style="bold bright_blue",
     )
 
@@ -324,22 +330,14 @@ def _process_item_tfile(
 @process_item.register
 def _process_item_local_file(uproot_object: LocalFile) -> MetaDict:
     """Label a file of a directory without opening it."""
-    path = uproot_object.path.resolve()
-    return MetaDict(
-        label_icon="📁 ",
-        label_text=Text(path.name, style=Style(link=f"file://{path}")),
-        guide_style="bold bright_blue",
-    )
+    if uproot_object.error is not None:
+        return _failed_meta(uproot_object.path.name, "TFile", uproot_object.error)
+    return _path_meta(uproot_object.path, "📁 ")
 
 
 @process_item.register
 def _process_item_local_directory(uproot_object: LocalDirectory) -> MetaDict:
-    path = uproot_object.path.resolve()
-    return MetaDict(
-        label_icon="🗂️ ",
-        label_text=Text(path.name, style=Style(link=f"file://{path}")),
-        guide_style="bold bright_blue",
-    )
+    return _path_meta(uproot_object.path, "🗂️ ")
 
 
 def _tree_meta(uproot_object: Any, icon: str) -> MetaDict:
@@ -422,10 +420,16 @@ def _process_item_failed(uproot_object: FailedEntry) -> MetaDict:
     """
     Given an unreadable object, return a rich.tree.Tree output.
     """
+    return _failed_meta(
+        uproot_object.name, uproot_object.classname, uproot_object.exception
+    )
+
+
+def _failed_meta(name: str, classname: str, exception: Exception) -> MetaDict:
     label_text = Text.assemble(
-        (f"{uproot_object.name} ", "bold"),
-        (f"{uproot_object.classname} ", "italic"),
-        (f"({uproot_object.exception.__class__.__name__})", "red"),
+        (f"{name} ", "bold"),
+        (f"{classname} ", "italic"),
+        (f"({exception.__class__.__name__})", "red"),
     )
     return MetaDict(label_icon="‼️ ", label_text=label_text)
 
@@ -434,7 +438,6 @@ def _process_item_failed(uproot_object: FailedEntry) -> MetaDict:
 def print_tree(entry: str, *, console: Console = console) -> None:
     """
     Prints a tree given a specification string: a filename or a directory.
-    Colons are not allowed currently in the filename.
     """
 
     with open_path(entry) as upfile:
