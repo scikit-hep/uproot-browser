@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-__lazy_modules__ = {"textual", "textual.events"}
+from typing import TYPE_CHECKING
 
-import textual.events
 from textual.widget import Widget
+
+if TYPE_CHECKING:
+    import textual.events
 
 __all__ = ["Splitter"]
 
