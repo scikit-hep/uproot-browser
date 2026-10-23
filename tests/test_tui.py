@@ -85,6 +85,15 @@ async def jump_to(pilot: textual.pilot.Pilot[None], path: str) -> None:
     )
 
 
+async def expand_event(pilot: textual.pilot.Pilot[None]) -> None:
+    """Open //T/event and wait for its children, which load lazily."""
+    tree = pilot.app.query_one("#tree-view", UprootTree)
+    await pilot.press(*EXPAND_EVENT)
+    await wait_until(
+        pilot, lambda: tree.cursor_node is not None and bool(tree.cursor_node.children)
+    )
+
+
 def node_at(parent: object, path: str) -> object:
     """The child of ``parent`` whose entry has ``path``."""
     return next(
@@ -510,8 +519,7 @@ async def test_count_prefix_motion(down: str, up: str) -> None:
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
         tree = pilot.app.query_one("#tree-view", UprootTree)
-        await pilot.press(*EXPAND_EVENT)
-        await pilot.pause()
+        await expand_event(pilot)
         assert tree.cursor_line == 3
 
         await pilot.press("1", "2", down)
@@ -533,8 +541,7 @@ async def test_count_prefix_after_click() -> None:
         size=(160, 50)
     ) as pilot:
         tree = pilot.app.query_one("#tree-view", UprootTree)
-        await pilot.press(*EXPAND_EVENT)
-        await pilot.pause()
+        await expand_event(pilot)
         assert tree.cursor_node is not None
         flag = node_at(tree.cursor_node, LEAF_PATH)
         await click_label(pilot, flag)
@@ -554,8 +561,7 @@ async def test_count_prefix_shown_and_reset() -> None:
     ).run_test() as pilot:
         tree = pilot.app.query_one("#tree-view", UprootTree)
         tabs = pilot.app.query_one("#left-view", textual.widgets.TabbedContent)
-        await pilot.press(*EXPAND_EVENT)
-        await pilot.pause()
+        await expand_event(pilot)
 
         await pilot.press("4")
         await pilot.pause()
@@ -630,8 +636,7 @@ async def test_scrolloff_keeps_context_visible() -> None:
         size=(80, 24)
     ) as pilot:
         tree = pilot.app.query_one("#tree-view", UprootTree)
-        await pilot.press(*EXPAND_EVENT)
-        await pilot.pause()
+        await expand_event(pilot)
         height = tree.scrollable_content_region.height
         assert tree.last_line > height  # the tree must overflow for this to matter
 
@@ -949,8 +954,7 @@ async def test_shift_click_needs_numeric_cursor() -> None:
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
         tree = pilot.app.query_one("#tree-view", UprootTree)
-        await pilot.press(*EXPAND_EVENT)  # the cursor stays on //T/event
-        await pilot.pause()
+        await expand_event(pilot)  # the cursor stays on //T/event
         flag = node_at(tree.cursor_node, LEAF_PATH)
         await click_label(pilot, flag, shift=True)
         assert tree.marks == []
