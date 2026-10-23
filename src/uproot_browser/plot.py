@@ -100,11 +100,20 @@ def branch_hist(
     )
 
 
+def _flatten_object_array(array: Any) -> Any:
+    """Flatten the object array uproot gives for a jagged branch with library="np".
+
+    Concatenating the inner arrays is much faster than ``ak.from_iter``, which
+    stays as the fallback for deeper nesting.
+    """
+    flat = np.concatenate([np.ravel(x) for x in array]) if len(array) else array
+    return ak.from_iter(array) if flat.dtype == object else flat
+
+
 def _fill_finite(array: Any, *, bins: int, empty_msg: str) -> hist.Hist[Any]:
     """Flatten ``array``, drop non-finite values, and fill a regular histogram."""
     if isinstance(array, np.ndarray) and array.dtype == object:
-        # uproot gives this for a jagged branch with library="np"
-        array = ak.from_iter(array)
+        array = _flatten_object_array(array)
     values = ak.ravel(array)
     # pylint: disable-next=unsubscriptable-object  # ak.ravel return is opaque to pylint
     finite = values[np.isfinite(values)]
@@ -322,7 +331,8 @@ def dump_expr(item: Any, expr: str) -> str:
             result = hist.Hist(result)
         if isinstance(result, (ak.Array, np.ndarray)):
             if isinstance(result, np.ndarray) and result.dtype == object:
-                result = ak.from_iter(result)
+                flat = np.concatenate([np.ravel(x) for x in result]) if len(result) else result
+                result = ak.from_iter(result) if flat.dtype == object else flat
             values = ak.ravel(result)
             finite = values[np.isfinite(values)]
             if len(finite) < 1:
