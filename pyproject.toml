@@ -57,6 +57,10 @@ image = [
 testdata = [
   "scikit-hep-testdata >=0.5.0",
 ]
+cdf = [
+  "cdflib >=1.0",
+  "xarray >=2023.1",
+]
 
 [project.urls]
 homepage = "https://github.com/scikit-hep/uproot-browser"
@@ -66,6 +70,7 @@ repository = "https://github.com/scikit-hep/uproot-browser"
 uproot-browser = "uproot_browser.__main__:main"
 
 [project.entry-points."uproot_browser.backends"]
+cdf = "uproot_browser.backends.cdf [cdf]"
 directory = "uproot_browser.backends.directory"
 uproot = "uproot_browser.backends.uproot"
 
@@ -74,6 +79,7 @@ test = [
   "pytest >=9",
   "pytest-asyncio >=0.24",
   "scikit-hep-testdata >=0.5.0",
+  "uproot-browser[cdf]",
 ]
 dev = [
   "ipython >=6",
@@ -113,7 +119,7 @@ warn_unreachable = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 
 [[tool.mypy.overrides]]
-module = ["plotext.*", "awkward.*", "uproot.*", "fsspec.*", "matplotlib.*", "skhep_testdata", "textual_image.*", "PIL.*"]
+module = ["plotext.*", "awkward.*", "uproot.*", "fsspec.*", "matplotlib.*", "skhep_testdata", "textual_image.*", "PIL.*", "cdflib.*", "xarray.*"]
 ignore_missing_imports = true
 
 
