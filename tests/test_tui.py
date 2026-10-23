@@ -26,7 +26,8 @@ from uproot_browser.tui.plot import Plotext, render_canvas
 from uproot_browser.tui.right_panel import RightPanel
 
 LEAF_PATH = "//T/event/fFlag"
-EXPAND_EVENT = ("down", "down", "l", "j", "l")  # open //T/event: 26 lines deep
+# Open //T, then //T/event (26 lines deep)
+EXPAND_EVENT = (("down", "down", "l"), ("j", "l"))
 
 
 async def wait_until(
@@ -88,10 +89,13 @@ async def jump_to(pilot: textual.pilot.Pilot[None], path: str) -> None:
 async def expand_event(pilot: textual.pilot.Pilot[None]) -> None:
     """Open //T/event and wait for its children, which load lazily."""
     tree = pilot.app.query_one("#tree-view", UprootTree)
-    await pilot.press(*EXPAND_EVENT)
-    await wait_until(
-        pilot, lambda: tree.cursor_node is not None and bool(tree.cursor_node.children)
-    )
+    # Each expansion must load before the cursor moves into it
+    for keys in EXPAND_EVENT:
+        await pilot.press(*keys)
+        await wait_until(
+            pilot,
+            lambda: tree.cursor_node is not None and bool(tree.cursor_node.children),
+        )
 
 
 def node_at(parent: object, path: str) -> object:
@@ -142,19 +146,23 @@ def assert_canvas(app: Browser, item: Plotext) -> str:
     return text
 
 
-async def test_browse_logo() -> None:
-    async with Browser(
-        skhep_testdata.data_path("uproot-Event.root")
-    ).run_test() as pilot:
-        assert pilot.app.view_widget.item is None
+TREE_CUT_EXPR = 'tree["fTracks.fPx"].array()[tree["fTracks.fPy"].array() < 0]'
+
+
+def raise_error(*_args: object, **_kwargs: object) -> None:
+    msg = "render failed"
+    raise RuntimeError(msg)
 
 
 async def test_right_panel_toggle() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        assert pilot.app.view_widget.item is None
         panel = pilot.app.query_one("#right-panel")
         assert panel.display
+        # the image scale tool only exists in image mode
+        assert not pilot.app.query("#right-panel #image-scale-select")
 
         await pilot.press("t")
         assert not pilot.app.show_right_panel
@@ -171,13 +179,27 @@ async def test_entry_box_toggle() -> None:
     ).run_test() as pilot:
         entry_box = pilot.app.query_one("#plot-input-container")
         plot_input = pilot.app.view_widget.plot_input
+        tree = pilot.app.query_one("#tree-view")
         assert not entry_box.display
+        assert tree.has_focus
 
-        await settled_plot(pilot)
+        # The entry box is part of the plot window, which is not shown yet,
+        # so the tree keeps the focus
+        await pilot.press("e")
+        assert pilot.app.show_entry_box
+        assert tree.has_focus
+        await pilot.press("e")
+        assert not pilot.app.show_entry_box
+
+        item = await settled_plot(pilot)
+        assert item.size is not None
+        _, height = item.size
         await pilot.press("e")
         assert pilot.app.show_entry_box
         assert entry_box.display
         assert plot_input.has_focus
+        # the plot re-renders in the space the box leaves
+        await wait_until(pilot, lambda: item.size is not None and item.size[1] < height)
 
         # Typing "e" in the box must not close it; escape does
         await pilot.press("e")
@@ -187,7 +209,7 @@ async def test_entry_box_toggle() -> None:
         await pilot.press("escape")
         assert not pilot.app.show_entry_box
         assert not entry_box.display
-        assert pilot.app.query_one("#tree-view").has_focus
+        assert tree.has_focus
 
         await pilot.press("e", "tab")
         assert not plot_input.has_focus
@@ -195,34 +217,7 @@ async def test_entry_box_toggle() -> None:
         assert not entry_box.display
 
 
-async def test_entry_box_toggle_without_plot_keeps_focus() -> None:
-    async with Browser(
-        skhep_testdata.data_path("uproot-Event.root")
-    ).run_test() as pilot:
-        tree = pilot.app.query_one("#tree-view")
-        assert tree.has_focus
-
-        # The entry box is part of the plot window, which is not shown yet
-        await pilot.press("e")
-        assert pilot.app.show_entry_box
-        assert tree.has_focus
-
-
-async def test_entry_box_toggle_rerenders_plot() -> None:
-    async with Browser(
-        skhep_testdata.data_path("uproot-Event.root")
-    ).run_test() as pilot:
-        item = await settled_plot(pilot)
-        assert item.size is not None
-        _, height = item.size
-
-        await pilot.press("e")
-        await wait_until(pilot, lambda: item.size is not None and item.size[1] < height)
-        assert item.size is not None
-        assert item.size[1] < height
-
-
-async def test_help_blocks_panel_keys() -> None:
+async def test_help_screen() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
@@ -231,18 +226,52 @@ async def test_help_blocks_panel_keys() -> None:
         assert not pilot.app.show_entry_box
         assert pilot.app.show_right_panel
         assert pilot.app.show_tree
+        focus_chain = [widget.id for widget in pilot.app.screen.focus_chain]
+        assert len(focus_chain) == 3
+        assert focus_chain[-1] == "help-done"
+
+        await pilot.press("escape")
+        assert not isinstance(pilot.app.screen, HelpScreen)
+        await pilot.press("?")
+        assert isinstance(pilot.app.screen, HelpScreen)
 
 
-async def test_browse_plot() -> None:
+async def test_plot_first_branch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The finished canvas replaces the placeholder, built for the plot pane."""
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
-        await pilot.press("down", "down", "down", "enter")
-        await pilot.pause()
-        item = pilot.app.view_widget.item
-        assert isinstance(item, Plotext)
+        item = await settled_plot(pilot)
+        assert item.theme == "uproot_dark"
+        assert_canvas(pilot.app, item)
         # Dump & Quit source for the text mode rebuilds the histogram
         assert item.dump_source().startswith('\nitem = uproot_file["')
+
+        # Dump & Quit prints the plot, not the "... plotting ..." placeholder
+        _, items = pilot.app.dump_source()
+        console = rich.console.Console(
+            width=40, file=io.StringIO(), force_terminal=True
+        )
+        with console.capture() as capture:
+            console.print(*items)
+        out = capture.get()
+        assert "plotting" not in out
+        assert "┌" in out or "┐" in out
+
+        # A theme change replaces the item, not mutates it, so the plot re-renders
+        pilot.app.theme = "textual-light"
+        await pilot.pause()
+        item_after = pilot.app.view_widget.item
+        assert isinstance(item_after, Plotext)
+        assert item_after is not item
+        assert item_after.theme == "uproot_light"
+        await settle_render(pilot)
+        assert_canvas(pilot.app, item_after)
+
+        # Dump & Quit stays alive if the plot cannot be rendered
+        monkeypatch.setattr("uproot_browser.tui.plot.render_canvas", raise_error)
+        _, items = pilot.app.dump_source()
+        assert items == []
 
 
 async def test_axis_ranges_are_typed_in_right_panel() -> None:
@@ -251,8 +280,17 @@ async def test_axis_ranges_are_typed_in_right_panel() -> None:
     ).run_test() as pilot:
         await pilot.press("down", "down", "down", "enter")
         await pilot.pause()
+        panel = pilot.app.query_one(RightPanel)
         assert pilot.app.query_one("#y-min", textual.widgets.Input).display
         assert pilot.app.query_one("#y-max", textual.widgets.Input).display
+
+        pilot.app.query_one("#x-max", textual.widgets.Input).value = "1,5"
+        pilot.app.query_one("#x-max", textual.widgets.Input).focus()
+        await pilot.press("enter")
+        await pilot.pause()
+        assert panel.status == "Axis limits must be finite numbers, not '1,5'."
+        assert pilot.app.axis_limits == AxisLimits()
+
         pilot.app.query_one("#x-min", textual.widgets.Input).value = "0.2"
         pilot.app.query_one("#x-max", textual.widgets.Input).value = "0.8"
         pilot.app.query_one("#y-min", textual.widgets.Input).value = "1"
@@ -262,7 +300,6 @@ async def test_axis_ranges_are_typed_in_right_panel() -> None:
         await pilot.pause()
         assert pilot.app.axis_limits.x == (0.2, 0.8)
         assert pilot.app.axis_limits.y == (1.0, 15.0)
-        panel = pilot.app.query_one(RightPanel)
         assert panel.status == "Applied."
         item = pilot.app.view_widget.item
         assert isinstance(item, Plotext)
@@ -275,29 +312,6 @@ async def test_axis_ranges_are_typed_in_right_panel() -> None:
         assert pilot.app.axis_limits == AxisLimits()
         assert pilot.app.query_one("#x-min", textual.widgets.Input).value == ""
         assert panel.status == ""
-
-
-async def test_axis_range_rejects_bad_input() -> None:
-    async with Browser(
-        skhep_testdata.data_path("uproot-Event.root")
-    ).run_test() as pilot:
-        await pilot.press("down", "down", "down", "enter")
-        await pilot.pause()
-        pilot.app.query_one("#x-max", textual.widgets.Input).value = "1,5"
-        pilot.app.query_one("#x-max", textual.widgets.Input).focus()
-        await pilot.press("enter")
-        await pilot.pause()
-        panel = pilot.app.query_one(RightPanel)
-        assert panel.status == "Axis limits must be finite numbers, not '1,5'."
-        assert pilot.app.axis_limits == AxisLimits()
-
-
-async def test_plot_canvas_matches_widget_size() -> None:
-    """The finished canvas replaces the placeholder, built for the plot pane."""
-    async with Browser(
-        skhep_testdata.data_path("uproot-Event.root")
-    ).run_test() as pilot:
-        assert_canvas(pilot.app, await settled_plot(pilot))
 
 
 async def test_resize_replots_at_the_new_size() -> None:
@@ -335,50 +349,37 @@ async def test_plot_renders_after_late_layout() -> None:
         assert_canvas(pilot.app, item)
 
 
-@pytest.mark.parametrize(
-    "expr", ["h[::2j]", 'tree["fTracks.fPx"].array()[tree["fTracks.fPy"].array() < 0]']
-)
-async def test_expr_replots_and_clears_flag(expr: str) -> None:
+async def test_expr_replots_and_clears_flag(monkeypatch: pytest.MonkeyPatch) -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
         await jump_to(pilot, "//T/event/fNtrack")
         await settle_render(pilot)
-        original = pilot.app.view_widget.item
-        assert isinstance(original, Plotext)
-        before_text = assert_canvas(pilot.app, original)
+        view = pilot.app.view_widget
+        assert isinstance(view.item, Plotext)
+        before_text = assert_canvas(pilot.app, view.item)
 
-        plot_input = pilot.app.view_widget.plot_input
-        plot_input.value = expr
-        await pilot.pause()
-        assert plot_input.has_class("-needs-update")
+        for expr in ("h[::2j]", TREE_CUT_EXPR):
+            view.plot_input.value = expr
+            await pilot.pause()
+            assert view.plot_input.has_class("-needs-update")
 
-        plot_input.apply_expression()
-        await settle_render(pilot)
-        item = pilot.app.view_widget.item
-        assert isinstance(item, Plotext)
-        assert item.expr == expr
-        assert not plot_input.has_class("-needs-update")
-        await wait_until(pilot, lambda: plot_text(pilot.app) != before_text, delay=0.05)
+            view.plot_input.apply_expression()
+            await settle_render(pilot)
+            item = view.item
+            assert isinstance(item, Plotext)
+            assert item.expr == expr
+            assert not view.plot_input.has_class("-needs-update")
+            await wait_until(
+                pilot,
+                lambda before=before_text: plot_text(pilot.app) != before,
+                delay=0.05,
+            )
+            text = assert_canvas(pilot.app, item)
+            assert text != before_text
+            before_text = text
 
-        assert assert_canvas(pilot.app, item) != before_text
-
-
-async def test_expr_cached_across_theme_change(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A redraw reuses the evaluated tree expression instead of re-reading data."""
-    async with Browser(
-        skhep_testdata.data_path("uproot-Event.root")
-    ).run_test() as pilot:
-        await jump_to(pilot, "//T/event/fNtrack")
-        await settle_render(pilot)
-        plot_input = pilot.app.view_widget.plot_input
-        plot_input.value = (
-            'tree["fTracks.fPx"].array()[tree["fTracks.fPy"].array() < 0]'
-        )
-        plot_input.apply_expression()
-        await settle_render(pilot)
-        assert isinstance(pilot.app.view_widget.item, Plotext)
-
+        # A redraw reuses the evaluated tree expression instead of re-reading data
         def fail_eval(*_args: object, **_kwargs: object) -> None:
             msg = "expression was evaluated"
             raise AssertionError(msg)
@@ -387,30 +388,20 @@ async def test_expr_cached_across_theme_change(monkeypatch: pytest.MonkeyPatch) 
         pilot.app.theme = "textual-light"
         await settle_render(pilot)
         # a re-evaluation would have raised, replacing the item with an Error
-        item = pilot.app.view_widget.item
+        item = view.item
         assert isinstance(item, Plotext)
         assert_canvas(pilot.app, item)
 
 
-async def test_browse_empty() -> None:
+@pytest.mark.parametrize(
+    "keys", [("down", "space", "down", "enter"), ("j", "l", "j", "enter")]
+)
+async def test_browse_empty(keys: tuple[str, ...]) -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-empty.root")
     ).run_test() as pilot:
-        await pilot.press("down", "space", "down", "enter")
-        await pilot.pause()  # process RequestPlot → spawn the render worker
-        await pilot.app.workers.wait_for_complete()  # block on the thread
-        await pilot.pause()  # drain the EmptyMessage the worker posted
-        assert pilot.app.view_widget.item is None
-
-
-async def test_browse_empty_vim() -> None:
-    async with Browser(
-        skhep_testdata.data_path("uproot-empty.root")
-    ).run_test() as pilot:
-        await pilot.press("j", "l", "j", "enter")
-        await pilot.pause()  # process RequestPlot → spawn the render worker
-        await pilot.app.workers.wait_for_complete()  # block on the thread
-        await pilot.pause()  # drain the EmptyMessage the worker posted
+        await pilot.press(*keys)
+        await settle_render(pilot)  # the worker posts an EmptyMessage
         assert pilot.app.view_widget.item is None
 
 
@@ -430,29 +421,14 @@ async def test_nonplottable_grayed_but_errors() -> None:
 
         # selecting still tries to plot, showing the error in the plot window
         await pilot.press("enter")
-        await pilot.pause()  # process RequestPlot → spawn the render worker
-        await pilot.app.workers.wait_for_complete()  # block on the thread
-        await pilot.pause()  # drain the ErrorMessage the worker posted
-        assert isinstance(pilot.app.view_widget.item, Error)
+        await settle_render(pilot)  # the worker posts an ErrorMessage
+        item = pilot.app.view_widget.item
+        assert isinstance(item, Error)
 
-
-async def test_theme_switch_updates_plot() -> None:
-    async with Browser(
-        skhep_testdata.data_path("uproot-Event.root")
-    ).run_test() as pilot:
-        await pilot.press("down", "down", "down", "enter")
-        await pilot.pause()
-        item_before = pilot.app.view_widget.item
-        assert isinstance(item_before, Plotext)
-        assert item_before.theme == "uproot_dark"
-
-        pilot.app.theme = "textual-light"
-        await pilot.pause()
-        item_after = pilot.app.view_widget.item
-        assert isinstance(item_after, Plotext)
-        # the item must be replaced, not mutated, so the plot re-renders
-        assert item_after is not item_before
-        assert item_after.theme == "uproot_light"
+        # Dump & Quit names the branch that produced the traceback
+        msg, items = pilot.app.dump_source()
+        assert items == [item]
+        assert 'item = uproot_file["ProcessID0"]' in msg
 
 
 async def test_theme_select_tracks_theme() -> None:
@@ -472,7 +448,7 @@ async def test_theme_select_tracks_theme() -> None:
         assert pilot.app.theme == "textual-light"
 
 
-async def test_jump_opens_and_lists_all() -> None:
+async def test_jump_screen() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
@@ -486,17 +462,14 @@ async def test_jump_opens_and_lists_all() -> None:
             "#jump-results", textual.widgets.OptionList
         )
         # on_mount population can lag on slow runners; let it settle
-        for _ in range(10):
-            if results.option_count:
-                break
-            await pilot.pause()
+        await wait_until(pilot, lambda: bool(results.option_count), tries=10)
         assert results.option_count == expected
 
+        await pilot.press("escape")
+        await pilot.pause()
+        assert not isinstance(pilot.app.screen, JumpScreen)
+        assert pilot.app.view_widget.item is None
 
-async def test_jump_filters_and_plots() -> None:
-    async with Browser(
-        skhep_testdata.data_path("uproot-Event.root")
-    ).run_test() as pilot:
         await pilot.press("/")
         await pilot.press(*"fflag")  # fuzzy-matches only fFlag
         await pilot.pause()
@@ -513,27 +486,7 @@ async def test_jump_filters_and_plots() -> None:
         assert item.selection == LEAF_PATH
 
 
-async def test_jump_expands_ancestors() -> None:
-    async with Browser(
-        skhep_testdata.data_path("uproot-Event.root")
-    ).run_test() as pilot:
-        await jump_to(pilot, LEAF_PATH)
-
-
-async def test_jump_cancel() -> None:
-    async with Browser(
-        skhep_testdata.data_path("uproot-Event.root")
-    ).run_test() as pilot:
-        await pilot.press("/")
-        assert isinstance(pilot.app.screen, JumpScreen)
-        await pilot.press("escape")
-        await pilot.pause()
-        assert not isinstance(pilot.app.screen, JumpScreen)
-        assert pilot.app.view_widget.item is None
-
-
-@pytest.mark.parametrize(("down", "up"), [("down", "up"), ("j", "k")])
-async def test_count_prefix_motion(down: str, up: str) -> None:
+async def test_count_prefix_motion() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
@@ -541,18 +494,20 @@ async def test_count_prefix_motion(down: str, up: str) -> None:
         await expand_event(pilot)
         assert tree.cursor_line == 3
 
-        await pilot.press("1", "2", down)
-        await pilot.pause()
-        assert tree.cursor_line == 15
-        assert not pilot.app.query_one("#navigation-count").display
+        for down, up in (("down", "up"), ("j", "k")):
+            line = tree.cursor_line
+            await pilot.press("1", "2", down)
+            await pilot.pause()
+            assert tree.cursor_line == line + 12
+            assert not pilot.app.query_one("#navigation-count").display
 
-        await pilot.press("5", up)
-        await pilot.pause()
-        assert tree.cursor_line == 10
+            await pilot.press("5", up)
+            await pilot.pause()
+            assert tree.cursor_line == line + 7
 
-        await pilot.press("k")  # no count: single step
-        await pilot.pause()
-        assert tree.cursor_line == 9
+            await pilot.press(up)  # no count: single step
+            await pilot.pause()
+            assert tree.cursor_line == line + 6
 
 
 async def test_count_prefix_after_click() -> None:
@@ -574,18 +529,24 @@ async def test_count_prefix_after_click() -> None:
         assert not pilot.app.query_one("#navigation-count").display
 
 
-async def test_count_prefix_shown_and_reset() -> None:
+async def test_count_prefix_display() -> None:
+    """The pending count shows in a status line that does not move the layout."""
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
         tree = pilot.app.query_one("#tree-view", UprootTree)
         tabs = pilot.app.query_one("#left-view", textual.widgets.TabbedContent)
+        status = pilot.app.query_one("#navigation-count", textual.widgets.Static)
         await expand_event(pilot)
+        await pilot.pause()  # let the tree layout settle
+        views = [pilot.app.query_one(f"#{name}") for name in ("left-view", "plot-view")]
+        before = [view.region for view in views]
+        tree_height = tree.scrollable_content_region.height
+        assert not status.display
 
         await pilot.press("4")
         await pilot.pause()
         assert tabs.get_tab("tree-tab").label_text == "Tree"
-        status = pilot.app.query_one("#navigation-count", textual.widgets.Static)
         assert status.display
         region = textual.geometry.Region(0, 0, *status.content_size)
         assert (
@@ -595,6 +556,8 @@ async def test_count_prefix_shown_and_reset() -> None:
         footer = pilot.app.query_one(textual.widgets.Footer)
         assert status.region.bottom == footer.region.y
         assert status.region.height == 1
+        assert [view.region for view in views] == before
+        assert tree.scrollable_content_region.height == tree_height
 
         await pilot.press("left_shift")  # bare modifiers keep the count
         await pilot.pause()
@@ -610,34 +573,10 @@ async def test_count_prefix_shown_and_reset() -> None:
         await pilot.pause()
         assert tree.cursor_line == line + 1
 
-
-async def test_count_prefix_keeps_layout() -> None:
-    async with Browser(
-        skhep_testdata.data_path("uproot-Event.root")
-    ).run_test() as pilot:
-        tree = pilot.app.query_one("#tree-view", UprootTree)
-        views = [pilot.app.query_one(f"#{name}") for name in ("left-view", "plot-view")]
-        before = [view.region for view in views]
-        tree_height = tree.scrollable_content_region.height
-
+        # losing the focus also discards the count
         await pilot.press("2")
         await pilot.pause()
-        assert pilot.app.query_one("#navigation-count").display
-        assert [view.region for view in views] == before
-        assert tree.scrollable_content_region.height == tree_height
-
-
-async def test_count_prefix_cleared_on_blur() -> None:
-    async with Browser(
-        skhep_testdata.data_path("uproot-Event.root")
-    ).run_test() as pilot:
-        tree = pilot.app.query_one("#tree-view", UprootTree)
-        status = pilot.app.query_one("#navigation-count", textual.widgets.Static)
-        assert not status.display
-        await pilot.press("down", "2")
-        await pilot.pause()
         assert status.display
-
         pilot.app.set_focus(None)
         await pilot.pause()
         assert not status.display
@@ -674,71 +613,6 @@ async def test_scrolloff_keeps_context_visible() -> None:
         assert tree.cursor_line - SCROLLOFF >= tree.scroll_offset.y
 
 
-async def test_help_focus() -> None:
-    async with Browser(
-        skhep_testdata.data_path("uproot-empty.root")
-    ).run_test() as pilot:
-        await pilot.press("?")
-        focus_chain = [widget.id for widget in pilot.app.screen.focus_chain]
-        assert len(focus_chain) == 3
-        assert focus_chain[-1] == "help-done"
-
-
-async def test_dump_error_shows_branch() -> None:
-    """Dump & Quit names the branch that produced the traceback."""
-    async with Browser(
-        skhep_testdata.data_path("uproot-Event.root")
-    ).run_test() as pilot:
-        await pilot.press("down", "enter")  # ProcessID0 is not plottable
-        await pilot.pause()
-        await pilot.app.workers.wait_for_complete()
-        await pilot.pause()  # drain the ErrorMessage the worker posted
-        item = pilot.app.view_widget.item
-        assert isinstance(item, Error)
-        msg, items = pilot.app.dump_source()
-        assert items == [item]
-        assert 'item = uproot_file["ProcessID0"]' in msg
-
-
-async def test_dump_plot_renders_canvas() -> None:
-    """Dump & Quit prints the plot, not the "... plotting ..." placeholder."""
-    async with Browser(
-        skhep_testdata.data_path("uproot-Event.root")
-    ).run_test() as pilot:
-        await pilot.press("down", "down", "down", "enter")
-        await pilot.pause()
-        await pilot.app.workers.wait_for_complete()
-        await pilot.pause()
-        _, items = pilot.app.dump_source()
-        console = rich.console.Console(
-            width=40, file=io.StringIO(), force_terminal=True
-        )
-        with console.capture() as capture:
-            console.print(*items)
-        out = capture.get()
-        assert "plotting" not in out
-        assert "┌" in out or "┐" in out
-
-
-async def test_dump_survives_render_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Dump & Quit stays alive if the plot cannot be rendered."""
-    async with Browser(
-        skhep_testdata.data_path("uproot-Event.root")
-    ).run_test() as pilot:
-        await pilot.press("down", "down", "down", "enter")
-        await pilot.pause()
-        await pilot.app.workers.wait_for_complete()
-        await pilot.pause()
-
-        def raise_error(*_args: object, **_kwargs: object) -> str:
-            msg = "render failed"
-            raise ValueError(msg)
-
-        monkeypatch.setattr("uproot_browser.tui.plot.render_canvas", raise_error)
-        _, items = pilot.app.dump_source()
-        assert items == []
-
-
 async def apply_failing_expression(pilot: textual.pilot.Pilot[None], expr: str) -> None:
     view = pilot.app.view_widget
     view.input_container.add_class("-show-container")
@@ -748,29 +622,29 @@ async def apply_failing_expression(pilot: textual.pilot.Pilot[None], expr: str) 
     await settle_render(pilot)
 
 
-@pytest.mark.parametrize("expr", ["42", "h[", "np.array([])"])
-async def test_expression_failure_can_be_corrected(expr: str) -> None:
+async def test_expression_failure_can_be_corrected() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
         original = await settled_plot(pilot)
-        await apply_failing_expression(pilot, expr)
         view = pilot.app.view_widget
 
-        assert isinstance(view.item, Plotext)
-        assert view.item.selection == original.selection
-        assert view.current == "plot-window"
-        assert view.plot_input.region.height > 0
-        assert view.plot_input.has_class("-needs-update")
+        for expr in ("42", "h[", "np.array([])"):
+            await apply_failing_expression(pilot, expr)
+            assert isinstance(view.item, Plotext)
+            assert view.item.selection == original.selection
+            assert view.current == "plot-window"
+            assert view.plot_input.region.height > 0
+            assert view.plot_input.has_class("-needs-update")
 
-        # Clearing the input restores the original plot without reselecting it.
-        view.plot_input.value = ""
-        view.plot_input.apply_expression()
-        await settle_render(pilot)
-        assert isinstance(view.item, Plotext)
-        assert view.item.expr == ""
-        assert_canvas(pilot.app, view.item)
-        assert not view.plot_input.has_class("-needs-update")
+            # Clearing the input restores the original plot without reselecting it.
+            view.plot_input.value = ""
+            view.plot_input.apply_expression()
+            await settle_render(pilot)
+            assert isinstance(view.item, Plotext)
+            assert view.item.expr == ""
+            assert_canvas(pilot.app, view.item)
+            assert not view.plot_input.has_class("-needs-update")
 
 
 async def test_superseded_expression_error_is_ignored() -> None:
@@ -789,46 +663,37 @@ async def test_superseded_expression_error_is_ignored() -> None:
         assert not view.plot_input.has_class("-needs-update")
 
 
-@pytest.mark.parametrize(
-    ("expr", "message"),
-    [
+async def test_expression_error_notification_text() -> None:
+    cases = [
         (
             'int("[/x] h[bold]")',
             "invalid literal for int() with base 10: '[/x] h[bold]'",
         ),
         ('exec("raise KeyError")', "KeyError"),
-    ],
-)
-async def test_expression_error_notification_text(expr: str, message: str) -> None:
+    ]
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
         await settled_plot(pilot)
-        await apply_failing_expression(pilot, expr)
-        (notification,) = pilot.app._notifications  # noqa: SLF001
-        # The message is shown as written, not parsed as markup.
-        assert rich.text.Text.from_markup(notification.message).plain == message
+        for count, (expr, message) in enumerate(cases, 1):
+            await apply_failing_expression(pilot, expr)
+            notifications = list(pilot.app._notifications)  # noqa: SLF001
+            assert len(notifications) == count
+            # The message is shown as written, not parsed as markup.
+            assert (
+                rich.text.Text.from_markup(notifications[-1].message).plain == message
+            )
 
-
-async def test_expression_error_not_repeated_on_resize() -> None:
-    async with Browser(
-        skhep_testdata.data_path("uproot-Event.root")
-    ).run_test() as pilot:
-        await settled_plot(pilot)
-        await apply_failing_expression(pilot, "h[")
+        # A resize re-renders, but must not repeat the error
         await pilot.resize_terminal(100, 40)
         await pilot.pause(0.3)
         await settle_render(pilot)
-        assert len(pilot.app._notifications) == 1  # noqa: SLF001
+        assert len(pilot.app._notifications) == len(cases)  # noqa: SLF001
 
 
 async def test_draw_error_with_expression_shows_traceback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def raise_error(*_args: object, **_kwargs: object) -> None:
-        msg = "draw failed"
-        raise RuntimeError(msg)
-
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
@@ -890,11 +755,21 @@ async def test_mark_two_branches_plots_2d() -> None:
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
         tree = pilot.app.query_one("#tree-view", UprootTree)
+        await jump_to(pilot, "//T/event/fEventName")
+        await pilot.press("m")  # not numeric: refused with a notification
+        assert tree.marks == []
+        assert pilot.app._notifications  # noqa: SLF001
+
         await jump_to(pilot, "//T/event/fNtrack")
         await pilot.press("m")
         x_node = tree.cursor_node
         assert tree.marks == [x_node]
         assert label_text(tree, x_node).startswith("x: ")
+        await pilot.press("m")  # toggles off
+        assert tree.marks == []
+        await pilot.press("m")
+        assert tree.marks == [x_node]
+
         await jump_to(pilot, LEAF_PATH)
         await pilot.press("m")
         y_node = tree.cursor_node
@@ -931,33 +806,22 @@ async def test_mark_two_branches_plots_2d() -> None:
         assert tree.marks == [y_node]
 
 
-async def test_mark_toggles_and_rejects_non_numeric() -> None:
-    async with Browser(
-        skhep_testdata.data_path("uproot-Event.root")
-    ).run_test() as pilot:
-        tree = pilot.app.query_one("#tree-view", UprootTree)
-        await jump_to(pilot, "//T/event/fNtrack")
-        await pilot.press("m")
-        assert tree.marks
-        await pilot.press("m")
-        assert tree.marks == []
-
-        await jump_to(pilot, "//T/event/fEventName")
-        await pilot.press("m")
-        assert tree.marks == []
-        assert pilot.app._notifications  # noqa: SLF001
-
-
 async def test_shift_click_pairs_with_cursor() -> None:
     """Shift+click plots the branch at the cursor (x) against the clicked one (y)."""
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
         tree = pilot.app.query_one("#tree-view", UprootTree)
+        await expand_event(pilot)  # the cursor stays on //T/event
+        flag = node_at(tree.cursor_node, LEAF_PATH)
+        await click_label(pilot, flag, shift=True)  # needs a numeric cursor
+        assert tree.marks == []
+        assert pilot.app.view_widget.item is None
+        assert pilot.app._notifications  # noqa: SLF001
+
         await jump_to(pilot, "//T/event/fNtrack")
         x_node = tree.cursor_node
         assert x_node is not None
-        flag = node_at(x_node.parent, LEAF_PATH)
         await click_label(pilot, flag, shift=True)
         await pilot.pause()
 
@@ -966,19 +830,6 @@ async def test_shift_click_pairs_with_cursor() -> None:
         item = pilot.app.view_widget.item
         assert item is not None
         assert (item.selection, item.y_selection) == ("//T/event/fNtrack", LEAF_PATH)
-
-
-async def test_shift_click_needs_numeric_cursor() -> None:
-    async with Browser(
-        skhep_testdata.data_path("uproot-Event.root")
-    ).run_test() as pilot:
-        tree = pilot.app.query_one("#tree-view", UprootTree)
-        await expand_event(pilot)  # the cursor stays on //T/event
-        flag = node_at(tree.cursor_node, LEAF_PATH)
-        await click_label(pilot, flag, shift=True)
-        assert tree.marks == []
-        assert pilot.app.view_widget.item is None
-        assert pilot.app._notifications  # noqa: SLF001
 
 
 def test_render_canvas_is_thread_safe() -> None:
