@@ -57,6 +57,19 @@ jobs:
     - name: Install nox
       run: uv tool install nox
 
+    # The parallel sessions share this cache, so a file must not download twice
+    - name: Download test data
+      run: >-
+        uvx --from scikit-hep-testdata skhep-testdata
+        ntpl001_staff_rntuple_v1-0-0-0.root
+        test_1jag_int_float_rntuple_v1-0-0-0.root
+        uproot-empty.root
+        uproot-Event.root
+        uproot-hepdata-example.root
+        uproot-HZZ.root
+        uproot-nesteddirs.root
+        uproot-Zmumu-lz4.root
+
     - parallel:
       - name: Test package
         run: nox -s tests
