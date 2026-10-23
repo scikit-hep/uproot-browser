@@ -286,6 +286,8 @@ class Browser(textual.app.App[None]):
         # The Static has a 1 cell padding, which content_size takes off already
         size = self.view_widget.plot_widget.content_size
         if not size.width or not size.height:
+            # Not laid out yet, and no resize will follow: ask again later
+            self.view_widget.call_after_refresh(self.view_widget.request_render)
             return
         item.size = (size.width, size.height)
         key = (

@@ -316,6 +316,25 @@ async def test_resize_replots_at_the_new_size() -> None:
         assert assert_canvas(pilot.app, item) != before_text
 
 
+async def test_plot_renders_after_late_layout() -> None:
+    """A request that arrives before the plot widget has a size is retried."""
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        plot_widget = pilot.app.view_widget.plot_widget
+        plot_widget.display = False
+        await jump_to(pilot, LEAF_PATH)
+        await pilot.pause()
+        await pilot.pause()
+        item = pilot.app.view_widget.item
+        assert isinstance(item, Plotext)
+        assert item.size is None
+
+        plot_widget.display = True
+        await settle_render(pilot)
+        assert_canvas(pilot.app, item)
+
+
 @pytest.mark.parametrize(
     "expr", ["h[::2j]", 'tree["fTracks.fPx"].array()[tree["fTracks.fPy"].array() < 0]']
 )
