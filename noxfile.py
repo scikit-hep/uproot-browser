@@ -21,7 +21,7 @@ def pylint(session: nox.Session) -> None:
     Run pylint.
     """
 
-    session.install("-e.[image]", "pylint")
+    session.install("-e.[image,cdf]", "pylint")
     session.run("pylint", "uproot_browser", *session.posargs)
 
 
