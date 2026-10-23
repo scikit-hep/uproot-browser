@@ -114,7 +114,13 @@ def render_image(
     ``style`` is any matplotlib style context spec (name, dict, or list).
     """
     dpi = DPI * scale
-    figsize = (size[0] / dpi, size[1] / dpi) if size else (8.0, 8.0 * ASPECT_RATIO)
+    # matplotlib truncates figsize * dpi to whole pixels, so a half pixel
+    # keeps rounding error (e.g. 219.99999) from losing a pixel
+    figsize = (
+        ((size[0] + 0.5) / dpi, (size[1] + 0.5) / dpi)
+        if size
+        else (8.0, 8.0 * ASPECT_RATIO)
+    )
     with matplotlib.style.context(style):
         fig = matplotlib.figure.Figure(figsize=figsize, dpi=dpi)
         # hist sets the pyplot current axes for a 2D plot. Attach an Agg canvas

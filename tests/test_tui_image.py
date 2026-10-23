@@ -47,6 +47,17 @@ def test_render_image_touches_no_pyplot_state(monkeypatch: pytest.MonkeyPatch) -
     assert plt.get_fignums() == figures
 
 
+@pytest.mark.parametrize("scale", [1.0, 1.5, 2.0])
+@pytest.mark.parametrize("width", [110, 123, 220, 388])
+def test_render_image_exact_size(width: int, scale: float) -> None:
+    """Floating point in figsize * dpi must not lose a pixel to truncation."""
+    histogram = hist.Hist.new.Reg(4, 0, 1).Double()
+    image = uproot_browser.plot_mpl.render_image(
+        histogram, "t", size=(width, 301), scale=scale
+    )
+    assert (image.width, image.height) == (width, 301)
+
+
 def test_render_image_2d() -> None:
     """The colorbar stays inside the image, and pyplot keeps no figure."""
     histogram = hist.Hist.new.Reg(4, 0, 1).Reg(4, 0, 1).Double()

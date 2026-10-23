@@ -34,6 +34,15 @@ def tests(session: nox.Session) -> None:
     session.run("pytest", *session.posargs)
 
 
+@nox.session(name="tests-image")
+def tests_image(session: nox.Session) -> None:
+    """
+    Run the tests with the [image] extra.
+    """
+    session.install("-e.[image]", "--group=test")
+    session.run("pytest", *session.posargs)
+
+
 @nox.session(venv_backend="uv")
 def minimums(session: nox.Session) -> None:
     """
