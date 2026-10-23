@@ -1,3 +1,4 @@
+import concurrent.futures
 import io
 from collections.abc import Callable
 
@@ -9,6 +10,7 @@ import skhep_testdata
 import textual.geometry
 import textual.pilot
 import textual.widgets
+import uproot
 
 import uproot_browser.plot
 import uproot_browser.plotext_compat
@@ -20,7 +22,7 @@ from uproot_browser.tui.help import HelpScreen
 from uproot_browser.tui.jump import JumpScreen
 from uproot_browser.tui.left_panel import SCROLLOFF, UprootTree
 from uproot_browser.tui.messages import ExpressionErrorMessage
-from uproot_browser.tui.plot import Plotext
+from uproot_browser.tui.plot import Plotext, render_canvas
 from uproot_browser.tui.right_panel import RightPanel
 
 LEAF_PATH = "//T/event/fFlag"
@@ -946,3 +948,17 @@ async def test_shift_click_needs_numeric_cursor() -> None:
         assert tree.marks == []
         assert pilot.app.view_widget.item is None
         assert pilot.app._notifications  # noqa: SLF001
+
+
+def test_render_canvas_is_thread_safe() -> None:
+    # A cancelled thread worker keeps running, so two renders can overlap
+    # on plotext's shared global figure.
+    item = uproot.open(skhep_testdata.data_path("uproot-Event.root"))["hstat"]
+
+    def render() -> str:
+        return render_canvas(item, "dark", 80, 24, expr="", limits=AxisLimits())
+
+    expected = render()
+    with concurrent.futures.ThreadPoolExecutor(8) as pool:
+        results = list(pool.map(lambda _: render(), range(200)))
+    assert results == [expected] * 200
