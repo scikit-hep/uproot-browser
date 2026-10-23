@@ -59,6 +59,9 @@ jobs:
     - name: Test package
       run: nox -s tests
 
+    - name: Test with the image extra
+      run: nox -s tests-image
+
     - name: Test minimum versions
       if: matrix.python-version == '3.10' || matrix.python-version == '3.12'
       run: nox -s minimums
