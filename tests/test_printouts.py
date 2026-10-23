@@ -628,6 +628,16 @@ def test_apply_expr_object_array() -> None:
     np.testing.assert_array_equal(result.values(flow=True), direct.values(flow=True))
 
 
+def test_apply_expr_nested_object_array() -> None:
+    """A doubly jagged object array falls back to awkward."""
+    item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
+    default = uproot_browser.plot.to_histogram(item)
+    expr = "np.array([np.array([np.array([1.0, 2.0]), np.array([3.0])], dtype=object), np.array([4.0])], dtype=object)"
+
+    result = uproot_browser.plot.apply_expr(default, expr, item)
+    assert result.sum() == 4
+
+
 @pytest.mark.parametrize(
     "expr",
     [
