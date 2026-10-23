@@ -34,6 +34,7 @@ __all__ = (
     "open_path",
     "print_tree",
     "process_item",
+    "split_spec",
 )
 
 
@@ -160,18 +161,28 @@ class LocalDirectory:
         self.close()
 
 
+def split_spec(spec: str) -> tuple[str, str]:
+    """
+    Split ``path:key`` at the first colon that ends an existing local path,
+    since keys can contain colons. Returns ``(spec, "")`` if there is none.
+    """
+    if "://" in spec or Path(spec).exists():
+        return spec, ""
+    for i, char in enumerate(spec):
+        path = Path(spec[:i])
+        # Skip a Windows drive, like "C:"
+        if char == ":" and path.drive != spec[: i + 1] and path.exists():
+            return spec[:i], spec[i + 1 :]
+    return spec, ""
+
+
 def open_path(spec: str) -> Any:
     """
     Like uproot.open, but a local directory opens as a LocalDirectory. A
     ``directory:key`` spec selects a key inside it.
     """
-    if Path(spec).is_dir():
-        return LocalDirectory(Path(spec))
-    # Last colon: a Windows drive letter also has one
-    name, sep, key = spec.rpartition(":")
-    if not sep:
-        name = spec
-    if "://" not in spec and Path(name).is_dir():
+    name, key = split_spec(spec)
+    if Path(name).is_dir():
         directory = LocalDirectory(Path(name))
         return directory[key] if key else directory
     return uproot.open(spec)
@@ -227,8 +238,17 @@ class UprootEntry:
         if not self.is_dir:
             return []
 
+        try:
+            keys = get_children(self.item)
+        except Exception as err:
+            # A file of a directory opens here; show it as failed
+            if not isinstance(self.item, LocalFile):
+                raise
+            self.item = FailedEntry(self.item.name, "TFile", err)
+            return []
+
         children = []
-        for key in sorted(get_children(self.item)):
+        for key in sorted(keys):
             try:
                 item = self.item[key]
             except Exception as err:  # noqa: BLE001
@@ -250,9 +270,11 @@ def make_tree(node: UprootEntry, *, tree: Tree | None = None) -> Tree:
     Given an object, build a rich.tree.Tree output.
     """
 
+    # Children first: a file that fails to open changes the label
+    children = node.children
     tree = Tree(**node.tree_args()) if tree is None else tree.add(**node.tree_args())
 
-    for child in node.children:
+    for child in children:
         make_tree(child, tree=tree)
 
     return tree

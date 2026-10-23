@@ -23,7 +23,7 @@ from uproot_browser.tui.error import Error
 from uproot_browser.tui.help import HelpScreen
 from uproot_browser.tui.jump import JumpScreen
 from uproot_browser.tui.left_panel import SCROLLOFF, UprootTree
-from uproot_browser.tui.messages import ExpressionErrorMessage
+from uproot_browser.tui.messages import ExpressionErrorMessage, UprootSelected
 from uproot_browser.tui.plot import Plotext, render_canvas
 from uproot_browser.tui.right_panel import RightPanel
 
@@ -890,3 +890,30 @@ async def test_jump_directory_is_lazy(tmp_path: pathlib.Path) -> None:
         paths = [c.path for c in tree.jump_candidates()]
         assert "//b.root/hpx" in paths
         assert not any(p.startswith("//a.root/") for p in paths)
+
+
+@pytest.mark.parametrize(("y_file", "same"), [("a.root", True), ("b.root", False)])
+async def test_dump_directory_pair(
+    tmp_path: pathlib.Path,
+    y_file: str,
+    same: bool,  # noqa: FBT001
+) -> None:
+    for name in ("a.root", "b.root"):
+        shutil.copy(skhep_testdata.data_path("uproot-Event.root"), tmp_path / name)
+
+    async with Browser(str(tmp_path)).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        x_path = "//a.root/T/event/fNtrack"
+        y_path = f"//{y_file}{LEAF_PATH[1:]}"
+        tree.post_message(UprootSelected(tree.upfile, x_path, y_path))
+        await settle_render(pilot)
+
+        msg, _ = pilot.app.dump_source()
+        if same:
+            assert f'uproot.open("{tmp_path / "a.root"}")' in msg
+            assert 'x_item = uproot_file["T/event/fNtrack"]' in msg
+            assert f'y_item = uproot_file["{LEAF_PATH.lstrip("/")}"]' in msg
+        else:
+            assert f'open_path("{tmp_path}")' in msg
+            assert 'x_item = uproot_file["a.root/T/event/fNtrack"]' in msg
+            assert f'y_item = uproot_file["{y_path.lstrip("/")}"]' in msg

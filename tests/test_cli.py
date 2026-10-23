@@ -111,3 +111,9 @@ def test_plot_directory_selection(tmp_path: Path) -> None:
     result = CliRunner().invoke(main, ["plot", f"{tmp_path}:b.root/hpx"])
     assert result.exit_code == 0, result.output
     assert "hpx" in result.output
+
+
+def test_colon_in_object_name() -> None:
+    """ROOT object names can hold colons; only the file path must exist."""
+    spec = f"{data_path('uproot-hepdata-example.root')}:h:a"
+    assert get_testdata(spec, testdata=False) == spec

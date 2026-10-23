@@ -29,13 +29,10 @@ def get_testdata(filename: str | None, *, testdata: bool) -> str:
         if filename is None:
             msg = "Missing argument 'FILENAME'."
             raise click.UsageError(msg)
-        # Last colon: a Windows drive letter also has one
-        name = filename.rpartition(":")[0] or filename
-        if (
-            "://" not in filename
-            and not Path(name).exists()
-            and not Path(filename).exists()
-        ):
+        from .tree import split_spec
+
+        name, _ = split_spec(filename)
+        if "://" not in filename and not Path(name).exists():
             msg = f"File {name!r} does not exist."
             raise click.ClickException(msg)
         return filename

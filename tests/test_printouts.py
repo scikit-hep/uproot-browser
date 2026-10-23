@@ -823,3 +823,39 @@ def test_local_directory_selection(tmp_path: pathlib.Path) -> None:
     root = make_root_dir(tmp_path)
     item = uproot_browser.tree.open_path(f"{root}:sub/b.root/hpx")
     assert item.name == "hpx"
+
+
+def test_local_directory_unreadable_file(tmp_path: pathlib.Path) -> None:
+    """A file that fails to open shows as failed; the other files still list."""
+    root = make_root_dir(tmp_path)
+    (root / "bad.root").write_text("not ROOT")
+    with uproot_browser.tree.open_path(str(root)) as directory:
+        entries = {e.path: e for e in UprootEntry("/", directory).walk()}
+        assert isinstance(entries["//bad.root"].item, uproot_browser.tree.FailedEntry)
+        assert "//sub/b.root/hpx" in entries
+
+    console = rich.console.Console(width=80, file=io.StringIO(), record=True)
+    print_tree(str(root), console=console)
+    out = console.export_text()
+    assert "bad.root" in out
+    assert "b.root" in out
+
+
+@pytest.mark.parametrize(
+    ("spec", "expected"),
+    [
+        ("{f}", ("{f}", "")),
+        ("{f}:hpx", ("{f}", "hpx")),
+        ("{f}:h:a", ("{f}", "h:a")),
+        ("{d}:sub/b.root/h:a", ("{d}", "sub/b.root/h:a")),
+        ("missing.root:h:a", ("missing.root:h:a", "")),
+    ],
+)
+def test_split_spec(
+    tmp_path: pathlib.Path, spec: str, expected: tuple[str, str]
+) -> None:
+    root = make_root_dir(tmp_path)
+    fmt = {"f": root / "a.root", "d": root}
+    assert uproot_browser.tree.split_spec(spec.format(**fmt)) == tuple(
+        e.format(**fmt) for e in expected
+    )
