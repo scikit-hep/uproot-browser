@@ -4,14 +4,7 @@ Display tools for TTrees.
 
 from __future__ import annotations
 
-__lazy_modules__ = {
-    "pathlib",
-    "rich",
-    "rich.style",
-    "rich.text",
-    "rich.tree",
-    "uproot.reading",
-}
+__lazy_modules__ = {"pathlib", "rich", "rich.style", "rich.text", "rich.tree"}
 
 import dataclasses
 import functools
@@ -32,10 +25,12 @@ console = Console()
 
 __all__ = (
     "FailedEntry",
+    "LocalDirectory",
     "MetaDict",
     "UprootEntry",
     "console",
     "make_tree",
+    "open_path",
     "print_tree",
     "process_item",
 )
@@ -67,13 +62,88 @@ class FailedEntry:
     exception: Exception
 
 
+@dataclasses.dataclass
+class LocalDirectory:
+    """
+    A filesystem directory. Its keys are the ROOT files and the subdirectories
+    that contain ROOT files; a key may continue into the file, like uproot.
+    """
+
+    path: Path
+    _files: dict[str, Any] = dataclasses.field(
+        default_factory=dict, init=False, repr=False
+    )
+
+    @property
+    def name(self) -> str:
+        return self.path.name
+
+    def keys(self, *, recursive: bool = False) -> list[str]:  # noqa: ARG002
+        return sorted(
+            p.name
+            for p in self.path.iterdir()
+            if not p.name.startswith(".")
+            and (
+                (p.is_file() and p.suffix == ".root")
+                or (p.is_dir() and any(p.rglob("*.root")))
+            )
+        )
+
+    def _child(self, name: str) -> Any:
+        if name not in self._files:
+            child = self.path / name
+            self._files[name] = (
+                LocalDirectory(child) if child.is_dir() else uproot.open(child)
+            )
+        return self._files[name]
+
+    def __getitem__(self, key: str) -> Any:
+        name, _, rest = key.strip("/").partition("/")
+        child = self._child(name)
+        return child[rest] if rest else child
+
+    def locate(self, key: str) -> tuple[Any, str]:
+        """Split a key into the opened ROOT file and the key inside that file."""
+        name, _, rest = key.strip("/").partition("/")
+        child = self._child(name)
+        if isinstance(child, LocalDirectory):
+            return child.locate(rest)
+        return child, rest
+
+    def close(self) -> None:
+        for child in self._files.values():
+            child.close()
+        self._files.clear()
+
+    def __enter__(self) -> LocalDirectory:  # noqa: PYI034
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
+
+
+def open_path(spec: str) -> Any:
+    """
+    Like uproot.open, but a local directory opens as a LocalDirectory. A
+    ``directory:key`` spec selects a key inside it.
+    """
+    if Path(spec).is_dir():
+        return LocalDirectory(Path(spec))
+    name, _, key = spec.partition(":")
+    if "://" not in spec and Path(name).is_dir():
+        directory = LocalDirectory(Path(name))
+        return directory[key] if key else directory
+    return uproot.open(spec)
+
+
 @functools.singledispatch
 def is_dir(item: Any) -> bool:  # noqa: ARG001
     return False
 
 
-@is_dir.register
-def _(item: uproot.reading.ReadOnlyDirectory) -> Literal[True]:  # noqa: ARG001
+@is_dir.register(LocalDirectory)
+@is_dir.register(uproot.reading.ReadOnlyDirectory)
+def _(item: Any) -> Literal[True]:  # noqa: ARG001
     return True
 
 
@@ -187,6 +257,16 @@ def _process_item_tfile(
     )
 
 
+@process_item.register
+def _process_item_local_directory(uproot_object: LocalDirectory) -> MetaDict:
+    path = uproot_object.path.resolve()
+    return MetaDict(
+        label_icon="🗂️ ",
+        label_text=Text(path.name, style=Style(link=f"file://{path}")),
+        guide_style="bold bright_blue",
+    )
+
+
 def _tree_meta(uproot_object: Any, icon: str) -> MetaDict:
     """Meta for a tree-like object (TTree, RNTuple): name and entry count."""
     label_text = Text.assemble(
@@ -278,10 +358,10 @@ def _process_item_failed(uproot_object: FailedEntry) -> MetaDict:
 # pylint: disable-next=redefined-outer-name
 def print_tree(entry: str, *, console: Console = console) -> None:
     """
-    Prints a tree given a specification string. Currently, that must be a
-    single filename. Colons are not allowed currently in the filename.
+    Prints a tree given a specification string: a filename or a directory.
+    Colons are not allowed currently in the filename.
     """
 
-    with uproot.open(entry) as upfile:
+    with open_path(entry) as upfile:
         tree = make_tree(UprootEntry("/", upfile))
     console.print(tree)

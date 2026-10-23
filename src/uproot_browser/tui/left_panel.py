@@ -8,7 +8,6 @@ __lazy_modules__ = {
     "textual.events",
     "textual.widget",
     "textual.widgets.tree",
-    "uproot",
     "uproot_browser.plot",
     f"{__spec__.parent}.jump",
     f"{__spec__.parent}.messages",
@@ -25,12 +24,11 @@ import textual.events
 import textual.widget
 import textual.widgets
 import textual.widgets.tree
-import uproot
 from textual.reactive import var
 
 import uproot_browser.plot
 
-from ..tree import UprootEntry
+from ..tree import LocalDirectory, UprootEntry, open_path
 from .jump import Candidate
 from .messages import UprootSelected
 
@@ -58,8 +56,12 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
     """Pending vim-style count prefix."""
 
     def __init__(self, path: str, **args: Any) -> None:
-        self.upfile = uproot.open(path)
-        file_path = Path(self.upfile.file_path)
+        self.upfile = open_path(path)
+        file_path = (
+            self.upfile.path
+            if isinstance(self.upfile, LocalDirectory)
+            else Path(self.upfile.file_path)
+        )
         data = UprootEntry("/", self.upfile)
         super().__init__(name=str(file_path), data=data, label=file_path.stem, **args)
         self.marks: list[textual.widgets.tree.TreeNode[UprootEntry]] = []

@@ -12,6 +12,7 @@ __lazy_modules__ = {
     "textual.widgets",
     "textual.worker",
     "uproot_browser.exceptions",
+    "uproot_browser.tree",
     f"{__spec__.parent}.error",
     f"{__spec__.parent}.header",
     f"{__spec__.parent}.help",
@@ -45,6 +46,7 @@ from textual.reactive import var
 
 from uproot_browser.axis import NO_LIMITS, AxisLimits
 from uproot_browser.exceptions import EmptyTreeError
+from uproot_browser.tree import LocalDirectory
 
 from ..plotext_compat import add_theme
 from .error import Error
@@ -189,9 +191,20 @@ class Browser(textual.app.App[None]):
     def dump_source(self) -> tuple[str, list[Any]]:
         """The Dump & Quit source, and the renderables to show above it."""
 
-        msg = f'\nimport uproot\nuproot_file = uproot.open("{self.path}")'
-
+        path = self.path
         item = self.view_widget.item
+        root = self.query_one("#tree-view", UprootTree).upfile
+        if isinstance(root, LocalDirectory) and isinstance(item, (Error, PlotItem)):
+            # The source opens the one file that holds the selection
+            upfile, selection = root.locate(item.selection)
+            path = upfile.file_path
+            if isinstance(item, Error):
+                item = dataclasses.replace(item, selection=selection)
+            else:
+                item = dataclasses.replace(item, upfile=upfile, selection=selection)  # type: ignore[type-var]
+
+        msg = f'\nimport uproot\nuproot_file = uproot.open("{path}")'
+
         items: list[Any] = []
         if isinstance(item, Error):
             items = [item]

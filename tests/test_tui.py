@@ -1,5 +1,7 @@
 import concurrent.futures
 import io
+import pathlib
+import shutil
 from collections.abc import Callable
 
 import pytest
@@ -844,3 +846,27 @@ def test_render_canvas_is_thread_safe() -> None:
     with concurrent.futures.ThreadPoolExecutor(8) as pool:
         results = list(pool.map(lambda _: render(), range(200)))
     assert results == [expected] * 200
+
+
+async def test_browse_directory(tmp_path: pathlib.Path) -> None:
+    """A directory lists its ROOT files; the dump opens the selected file."""
+    shutil.copy(skhep_testdata.data_path("uproot-Event.root"), tmp_path / "a.root")
+    (tmp_path / "sub").mkdir()
+    nested = tmp_path / "sub" / "b.root"
+    shutil.copy(skhep_testdata.data_path("uproot-hepdata-example.root"), nested)
+
+    async with Browser(str(tmp_path)).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        assert [c.data.path for c in tree.root.children if c.data] == [
+            "//a.root",
+            "//sub",
+        ]
+        tree.select_path("//sub/b.root/hpx")
+        await settle_render(pilot)
+        item = pilot.app.view_widget.item
+        assert isinstance(item, Plotext)
+        assert_canvas(pilot.app, item)
+
+        msg, _ = pilot.app.dump_source()
+        assert f'uproot_file = uproot.open("{nested}")' in msg
+        assert 'item = uproot_file["hpx"]' in msg

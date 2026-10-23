@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import shutil
 from typing import TYPE_CHECKING
 
 import pytest
 from click.testing import CliRunner
+from skhep_testdata import data_path
 
 from uproot_browser.__main__ import get_testdata, main
 
@@ -93,3 +95,19 @@ def test_plot_save(tmp_path: Path) -> None:
     with pil_image.open(out) as image:
         assert image.mode == "RGBA"
         assert image.getpixel((2, 2))[-1] == 0  # transparent background
+
+
+def test_tree_directory(tmp_path: Path) -> None:
+    (tmp_path / "sub").mkdir()
+    shutil.copy(data_path("uproot-hepdata-example.root"), tmp_path / "sub" / "b.root")
+    result = CliRunner().invoke(main, ["tree", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert "b.root" in result.output
+    assert "hpx" in result.output
+
+
+def test_plot_directory_selection(tmp_path: Path) -> None:
+    shutil.copy(data_path("uproot-hepdata-example.root"), tmp_path / "b.root")
+    result = CliRunner().invoke(main, ["plot", f"{tmp_path}:b.root/hpx"])
+    assert result.exit_code == 0, result.output
+    assert "hpx" in result.output

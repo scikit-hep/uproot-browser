@@ -4,7 +4,7 @@ This is the click-powered CLI.
 
 from __future__ import annotations
 
-__lazy_modules__ = {"difflib", "pathlib", "shutil", "uproot"}
+__lazy_modules__ = {"difflib", "pathlib", "shutil"}
 
 import difflib
 import os
@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn
 
 import click
-import uproot
 
 from ._version import version as __version__
 
@@ -33,8 +32,8 @@ def get_testdata(filename: str | None, *, testdata: bool) -> str:
         name, _, _ = filename.partition(":")
         if (
             "://" not in filename
-            and not Path(name).is_file()
-            and not Path(filename).is_file()
+            and not Path(name).exists()
+            and not Path(filename).exists()
         ):
             msg = f"File {name!r} does not exist."
             raise click.ClickException(msg)
@@ -82,7 +81,7 @@ def main() -> None:
 )
 def tree(filename: str | None, *, testdata: bool) -> None:
     """
-    Display a tree.
+    Display a tree of a file or a directory of files.
     """
     import uproot_browser.tree
 
@@ -111,7 +110,9 @@ def plot(
     """
     Display a plot.
     """
-    item = uproot.open(get_testdata(filename, testdata=testdata))
+    import uproot_browser.tree
+
+    item = uproot_browser.tree.open_path(get_testdata(filename, testdata=testdata))
 
     if save:
         # Set before pyplot is imported: this path must not open a window
@@ -170,7 +171,7 @@ def plot(
 )
 def browse(filename: str | None, *, image: bool, testdata: bool) -> None:
     """
-    Display a TUI.
+    Display a TUI for a file or a directory of files.
     """
     if image:
         try:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import io
 import math
 import re
 import shutil
@@ -783,3 +784,42 @@ def test_dump_pair_is_runnable(expr: str) -> None:
     assert isinstance(actual, hist.Hist)
     np.testing.assert_array_equal(actual.values(flow=True), expected.values(flow=True))
     assert [ax.label for ax in actual.axes] == [ax.label for ax in expected.axes]
+
+
+def make_root_dir(tmp_path: pathlib.Path) -> pathlib.Path:
+    """A directory with a ROOT file, a nested one, and entries to skip."""
+    shutil.copy(data_path("uproot-hepdata-example.root"), tmp_path / "a.root")
+    (tmp_path / "sub").mkdir()
+    shutil.copy(data_path("uproot-hepdata-example.root"), tmp_path / "sub" / "b.root")
+    (tmp_path / "empty").mkdir()
+    (tmp_path / "notes.txt").write_text("not ROOT")
+    (tmp_path / ".hidden.root").write_text("")
+    return tmp_path
+
+
+def test_local_directory_tree(tmp_path: pathlib.Path) -> None:
+    root = make_root_dir(tmp_path)
+    with uproot_browser.tree.open_path(str(root)) as directory:
+        assert isinstance(directory, uproot_browser.tree.LocalDirectory)
+        assert directory.keys() == ["a.root", "sub"]
+        paths = {e.path for e in UprootEntry("/", directory).walk()}
+        assert {"//a.root/hpx", "//sub/b.root/hpx"} <= paths
+
+        upfile, key = directory.locate("//sub/b.root/hpx")
+        assert upfile.file_path == str(root / "sub" / "b.root")
+        assert key == "hpx"
+        assert directory["//sub/b.root/hpx"].name == "hpx"
+
+    console = rich.console.Console(width=80, file=io.StringIO(), record=True)
+    print_tree(str(root), console=console)
+    out = console.export_text()
+    assert "a.root" in out
+    assert "b.root" in out
+    assert "notes.txt" not in out
+    assert "empty" not in out
+
+
+def test_local_directory_selection(tmp_path: pathlib.Path) -> None:
+    root = make_root_dir(tmp_path)
+    item = uproot_browser.tree.open_path(f"{root}:sub/b.root/hpx")
+    assert item.name == "hpx"
