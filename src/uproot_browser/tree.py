@@ -167,7 +167,10 @@ def open_path(spec: str) -> Any:
     """
     if Path(spec).is_dir():
         return LocalDirectory(Path(spec))
-    name, _, key = spec.partition(":")
+    # Last colon: a Windows drive letter also has one
+    name, sep, key = spec.rpartition(":")
+    if not sep:
+        name = spec
     if "://" not in spec and Path(name).is_dir():
         directory = LocalDirectory(Path(name))
         return directory[key] if key else directory

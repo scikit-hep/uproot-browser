@@ -886,6 +886,7 @@ async def test_jump_directory_is_lazy(tmp_path: pathlib.Path) -> None:
         assert not tree.upfile["b.root"].is_open
 
         tree.select_path("//b.root/hpx")
+        await settle_render(pilot)
         paths = [c.path for c in tree.jump_candidates()]
         assert "//b.root/hpx" in paths
         assert not any(p.startswith("//a.root/") for p in paths)

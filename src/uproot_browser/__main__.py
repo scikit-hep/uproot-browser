@@ -29,7 +29,8 @@ def get_testdata(filename: str | None, *, testdata: bool) -> str:
         if filename is None:
             msg = "Missing argument 'FILENAME'."
             raise click.UsageError(msg)
-        name, _, _ = filename.partition(":")
+        # Last colon: a Windows drive letter also has one
+        name = filename.rpartition(":")[0] or filename
         if (
             "://" not in filename
             and not Path(name).exists()
