@@ -817,6 +817,23 @@ async def test_splitter_drag_resizes_panels() -> None:
         assert view.region.width == total - 15
 
 
+async def jump_to(pilot: textual.pilot.Pilot[None], path: str) -> None:
+    """Select ``path`` and wait for the cursor, which moves after a refresh."""
+    tree = pilot.app.query_one("#tree-view", UprootTree)
+    tree.select_path(path)
+    await wait_until(
+        pilot,
+        lambda: (
+            tree.cursor_node is not None
+            and tree.cursor_node.data is not None
+            and tree.cursor_node.data.path == path
+        ),
+    )
+    assert tree.cursor_node is not None
+    assert tree.cursor_node.data is not None
+    assert tree.cursor_node.data.path == path
+
+
 def label_text(tree: UprootTree, node: object) -> str:
     style = rich.style.Style()
     return tree.render_label(node, style, style).plain  # type: ignore[arg-type]
@@ -859,14 +876,12 @@ async def test_mark_two_branches_plots_2d() -> None:
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
         tree = pilot.app.query_one("#tree-view", UprootTree)
-        tree.select_path("//T/event/fNtrack")
-        await pilot.pause()
+        await jump_to(pilot, "//T/event/fNtrack")
         await pilot.press("m")
         x_node = tree.cursor_node
         assert tree.marks == [x_node]
         assert label_text(tree, x_node).startswith("x: ")
-        tree.select_path(LEAF_PATH)
-        await pilot.pause()
+        await jump_to(pilot, LEAF_PATH)
         await pilot.press("m")
         y_node = tree.cursor_node
         await settle_render(pilot)
@@ -907,15 +922,13 @@ async def test_mark_toggles_and_rejects_non_numeric() -> None:
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
         tree = pilot.app.query_one("#tree-view", UprootTree)
-        tree.select_path("//T/event/fNtrack")
-        await pilot.pause()
+        await jump_to(pilot, "//T/event/fNtrack")
         await pilot.press("m")
         assert tree.marks
         await pilot.press("m")
         assert tree.marks == []
 
-        tree.select_path("//T/event/fEventName")
-        await pilot.pause()
+        await jump_to(pilot, "//T/event/fEventName")
         await pilot.press("m")
         assert tree.marks == []
         assert pilot.app._notifications  # noqa: SLF001
@@ -927,8 +940,7 @@ async def test_shift_click_pairs_with_cursor() -> None:
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
         tree = pilot.app.query_one("#tree-view", UprootTree)
-        tree.select_path("//T/event/fNtrack")
-        await pilot.pause()
+        await jump_to(pilot, "//T/event/fNtrack")
         x_node = tree.cursor_node
         assert x_node is not None
         assert x_node.parent is not None
