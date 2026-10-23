@@ -59,6 +59,14 @@ async def settle_render(pilot: textual.pilot.Pilot[None]) -> None:
     """Let a request reach the render worker, then wait for the canvas."""
     await pilot.pause()  # the request is posted after a refresh
     await pilot.pause()  # process RequestPlot → spawn the render worker
+    # A slow runner can need more cycles; the size is set as the worker starts
+    await wait_until(
+        pilot,
+        lambda: (
+            not isinstance(item := pilot.app.view_widget.item, Plotext)
+            or item.size is not None
+        ),
+    )
     await pilot.app.workers.wait_for_complete()  # block on the thread
     await pilot.pause()  # drain the update the worker posted
 
