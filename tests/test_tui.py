@@ -304,7 +304,7 @@ async def test_expr_replots_and_clears_flag(expr: str) -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
-        pilot.app.query_one("#tree-view", UprootTree).select_path("//T/event/fNtrack")
+        await jump_to(pilot, "//T/event/fNtrack")
         await settle_render(pilot)
         original = pilot.app.view_widget.item
         assert isinstance(original, Plotext)
@@ -331,7 +331,7 @@ async def test_expr_cached_across_theme_change(monkeypatch: pytest.MonkeyPatch) 
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
-        pilot.app.query_one("#tree-view", UprootTree).select_path("//T/event/fNtrack")
+        await jump_to(pilot, "//T/event/fNtrack")
         await settle_render(pilot)
         plot_input = pilot.app.view_widget.plot_input
         plot_input.value = (
