@@ -26,6 +26,7 @@ console = Console()
 __all__ = (
     "FailedEntry",
     "LocalDirectory",
+    "LocalFile",
     "MetaDict",
     "UprootEntry",
     "console",
@@ -63,6 +64,39 @@ class FailedEntry:
 
 
 @dataclasses.dataclass
+class LocalFile:
+    """A ROOT file in a LocalDirectory, opened on first access to its contents."""
+
+    path: Path
+    _file: Any = dataclasses.field(default=None, init=False, repr=False)
+
+    @property
+    def name(self) -> str:
+        return self.path.name
+
+    @property
+    def is_open(self) -> bool:
+        return self._file is not None
+
+    @property
+    def file(self) -> Any:
+        if self._file is None:
+            self._file = uproot.open(self.path)
+        return self._file
+
+    def keys(self, *, recursive: bool = False) -> Iterable[str]:
+        return self.file.keys(recursive=recursive)  # type: ignore[no-any-return]
+
+    def __getitem__(self, key: str) -> Any:
+        return self.file[key]
+
+    def close(self) -> None:
+        if self._file is not None:
+            self._file.close()
+            self._file = None
+
+
+@dataclasses.dataclass
 class LocalDirectory:
     """
     A filesystem directory. Its keys are the ROOT files and the subdirectories
@@ -79,6 +113,10 @@ class LocalDirectory:
         return self.path.name
 
     def keys(self, *, recursive: bool = False) -> list[str]:  # noqa: ARG002
+        return self._keys
+
+    @functools.cached_property
+    def _keys(self) -> list[str]:
         return sorted(
             p.name
             for p in self.path.iterdir()
@@ -93,7 +131,7 @@ class LocalDirectory:
         if name not in self._files:
             child = self.path / name
             self._files[name] = (
-                LocalDirectory(child) if child.is_dir() else uproot.open(child)
+                LocalDirectory(child) if child.is_dir() else LocalFile(child)
             )
         return self._files[name]
 
@@ -108,7 +146,7 @@ class LocalDirectory:
         child = self._child(name)
         if isinstance(child, LocalDirectory):
             return child.locate(rest)
-        return child, rest
+        return child.file, rest
 
     def close(self) -> None:
         for child in self._files.values():
@@ -142,6 +180,7 @@ def is_dir(item: Any) -> bool:  # noqa: ARG001
 
 
 @is_dir.register(LocalDirectory)
+@is_dir.register(LocalFile)
 @is_dir.register(uproot.reading.ReadOnlyDirectory)
 def _(item: Any) -> Literal[True]:  # noqa: ARG001
     return True
@@ -253,6 +292,17 @@ def _process_item_tfile(
     return MetaDict(
         label_icon="📁 ",
         label_text=label_text,
+        guide_style="bold bright_blue",
+    )
+
+
+@process_item.register
+def _process_item_local_file(uproot_object: LocalFile) -> MetaDict:
+    """Label a file of a directory without opening it."""
+    path = uproot_object.path.resolve()
+    return MetaDict(
+        label_icon="📁 ",
+        label_text=Text(path.name, style=Style(link=f"file://{path}")),
         guide_style="bold bright_blue",
     )
 

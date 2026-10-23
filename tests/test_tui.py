@@ -457,7 +457,7 @@ async def test_jump_screen() -> None:
         # Grab the tree before opening the modal: older Textual scopes
         # app.query_one to the active screen, so #tree-view is unreachable
         # once the JumpScreen is on top.
-        expected = len(pilot.app.query_one("#tree-view", UprootTree).all_entries)
+        expected = len(pilot.app.query_one("#tree-view", UprootTree).jump_candidates())
         await pilot.press("/")
         assert isinstance(pilot.app.screen, JumpScreen)
         results = pilot.app.screen.query_one(
@@ -870,3 +870,22 @@ async def test_browse_directory(tmp_path: pathlib.Path) -> None:
         msg, _ = pilot.app.dump_source()
         assert f'uproot_file = uproot.open("{nested}")' in msg
         assert 'item = uproot_file["hpx"]' in msg
+
+
+async def test_jump_directory_is_lazy(tmp_path: pathlib.Path) -> None:
+    """Jump lists the files of a directory, and enters only the opened ones."""
+    for name in ("a.root", "b.root"):
+        shutil.copy(
+            skhep_testdata.data_path("uproot-hepdata-example.root"), tmp_path / name
+        )
+
+    async with Browser(str(tmp_path)).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        assert [c.path for c in tree.jump_candidates()] == ["//a.root", "//b.root"]
+        assert not tree.upfile["a.root"].is_open
+        assert not tree.upfile["b.root"].is_open
+
+        tree.select_path("//b.root/hpx")
+        paths = [c.path for c in tree.jump_candidates()]
+        assert "//b.root/hpx" in paths
+        assert not any(p.startswith("//a.root/") for p in paths)
