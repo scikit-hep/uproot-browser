@@ -13,6 +13,7 @@ import textual.geometry
 import textual.pilot
 import textual.widgets
 import uproot
+from conftest import wait_for_workers
 
 import uproot_browser.plot
 import uproot_browser.plotext_compat
@@ -65,9 +66,7 @@ def plot_text(app: Browser) -> str:
 
 async def settle_render(pilot: textual.pilot.Pilot[None]) -> None:
     """Let a request reach the render worker, then wait for the canvas."""
-    await pilot.pause()  # the request is posted after a refresh
-    await pilot.pause()  # process RequestPlot → spawn the render worker
-    # A slow runner can need more cycles; the size is set as the worker starts
+    # The worker sets the size as it starts; a request can wait on a refresh
     await wait_until(
         pilot,
         lambda: (
@@ -75,8 +74,7 @@ async def settle_render(pilot: textual.pilot.Pilot[None]) -> None:
             or item.size is not None
         ),
     )
-    await pilot.app.workers.wait_for_complete()  # block on the thread
-    await pilot.pause()  # drain the update the worker posted
+    await wait_for_workers(pilot)
 
 
 async def jump_to(pilot: textual.pilot.Pilot[None], path: str) -> None:
@@ -288,7 +286,6 @@ async def test_axis_ranges_are_typed_in_right_panel() -> None:
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
         await pilot.press("down", "down", "down", "enter")
-        await pilot.pause()
         panel = pilot.app.query_one(RightPanel)
         assert pilot.app.query_one("#y-min", textual.widgets.Input).display
         assert pilot.app.query_one("#y-max", textual.widgets.Input).display
@@ -296,7 +293,6 @@ async def test_axis_ranges_are_typed_in_right_panel() -> None:
         pilot.app.query_one("#x-max", textual.widgets.Input).value = "1,5"
         pilot.app.query_one("#x-max", textual.widgets.Input).focus()
         await pilot.press("enter")
-        await pilot.pause()
         assert panel.status == "Axis limits must be finite numbers, not '1,5'."
         assert pilot.app.axis_limits == AxisLimits()
 
@@ -306,7 +302,6 @@ async def test_axis_ranges_are_typed_in_right_panel() -> None:
         pilot.app.query_one("#y-max", textual.widgets.Input).value = "15"
         pilot.app.query_one("#x-min", textual.widgets.Input).focus()
         await pilot.press("enter")
-        await pilot.pause()
         assert pilot.app.axis_limits.x == (0.2, 0.8)
         assert pilot.app.axis_limits.y == (1.0, 15.0)
         assert panel.status == "Applied."
@@ -319,7 +314,6 @@ async def test_axis_ranges_are_typed_in_right_panel() -> None:
         # Selecting another node drops the limits and clears the panel
         pilot.app.query_one(UprootTree).focus()
         await pilot.press("down", "enter")
-        await pilot.pause()
         assert pilot.app.axis_limits == AxisLimits()
         assert pilot.app.query_one("#x-min", textual.widgets.Input).value == ""
         assert panel.status == ""
@@ -349,8 +343,6 @@ async def test_plot_renders_after_late_layout() -> None:
         plot_widget = pilot.app.view_widget.plot_widget
         plot_widget.display = False
         await jump_to(pilot, LEAF_PATH)
-        await pilot.pause()
-        await pilot.pause()
         item = pilot.app.view_widget.item
         assert isinstance(item, Plotext)
         assert item.size is None
@@ -477,20 +469,17 @@ async def test_jump_screen() -> None:
         assert results.option_count == expected
 
         await pilot.press("escape")
-        await pilot.pause()
         assert not isinstance(pilot.app.screen, JumpScreen)
         assert pilot.app.view_widget.item is None
 
         await pilot.press("/")
         await pilot.press(*"fflag")  # fuzzy-matches only fFlag
-        await pilot.pause()
         results = pilot.app.screen.query_one(
             "#jump-results", textual.widgets.OptionList
         )
         assert results.get_option_at_index(0).id == LEAF_PATH
 
         await pilot.press("enter")
-        await pilot.pause()
         assert not isinstance(pilot.app.screen, JumpScreen)
         item = pilot.app.view_widget.item
         assert isinstance(item, Plotext)
@@ -508,16 +497,13 @@ async def test_count_prefix_motion() -> None:
         for down, up in (("down", "up"), ("j", "k")):
             line = tree.cursor_line
             await pilot.press("1", "2", down)
-            await pilot.pause()
             assert tree.cursor_line == line + 12
             assert not pilot.app.query_one("#navigation-count").display
 
             await pilot.press("5", up)
-            await pilot.pause()
             assert tree.cursor_line == line + 7
 
             await pilot.press(up)  # no count: single step
-            await pilot.pause()
             assert tree.cursor_line == line + 6
 
 
@@ -533,7 +519,6 @@ async def test_count_prefix_after_click() -> None:
         assert tree.cursor_node is flag
 
         await pilot.press("2", "down")
-        await pilot.pause()
         assert tree.cursor_node is not None
         assert tree.cursor_node.data is not None
         assert tree.cursor_node.data.path == "//T/event/fHighPt"
@@ -549,14 +534,12 @@ async def test_count_prefix_display() -> None:
         tabs = pilot.app.query_one("#left-view", textual.widgets.TabbedContent)
         status = pilot.app.query_one("#navigation-count", textual.widgets.Static)
         await expand_event(pilot)
-        await pilot.pause()  # let the tree layout settle
         views = [pilot.app.query_one(f"#{name}") for name in ("left-view", "plot-view")]
         before = [view.region for view in views]
         tree_height = tree.scrollable_content_region.height
         assert not status.display
 
         await pilot.press("4")
-        await pilot.pause()
         assert tabs.get_tab("tree-tab").label_text == "Tree"
         assert status.display
         region = textual.geometry.Region(0, 0, *status.content_size)
@@ -571,22 +554,18 @@ async def test_count_prefix_display() -> None:
         assert tree.scrollable_content_region.height == tree_height
 
         await pilot.press("left_shift")  # bare modifiers keep the count
-        await pilot.pause()
         assert status.display
 
         await pilot.press("x")  # any other key discards the count
-        await pilot.pause()
         assert tabs.get_tab("tree-tab").label_text == "Tree"
         assert not status.display
 
         line = tree.cursor_line
         await pilot.press("j")
-        await pilot.pause()
         assert tree.cursor_line == line + 1
 
         # losing the focus also discards the count
         await pilot.press("2")
-        await pilot.pause()
         assert status.display
         pilot.app.set_focus(None)
         await pilot.pause()
@@ -596,7 +575,6 @@ async def test_count_prefix_display() -> None:
         await pilot.pause()
         line = tree.cursor_line
         await pilot.press("down")
-        await pilot.pause()
         assert tree.cursor_line == line + 1
 
 
@@ -610,17 +588,14 @@ async def test_scrolloff_keeps_context_visible() -> None:
         assert tree.last_line > height  # the tree must overflow for this to matter
 
         await pilot.press("1", "5", "j")  # down, past the fold
-        await pilot.pause()
         last_visible = tree.scroll_offset.y + height - 1
         assert tree.cursor_line + SCROLLOFF <= last_visible
 
         await pilot.press("9", "9", "j")  # clamp to the last line
-        await pilot.pause()
         assert tree.cursor_line == tree.last_line
         top = tree.scroll_offset.y
 
         await pilot.press(*str(tree.cursor_line - top), "k")  # up to the view top
-        await pilot.pause()
         assert tree.cursor_line - SCROLLOFF >= tree.scroll_offset.y
 
 
@@ -720,7 +695,6 @@ async def test_splitter_drag_resizes_panels() -> None:
         size=(120, 30)
     ) as pilot:
         await pilot.press("f")
-        await pilot.pause()
         left = pilot.app.query_one("#left-view")
         right = pilot.app.query_one("#right-panel")
         view = pilot.app.query_one("#plot-view")
@@ -769,7 +743,6 @@ async def test_mark_two_branches_plots_2d() -> None:
         await jump_to(pilot, "//T/event/fEventName")
         await pilot.press("m")  # not numeric: refused with a notification
         assert tree.marks == []
-        await pilot.pause()  # the notification arrives as a message
         assert pilot.app._notifications  # noqa: SLF001
 
         await jump_to(pilot, "//T/event/fNtrack")
@@ -809,12 +782,10 @@ async def test_mark_two_branches_plots_2d() -> None:
 
         # A single plot replaces the pair, but keeps a pending x mark
         await pilot.press("enter")
-        await pilot.pause()
         assert tree.marks == []
         await pilot.press("m")
         assert tree.marks == [y_node]
         await pilot.press("enter")
-        await pilot.pause()
         assert tree.marks == [y_node]
 
 
@@ -835,7 +806,6 @@ async def test_shift_click_pairs_with_cursor() -> None:
         x_node = tree.cursor_node
         assert x_node is not None
         await click_label(pilot, flag, shift=True)
-        await pilot.pause()
 
         assert tree.cursor_node is flag
         assert tree.marks == [x_node, flag]
@@ -936,13 +906,11 @@ async def test_escape_in_right_panel_returns_to_tree() -> None:
     ).run_test() as pilot:
         pilot.app.query_one("#x-min", textual.widgets.Input).focus()
         await pilot.press("1", "escape")
-        await pilot.pause()
         assert pilot.app.is_running
         assert isinstance(pilot.app.focused, UprootTree)
 
         pilot.app.query_one("#theme-select", textual.widgets.Select).focus()
         await pilot.press("escape")
-        await pilot.pause()
         assert pilot.app.is_running
         assert isinstance(pilot.app.focused, UprootTree)
 

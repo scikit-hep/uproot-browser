@@ -276,18 +276,30 @@ class Browser(textual.app.App[None]):
             )
         )
 
+    def _render_failed(self, source: PlotItem) -> bool:
+        """Is a failure report about the current item? Allow a retry if so.
+
+        A cancelled render worker runs on; its report is dropped. The retry
+        flag is reset here, in message order with the render requests, and
+        not from the worker thread.
+        """
+        if self.view_widget.item is not source:
+            return False
+        self._plot_rendered = None
+        self._image_rendered = None
+        return True
+
     def on_empty_message(self, message: EmptyMessage) -> None:
-        # A cancelled render worker runs on; ignore what it reports
-        if self.view_widget.item is message.source:
+        if self._render_failed(message.source):
             self.view_widget.item = None
 
     def on_error_message(self, message: ErrorMessage) -> None:
-        if self.view_widget.item is message.source:
+        if self._render_failed(message.source):
             self.view_widget.item = message.err
 
     def on_expression_error_message(self, message: ExpressionErrorMessage) -> None:
         item, error = message.source, message.error
-        if self.view_widget.item is not item:
+        if not self._render_failed(item):
             return
         self._failed_item = item
         self.view_widget.plot_input.add_class("-needs-update")
@@ -369,11 +381,8 @@ class Browser(textual.app.App[None]):
         canvas = plot.make_plot()
         if worker.is_cancelled:
             return
-        if canvas is None:
-            # failed (empty/error message posted); allow a retry next request
-            self._plot_rendered = None
-            return
-        self.call_from_thread(self.view_widget.plot_widget.update, canvas)
+        if canvas is not None:
+            self.call_from_thread(self.view_widget.plot_widget.update, canvas)
 
     @textual.work(exclusive=True, thread=True)
     def render_image(self, plot: MPLPlot) -> None:
@@ -381,9 +390,6 @@ class Browser(textual.app.App[None]):
         image = plot.make_image()
         if worker.is_cancelled:
             return
-        if image is None:
-            # failed (empty/error message posted); allow a retry next request
-            self._image_rendered = None
         self.call_from_thread(self.view_widget.update_image, image)
 
 
