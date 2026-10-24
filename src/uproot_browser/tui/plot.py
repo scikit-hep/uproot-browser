@@ -82,16 +82,17 @@ def run_posting_errors(source: PlotItem, fn: Callable[[], T]) -> T | None:
 
     The selection travels with the error so Dump & Quit can show the branch.
     A failed expression keeps ``source`` editable instead of replacing it.
+    The app drops messages from a render that another item has superseded.
     """
     try:
         return fn()
     except ExpressionError as err:
         source.app.post_message(ExpressionErrorMessage(source, err.__cause__ or err))
     except EmptyTreeError:
-        source.app.post_message(EmptyMessage())
+        source.app.post_message(EmptyMessage(source))
     except Exception as err:  # noqa: BLE001
         source.app.post_message(
-            ErrorMessage(Error(err, source.selection, source.y_selection))
+            ErrorMessage(Error(err, source.selection, source.y_selection), source)
         )
     return None
 

@@ -13,6 +13,7 @@ import textual.pilot
 import textual.widgets
 import textual_image.widget
 import uproot
+from conftest import wait_for_workers
 
 import uproot_browser.plot
 import uproot_browser.plot_mpl
@@ -77,9 +78,7 @@ def _fail_build(*_args: object, **_kwargs: object) -> None:
 
 
 async def _settle(pilot: textual.pilot.Pilot[object]) -> None:
-    await pilot.pause()
-    await pilot.app.workers.wait_for_complete()
-    await pilot.pause()
+    await wait_for_workers(pilot)
 
 
 async def _apply_expression(pilot: textual.pilot.Pilot[object], expr: str) -> None:
@@ -106,13 +105,11 @@ async def test_browse_image_plot(monkeypatch: pytest.MonkeyPatch) -> None:
     ).run_test() as pilot:
         assert pilot.app.query("#right-panel #image-scale-select")
         await pilot.press("down", "down", "down", "enter")
-        await pilot.pause()
         item = pilot.app.view_widget.item
         assert isinstance(item, MPLPlot)
         assert pilot.app.view_widget.current == "image-window"
 
-        await pilot.app.workers.wait_for_complete()
-        await pilot.pause()
+        await wait_for_workers(pilot)
         image_widget = pilot.app.view_widget.image_widget
         assert image_widget is not None
         assert image_widget.image is not None
