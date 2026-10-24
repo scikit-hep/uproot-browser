@@ -73,7 +73,12 @@ add_theme(
 add_theme("uproot_dark", canvas=DARK_BACKGROUND, text=(DARK_TEXT, DARK_BACKGROUND))
 
 if TYPE_CHECKING:
-    from .messages import ErrorMessage, ExpressionErrorMessage, UprootSelected
+    from .messages import (
+        EmptyMessage,
+        ErrorMessage,
+        ExpressionErrorMessage,
+        UprootSelected,
+    )
 
 
 class Browser(textual.app.App[None]):
@@ -271,11 +276,14 @@ class Browser(textual.app.App[None]):
             )
         )
 
-    def on_empty_message(self) -> None:
-        self.view_widget.item = None
+    def on_empty_message(self, message: EmptyMessage) -> None:
+        # A cancelled render worker runs on; ignore what it reports
+        if self.view_widget.item is message.source:
+            self.view_widget.item = None
 
     def on_error_message(self, message: ErrorMessage) -> None:
-        self.view_widget.item = message.err
+        if self.view_widget.item is message.source:
+            self.view_widget.item = message.err
 
     def on_expression_error_message(self, message: ExpressionErrorMessage) -> None:
         item, error = message.source, message.error

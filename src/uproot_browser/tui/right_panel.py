@@ -3,9 +3,10 @@ from __future__ import annotations
 __lazy_modules__ = {"math", "textual.app", "uproot_browser.axis"}
 
 import math
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 
 import textual.app
+import textual.binding
 import textual.containers
 import textual.widgets
 
@@ -21,6 +22,11 @@ LIMIT_IDS = ("x-min", "x-max", "y-min", "y-max")
 
 class RightPanel(textual.containers.Container):
     """Typed X/Y range controls, image scale, and theme selector."""
+
+    BINDINGS: ClassVar[list[textual.binding.BindingType]] = [
+        # Otherwise escape reaches the app binding and quits mid-edit
+        textual.binding.Binding("escape", "focus_tree", "Back to tree", show=False),
+    ]
 
     status = ""  # the last message shown in #axis-status
 
@@ -64,6 +70,9 @@ class RightPanel(textual.containers.Container):
 
     def on_mount(self) -> None:
         self.watch(self.app, "theme", self._sync_theme)
+
+    def action_focus_tree(self) -> None:
+        self.screen.query_one("#tree-view").focus()
 
     def _sync_theme(self, theme: str) -> None:
         self.query_one("#theme-select", textual.widgets.Select).value = theme

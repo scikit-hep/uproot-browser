@@ -23,7 +23,12 @@ from uproot_browser.tui.error import Error
 from uproot_browser.tui.help import HelpScreen
 from uproot_browser.tui.jump import JumpScreen
 from uproot_browser.tui.left_panel import SCROLLOFF, UprootTree
-from uproot_browser.tui.messages import ExpressionErrorMessage, UprootSelected
+from uproot_browser.tui.messages import (
+    EmptyMessage,
+    ErrorMessage,
+    ExpressionErrorMessage,
+    UprootSelected,
+)
 from uproot_browser.tui.plot import Plotext, render_canvas
 from uproot_browser.tui.right_panel import RightPanel
 
@@ -764,6 +769,7 @@ async def test_mark_two_branches_plots_2d() -> None:
         await jump_to(pilot, "//T/event/fEventName")
         await pilot.press("m")  # not numeric: refused with a notification
         assert tree.marks == []
+        await pilot.pause()  # the notification arrives as a message
         assert pilot.app._notifications  # noqa: SLF001
 
         await jump_to(pilot, "//T/event/fNtrack")
@@ -922,3 +928,42 @@ async def test_dump_directory_pair(
             assert f'y_file = uproot.open("{tmp_path / y_file}")' in msg
             assert 'x_item = x_file["T/event/fNtrack"]' in msg
             assert f'y_item = y_file["{LEAF_PATH.lstrip("/")}"]' in msg
+
+
+async def test_escape_in_right_panel_returns_to_tree() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        pilot.app.query_one("#x-min", textual.widgets.Input).focus()
+        await pilot.press("1", "escape")
+        await pilot.pause()
+        assert pilot.app.is_running
+        assert isinstance(pilot.app.focused, UprootTree)
+
+        pilot.app.query_one("#theme-select", textual.widgets.Select).focus()
+        await pilot.press("escape")
+        await pilot.pause()
+        assert pilot.app.is_running
+        assert isinstance(pilot.app.focused, UprootTree)
+
+
+async def test_superseded_render_errors_are_ignored() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        original = await settled_plot(pilot)
+        view = pilot.app.view_widget
+        view.item = original.with_expr("h[::2j]")
+        await settle_render(pilot)
+        before = plot_text(pilot.app)
+
+        stale = Error(RuntimeError("old"), original.selection)
+        pilot.app.post_message(ErrorMessage(stale, original))
+        await pilot.pause()
+        assert view.item is not stale
+        assert plot_text(pilot.app) == before
+
+        pilot.app.post_message(EmptyMessage(original))
+        await pilot.pause()
+        assert view.item is not None
+        assert plot_text(pilot.app) == before

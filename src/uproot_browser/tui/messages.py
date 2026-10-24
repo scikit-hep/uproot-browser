@@ -21,13 +21,20 @@ class UprootSelected(textual.message.Message, bubble=True):
 
 @rich.repr.auto
 class EmptyMessage(textual.message.Message, bubble=True):
-    pass
+    """The render of ``source`` found nothing to plot."""
+
+    def __init__(self, source: PlotItem) -> None:
+        self.source = source
+        super().__init__()
 
 
 @rich.repr.auto
 class ErrorMessage(textual.message.Message, bubble=True):
-    def __init__(self, err: Error) -> None:
+    """The render of ``source`` failed with a traceback to show."""
+
+    def __init__(self, err: Error, source: PlotItem) -> None:
         self.err = err
+        self.source = source
         super().__init__()
 
 
