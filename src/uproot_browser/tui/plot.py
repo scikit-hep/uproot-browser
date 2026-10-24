@@ -6,7 +6,6 @@ __lazy_modules__ = {
     "operator",
     "rich",
     "rich.text",
-    "textwrap",
     "uproot_browser.exceptions",
     "uproot_browser.plotext_compat",
     f"{__spec__.parent}.error",
@@ -17,7 +16,6 @@ import contextlib
 import dataclasses
 import functools
 import operator
-import textwrap
 import threading
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
@@ -73,7 +71,7 @@ class PlotItem(Protocol):
         """Show in the view that this item's expression failed."""
 
     def dump_source(self) -> str:
-        """Python source for Dump & Quit (appended after `uproot_file = ...`)."""
+        """Python source for Dump & Quit (appended after the ``item = ...`` lines)."""
 
     def dump_renderables(self) -> tuple[Any, ...]:
         """Renderables to print above the source on Dump & Quit."""
@@ -98,14 +96,20 @@ def run_posting_errors(source: PlotItem, fn: Callable[[], T]) -> T | None:
     return None
 
 
-def selection_source(selection: str, y_selection: str = "") -> str:
+def selection_source(
+    selection: str,
+    y_selection: str = "",
+    *,
+    x_file: str = "uproot_file",
+    y_file: str = "uproot_file",
+) -> str:
     """The ``item = ...`` line naming the selected branch, or ``x_item`` and
     ``y_item`` for a 2D selection."""
     if not y_selection:
-        return f'\nitem = uproot_file["{selection.lstrip("/")}"]'
+        return f'\nitem = {x_file}["{selection.lstrip("/")}"]'
     return (
-        f'\nx_item = uproot_file["{selection.lstrip("/")}"]'
-        f'\ny_item = uproot_file["{y_selection.lstrip("/")}"]'
+        f'\nx_item = {x_file}["{selection.lstrip("/")}"]'
+        f'\ny_item = {y_file}["{y_selection.lstrip("/")}"]'
     )
 
 
@@ -122,10 +126,6 @@ def resolve_item(upfile: Any, selection: str, y_selection: str = "") -> Any:
     if not y_selection:
         return item
     return uproot_browser.plot.BranchPair(item, resolve_selection(upfile, y_selection))
-
-
-# Binds ``item`` for dumped code that needs it after ``x_item``/``y_item``
-PAIR_ITEM_SOURCE = "import uproot_browser.plot\nitem = uproot_browser.plot.BranchPair(x_item, y_item)\n"
 
 
 # plotext draws on one global figure, and a cancelled thread worker keeps
@@ -154,30 +154,22 @@ def render_canvas(
 
 
 def make_dump(
-    item: Any, *size: int, expr: str = "", limits: AxisLimits = NO_LIMITS
+    item: Any,
+    *size: int,
+    expr: str = "",
+    limits: AxisLimits = NO_LIMITS,
+    image: bool = False,
 ) -> str:
-    """Standalone Python source rebuilding the plotted histogram as ``h``.
-
-    Typed axis limits are a display setting, not part of ``h``, so they add a
-    block that draws the plot the way the TUI did.
+    """Standalone Python source rebuilding the plotted histogram as ``h`` and
+    drawing it the way the TUI did. It never imports uproot_browser.
     """
-    width = size[0] - 5 if size else 100
+    # plot_mpl builds with the to_histogram default bins
+    width = 50 if image else (size[0] - 5 if size else 100)
     code = uproot_browser.plot.dump(item, width=width)
     if expr:
-        # Self-contained: the exported script must not need uproot_browser.
         code += f"\n\n{uproot_browser.plot.dump_expr(item, expr)}"
-    if limits != NO_LIMITS:
-        if isinstance(item, uproot_browser.plot.BranchPair):
-            code += f"\n\n{PAIR_ITEM_SOURCE}"
-        code += textwrap.dedent(f"""
-
-            import uproot_browser.plot
-            import uproot_browser.plotext_compat
-            from uproot_browser.axis import AxisLimits
-            fig = uproot_browser.plotext_compat.make_figure()
-            uproot_browser.plot.draw_hist(fig, item, h, limits={limits!r})
-            print(fig.build())""")
-    return code
+    draw = uproot_browser.plot.dump_mpl if image else uproot_browser.plot.dump_plotext
+    return f"{code}\n\n{draw(item, limits=limits)}"
 
 
 # What to plot with plotext, and the size the view gives it
@@ -223,12 +215,11 @@ class Plotext:
         )
 
     def dump_source(self) -> str:
-        msg = selection_source(self.selection, self.y_selection)
         selected = resolve_item(self.upfile, self.selection, self.y_selection)
         size = self.size or ()
         with contextlib.suppress(RuntimeError):
-            msg += f"\n{make_dump(selected, *size, expr=self.expr, limits=self.axis_limits)}"
-        return msg
+            return f"\n{make_dump(selected, *size, expr=self.expr, limits=self.axis_limits)}"
+        return ""
 
     def dump_renderables(self) -> tuple[Any, ...]:
         # Render synchronously: the worker hands the finished canvas to the

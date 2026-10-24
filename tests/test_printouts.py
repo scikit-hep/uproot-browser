@@ -6,6 +6,7 @@ import math
 import re
 import shutil
 import sys
+import warnings
 from typing import TYPE_CHECKING
 
 import hist
@@ -255,8 +256,10 @@ def test_dump_is_runnable(filename: str, selection: str, expr: str) -> None:
 
     code = uproot_browser.tui.plot.make_dump(item, 105, 30, expr=expr)
     assert "uproot_browser" not in code
+    if "heatmap" in code and not uproot_browser.plotext_compat.PLOTEXT_6:
+        pytest.skip("2D dumps draw with plotext 6")
 
-    namespace: dict[str, object] = {"item": item}
+    namespace: dict[str, object] = {"item": item, "print": lambda *_: None}
     exec(code, namespace)
 
     actual = namespace["h"]
@@ -281,7 +284,7 @@ def test_dump_with_limits_draws_once() -> None:
     code = uproot_browser.tui.plot.make_dump(item, 105, 30, expr=expr, limits=limits)
 
     assert code.count(expr) == 1
-    assert "uproot_browser.plot.plot(" not in code
+    assert "uproot_browser" not in code
     namespace: dict[str, object] = {"item": item, "print": lambda *_: None}
     exec(code, namespace)
     assert isinstance(namespace["h"], hist.Hist)
@@ -311,6 +314,47 @@ def test_dump_without_tree_omits_tree() -> None:
     item = uproot.open(data_path("uproot-Event.root"))["hstat"]
     code = uproot_browser.tui.plot.make_dump(item, 105, 30, expr="h[::2j]")
     assert "tree" not in code
+
+
+@pytest.mark.parametrize(
+    ("selection", "y_selection"),
+    [("hstat", ""), ("hpxpy", ""), ("T/event/fNtrack", "T/event/fTracks.fPx")],
+)
+def test_dump_image_is_runnable(
+    selection: str, y_selection: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The image-mode dump draws ``h`` with matplotlib, without the browser package."""
+    plt = pytest.importorskip("matplotlib.pyplot")
+    name = (
+        "uproot-hepdata-example.root" if selection == "hpxpy" else "uproot-Event.root"
+    )
+    uproot_file = uproot.open(data_path(name))
+    namespace: dict[str, object] = {}
+    if y_selection:
+        namespace["x_item"] = uproot_file[selection]
+        namespace["y_item"] = uproot_file[y_selection]
+        item: object = uproot_browser.plot.BranchPair(
+            namespace["x_item"], namespace["y_item"]
+        )
+    else:
+        item = namespace["item"] = uproot_file[selection]
+    limits = AxisLimits(x=(None, 1.0), y=(2.0, None))
+
+    code = uproot_browser.tui.plot.make_dump(item, limits=limits, image=True)
+    assert "uproot_browser" not in code
+    assert "plt.xlim(None, 1.0)" in code
+    assert "plt.ylim(2.0, None)" in code
+
+    shown: list[bool] = []
+    monkeypatch.setattr(plt, "show", lambda: shown.append(True))
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")  # mplhep warns about error bars
+            exec(code, namespace)
+    finally:
+        plt.close("all")
+    assert shown == [True]
+    assert isinstance(namespace["h"], hist.Hist)
 
 
 def test_make_hist_title_counts_profile_entries() -> None:
@@ -773,8 +817,14 @@ def test_dump_pair_is_runnable(expr: str) -> None:
 
     code = uproot_browser.tui.plot.make_dump(pair, 105, 30, expr=expr)
     assert "uproot_browser" not in code
+    if not uproot_browser.plotext_compat.PLOTEXT_6:
+        pytest.skip("2D dumps draw with plotext 6")
 
-    namespace: dict[str, object] = {"x_item": pair.x, "y_item": pair.y}
+    namespace: dict[str, object] = {
+        "x_item": pair.x,
+        "y_item": pair.y,
+        "print": lambda *_: None,
+    }
     exec(code, namespace)
 
     expected = uproot_browser.plot.apply_expr(

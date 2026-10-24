@@ -191,38 +191,37 @@ class Browser(textual.app.App[None]):
     def dump_source(self) -> tuple[str, list[Any]]:
         """The Dump & Quit source, and the renderables to show above it."""
 
-        opener = "import uproot\nuproot_file = uproot.open"
-        path = self.path
+        msg = f'\nimport uproot\nuproot_file = uproot.open("{self.path}")'
         item = self.view_widget.item
+        if not isinstance(item, (Error, PlotItem)):
+            return msg, []
+
+        selection, y_selection = item.selection, item.y_selection
+        files = {"x_file": "uproot_file", "y_file": "uproot_file"}
         root = self.query_one("#tree-view", UprootTree).upfile
-        if isinstance(root, LocalDirectory) and isinstance(item, (Error, PlotItem)):
-            upfile, selection = root.locate(item.selection)
+        if isinstance(root, LocalDirectory):
+            upfile, selection = root.locate(selection)
             y_upfile, y_selection = (
-                root.locate(item.y_selection) if item.y_selection else (upfile, "")
+                root.locate(y_selection) if y_selection else (upfile, "")
             )
             if y_upfile is upfile:
                 # Open only the file that holds the selection
-                path = upfile.file_path
-                changes = {"selection": selection, "y_selection": y_selection}
-                if not isinstance(item, Error):
-                    changes["upfile"] = upfile.file
-                item = dataclasses.replace(item, **changes)  # type: ignore[type-var]
+                msg = (
+                    f'\nimport uproot\nuproot_file = uproot.open("{upfile.file_path}")'
+                )
             else:
-                opener = "import uproot_browser.tree\nuproot_file = uproot_browser.tree.open_path"
+                msg = (
+                    f'\nimport uproot\nx_file = uproot.open("{upfile.file_path}")'
+                    f'\ny_file = uproot.open("{y_upfile.file_path}")'
+                )
+                files = {"x_file": "x_file", "y_file": "y_file"}
 
-        msg = f'\n{opener}("{path}")'
-
-        items: list[Any] = []
+        if item.selection:
+            # Show which branch is plotted, or produced the traceback
+            msg += selection_source(selection, y_selection, **files)
         if isinstance(item, Error):
-            items = [item]
-            if item.selection:
-                # Show which branch produced the traceback
-                msg += selection_source(item.selection, item.y_selection)
-        elif isinstance(item, PlotItem):
-            msg += item.dump_source()
-            items = list(item.dump_renderables())
-
-        return msg, items
+            return msg, [item]
+        return msg + item.dump_source(), list(item.dump_renderables())
 
     def action_quit_with_dump(self) -> None:
         """Dump the current state of the application."""

@@ -9,12 +9,14 @@ when the [image] extra is not installed.
 from __future__ import annotations
 
 __lazy_modules__ = {
+    "contextlib",
     "warnings",
     f"{__spec__.parent}.messages",
     f"{__spec__.parent}.plot",
     f"{__spec__.parent}.theme",
 }
 
+import contextlib
 import dataclasses
 import warnings
 from typing import TYPE_CHECKING, Any
@@ -23,12 +25,7 @@ from uproot_browser.axis import NO_LIMITS, AxisLimits
 from uproot_browser.plot import ExprCache
 
 from .messages import RequestImage
-from .plot import (
-    PAIR_ITEM_SOURCE,
-    resolve_item,
-    run_posting_errors,
-    selection_source,
-)
+from .plot import make_dump, resolve_item, run_posting_errors
 from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND, as_hex
 
 if TYPE_CHECKING:
@@ -131,20 +128,10 @@ class MPLPlot:
         view.image_widget.image = None
 
     def dump_source(self) -> str:
-        msg = selection_source(self.selection, self.y_selection)
-        if self.y_selection:
-            msg += f"\n{PAIR_ITEM_SOURCE}"
-        args = ""
-        imports = ""
-        if self.expr:
-            args += f", expr={self.expr!r}"
-        if self.axis_limits != NO_LIMITS:
-            args += f", limits={self.axis_limits!r}"
-            imports = "from uproot_browser.axis import AxisLimits\n"
-        return (
-            msg
-            + f"\n\nimport matplotlib.pyplot as plt\nimport uproot_browser.plot_mpl\n{imports}\nuproot_browser.plot_mpl.plot(item{args})\nplt.show()"
-        )
+        selected = resolve_item(self.upfile, self.selection, self.y_selection)
+        with contextlib.suppress(RuntimeError):
+            return f"\n{make_dump(selected, expr=self.expr, limits=self.axis_limits, image=True)}"
+        return ""
 
     def dump_renderables(self) -> tuple[Any, ...]:
         return ()
