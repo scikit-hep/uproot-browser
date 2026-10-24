@@ -201,18 +201,15 @@ async def test_image_expr(monkeypatch: pytest.MonkeyPatch) -> None:
         assert isinstance(item, MPLPlot)
         assert item.expr == "h[::2j]"
         # Dump & Quit source for the image mode carries the expression
-        assert "uproot_browser.plot_mpl.plot(item, expr='h[::2j]')" in (
-            item.dump_source()
-        )
+        source = item.dump_source()
+        assert "result = h[::2j]" in source
+        assert "h.plot()" in source
+        assert "uproot_browser" not in source
         pilot.app.axis_limits = AxisLimits(y=(None, 15.0))
         await pilot.pause()
         item = view.item
         assert isinstance(item, MPLPlot)
-        assert "from uproot_browser.axis import AxisLimits" in item.dump_source()
-        assert (
-            "uproot_browser.plot_mpl.plot(item, expr='h[::2j]', limits=AxisLimits(x=(None, None), y=(None, 15.0)))"
-            in item.dump_source()
-        )
+        assert "plt.ylim(None, 15.0)" in item.dump_source()
         await _settle(pilot)
         # a rebuild would have raised, replacing the item with an Error
         assert isinstance(view.item, MPLPlot)

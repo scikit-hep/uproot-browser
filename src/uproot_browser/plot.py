@@ -45,6 +45,7 @@ import uproot.models.RNTuple
 
 from uproot_browser.axis import NO_LIMITS, AxisLimits, AxisRange
 from uproot_browser.exceptions import EmptyTreeError, ExpressionError
+from uproot_browser.plotext_compat import PLOTEXT_6
 
 if TYPE_CHECKING:
     from uproot_browser.plotext_compat import PlotextFigure
@@ -618,3 +619,91 @@ def dump_pair(tree: BranchPair, *, width: int = 100) -> str:  # noqa: ARG001
         h = hist.numpy.histogram2d(x[finite], y[finite], bins={width}, histogram=hist.Hist)
         h.axes[0].label = x_item.name
         h.axes[1].label = y_item.name""")
+
+
+def _dump_ndim(item: Any) -> int:
+    """The dimensions of the histogram :func:`dump` builds, without reading data."""
+    if isinstance(item, BranchPair):
+        return 2
+    if isinstance(item, uproot.behaviors.TH1.Histogram):
+        return len(item.axes)
+    return 1
+
+
+def _dump_title(item: Any) -> str:
+    """Source for the plot title; the flow count of :func:`make_hist_title` is omitted."""
+    name = (
+        "{y_item.name} vs {x_item.name}"
+        if isinstance(item, BranchPair)
+        else "{item.name}"
+    )
+    return f'f"{name} -- Entries: {{np.sum(h.counts()):g}}"'
+
+
+def _lim_args(lim: AxisRange) -> str:
+    return ", ".join("None" if v is None else repr(float(v)) for v in lim)
+
+
+def dump_plotext(item: Any, *, limits: AxisLimits = NO_LIMITS) -> str:
+    """Source that draws ``h`` with plotext like :func:`draw_hist` (ticks omitted)."""
+    xlabel = "h.axes[0].label"
+    if _dump_ndim(item) == 2 or PLOTEXT_6:
+        lines = [
+            "import numpy as np",
+            "import plotext as plt",
+            "",
+            "fig = plt.figure",
+        ]
+        if _dump_ndim(item) == 2:
+            # Heatmap rows draw top-to-bottom; flip so y increases upward
+            lines += [
+                "values = h.values().T[::-1].tolist()",
+                'fig.draw(fig.heatmap(values, map="viridis", fill=True))',
+                f'fig.label({xlabel}, axis="x")',
+                'fig.label(h.axes[1].label, axis="y")',
+            ]
+        else:
+            lines.append("fig.draw(fig.bar(h.axes[0].centers, h.values()))")
+            if limits.x != (None, None):
+                lines.append(f'fig.ruler("x").lim({_lim_args(limits.x)})')
+            lower, upper = limits.y
+            lines += [
+                f'fig.ruler("y").lim({_lim_args((0 if lower is None else lower, upper))})',
+                f'fig.label({xlabel}, axis="x")',
+            ]
+        lines += [f"fig.title({_dump_title(item)})", "print(fig.build())"]
+        return "\n".join(lines)
+
+    lines = [
+        "import numpy as np",
+        "import plotext as plt",
+        "",
+        "plt.bar(h.axes[0].centers, h.values())",
+    ]
+    if limits.x != (None, None):
+        lines.append(f"plt.xlim({_lim_args(limits.x)})")
+    lower, upper = limits.y
+    lines += [
+        f"plt.ylim({_lim_args((0 if lower is None else lower, upper))})",
+        f"plt.xlabel({xlabel})",
+        f"plt.title({_dump_title(item)})",
+        "plt.show()",
+    ]
+    return "\n".join(lines)
+
+
+def dump_mpl(item: Any, *, limits: AxisLimits = NO_LIMITS) -> str:
+    """Source that draws ``h`` with matplotlib like :mod:`uproot_browser.plot_mpl`."""
+    lines = [
+        "import matplotlib.pyplot as plt",
+        "import numpy as np",
+        "",
+        "h.plot()",
+        f"plt.title({_dump_title(item)})",
+    ]
+    if limits.x != (None, None):
+        lines.append(f"plt.xlim({_lim_args(limits.x)})")
+    if limits.y != (None, None):
+        lines.append(f"plt.ylim({_lim_args(limits.y)})")
+    lines.append("plt.show()")
+    return "\n".join(lines)

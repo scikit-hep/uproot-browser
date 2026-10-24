@@ -246,11 +246,13 @@ async def test_plot_first_branch(monkeypatch: pytest.MonkeyPatch) -> None:
         item = await settled_plot(pilot)
         assert item.theme == "uproot_dark"
         assert_canvas(pilot.app, item)
-        # Dump & Quit source for the text mode rebuilds the histogram
-        assert item.dump_source().startswith('\nitem = uproot_file["')
+        # Dump & Quit source for the text mode rebuilds and draws the histogram
+        msg, items = pilot.app.dump_source()
+        assert '\nitem = uproot_file["' in msg
+        assert "import plotext as plt" in msg
+        assert "uproot_browser" not in msg
 
         # Dump & Quit prints the plot, not the "... plotting ..." placeholder
-        _, items = pilot.app.dump_source()
         console = rich.console.Console(
             width=40, file=io.StringIO(), force_terminal=True
         )
@@ -305,7 +307,9 @@ async def test_axis_ranges_are_typed_in_right_panel() -> None:
         assert panel.status == "Applied."
         item = pilot.app.view_widget.item
         assert isinstance(item, Plotext)
-        assert "limits=AxisLimits(x=(0.2, 0.8), y=(1.0, 15.0))" in item.dump_source()
+        source = item.dump_source()
+        assert "lim(0.2, 0.8)" in source
+        assert "lim(1.0, 15.0)" in source
 
         # Selecting another node drops the limits and clears the panel
         pilot.app.query_one(UprootTree).focus()
@@ -913,6 +917,8 @@ async def test_dump_directory_pair(
             assert 'x_item = uproot_file["T/event/fNtrack"]' in msg
             assert f'y_item = uproot_file["{LEAF_PATH.lstrip("/")}"]' in msg
         else:
-            assert f'open_path("{tmp_path}")' in msg
-            assert 'x_item = uproot_file["a.root/T/event/fNtrack"]' in msg
-            assert f'y_item = uproot_file["{y_path.lstrip("/")}"]' in msg
+            assert "uproot_browser" not in msg
+            assert f'x_file = uproot.open("{tmp_path / "a.root"}")' in msg
+            assert f'y_file = uproot.open("{tmp_path / y_file}")' in msg
+            assert 'x_item = x_file["T/event/fNtrack"]' in msg
+            assert f'y_item = y_file["{LEAF_PATH.lstrip("/")}"]' in msg

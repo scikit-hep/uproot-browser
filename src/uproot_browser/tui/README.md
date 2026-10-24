@@ -69,8 +69,8 @@ ranges, the image scale (with `--image`), and the theme selector.
 ## Leaving
 
 You can press `q` or `esc` to quit. You can also press `d` to quit with a dump
-of the current plot and how to get the object being plotted in Python uproot
-code.
+of the current plot and standalone Python code (uproot, hist, and plotext or
+matplotlib) that reproduces it.
 
 ## Exiting the help.
 
