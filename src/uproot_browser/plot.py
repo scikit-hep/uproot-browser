@@ -73,7 +73,6 @@ def to_histogram(tree: Any, *, bins: int = 50) -> hist.Hist[Any]:  # noqa: ARG00
     raise RuntimeError(msg)
 
 
-# Simpler in Python 3.11+
 @to_histogram.register(uproot.TBranch)
 def branch_hist(
     tree: uproot.TBranch | uproot.models.RNTuple.RField, *, bins: int = 50
@@ -559,8 +558,7 @@ def dump(tree: Any, *, width: int = 100) -> str:  # noqa: ARG001
     raise RuntimeError(msg)
 
 
-# Simpler in Python 3.11+
-@dump.register(uproot.TBranch)
+@dump.register(uproot.TBranch | uproot.models.RNTuple.RField)
 def dump_branch(
     tree: uproot.TBranch | uproot.models.RNTuple.RField,
     *,
@@ -585,9 +583,6 @@ def dump_branch(
         values = ak.ravel(array)
         finite = values[np.isfinite(values)]
         h = hist.numpy.histogram(finite, bins={width}, histogram=hist.Hist)""")
-
-
-dump.register(uproot.models.RNTuple.RField)(dump_branch)  # type: ignore[no-untyped-call]
 
 
 @dump.register
