@@ -95,7 +95,7 @@ def branch_hist(
             operator.add, (h.to_hist() for h in arr)
         )
         return histogram
-    return _fill_finite(
+    return fill_finite(
         tree.array(), bins=bins, empty_msg=f"Branch {tree.name} is empty."
     )
 
@@ -110,7 +110,7 @@ def _flatten_object_array(array: Any) -> Any:
     return ak.from_iter(array) if flat.dtype == object else flat
 
 
-def _fill_finite(array: Any, *, bins: int, empty_msg: str) -> hist.Hist[Any]:
+def fill_finite(array: Any, *, bins: int, empty_msg: str) -> hist.Hist[Any]:
     """Flatten ``array``, drop non-finite values, and fill a regular histogram."""
     if isinstance(array, np.ndarray) and array.dtype == object:
         array = _flatten_object_array(array)
@@ -163,20 +163,43 @@ class BranchPair:
         return f"{self.y.name} vs {self.x.name}"
 
 
+@functools.singledispatch
+def read_array(item: Any) -> Any:
+    """Read the values of an array-like item (branch, field, variable)."""
+    return item.array()
+
+
+@functools.singledispatch
+def array_source(item: Any, var: str) -> str:  # noqa: ARG001
+    """Source for :func:`read_array` applied to the object bound to ``var``."""
+    return f"{var}.array()"
+
+
+def entry_count(item: Any) -> int:
+    """The number of entries of an array-like item, without reading it."""
+    count = getattr(item, "num_entries", None)
+    return len(item) if count is None else int(count)
+
+
+def typename(item: Any) -> str:
+    """The type of an array-like item: a C++ typename or a numpy dtype."""
+    return str(getattr(item, "typename", None) or item.dtype)
+
+
 @to_histogram.register(BranchPair)
 def _pair_hist(pair: BranchPair, *, bins: int = 50) -> hist.Hist[Any]:
     for item in (pair.x, pair.y):
         if not array_plottable(item):
-            msg = f"{item.name} ({item.typename}) does not hold numbers for a 2D plot"
+            msg = f"{item.name} ({typename(item)}) does not hold numbers for a 2D plot"
             raise TypeError(msg)
-    if pair.x.num_entries != pair.y.num_entries:
+    x_entries, y_entries = entry_count(pair.x), entry_count(pair.y)
+    if x_entries != y_entries:
         msg = (
-            f"{pair.x.name} has {pair.x.num_entries} entries, "
-            f"but {pair.y.name} has {pair.y.num_entries}"
+            f"{pair.x.name} has {x_entries} entries, but {pair.y.name} has {y_entries}"
         )
         raise ValueError(msg)
     # A per-entry value broadcasts against a per-item (jagged) value
-    x_array, y_array = ak.broadcast_arrays(pair.x.array(), pair.y.array())
+    x_array, y_array = ak.broadcast_arrays(read_array(pair.x), read_array(pair.y))
     x = np.asarray(ak.ravel(x_array), dtype=float)
     y = np.asarray(ak.ravel(y_array), dtype=float)
     finite = np.isfinite(x) & np.isfinite(y)
@@ -300,7 +323,7 @@ def _result_to_histogram(result: Any, *, bins: int) -> hist.Hist[Any]:
     if isinstance(result, bh.Histogram):
         return hist.Hist(result)
     if isinstance(result, (ak.Array, np.ndarray)):
-        return _fill_finite(
+        return fill_finite(
             result,
             bins=bins,
             empty_msg="Expression produced no finite values.",
@@ -521,30 +544,44 @@ def _field_plottable(field: uproot.models.RNTuple.RField) -> bool:
     return np.dtype(leaf.primitive).kind in "biuf"
 
 
-def array_plottable(item: Any) -> bool:
+@functools.singledispatch
+def array_plottable(item: Any) -> bool:  # noqa: ARG001
     """Does ``item`` read as a numeric array (not histogram objects)?"""
-    if isinstance(item, uproot.models.RNTuple.RField):
-        return _field_plottable(item)
-    if isinstance(item, uproot.TBranch):
-        return _branch_numeric(item)
     return False
 
 
+@array_plottable.register(uproot.models.RNTuple.RField)
+def _field_array_plottable(item: uproot.models.RNTuple.RField) -> bool:
+    return _field_plottable(item)
+
+
+@array_plottable.register(uproot.TBranch)
+def _branch_array_plottable(item: uproot.TBranch) -> bool:
+    return _branch_numeric(item)
+
+
+@functools.singledispatch
 def plottable(item: Any) -> bool:
     """
     True if :func:`plot` has an implementation for this object that can
     succeed. Some failures (like an empty branch) are only found by reading
     the data, so this is a necessary but not sufficient check.
     """
-    if isinstance(item, uproot.behaviors.TH1.Histogram):
-        return len(item.axes) <= 2
-    if isinstance(item, uproot.TBranch):
-        return _branch_plottable(item)
-    if isinstance(item, uproot.models.RNTuple.RField):
-        return _field_plottable(item)
-    if isinstance(item, BranchPair):
-        return array_plottable(item.x) and array_plottable(item.y)
     return to_histogram.dispatch(type(item)) is not to_histogram.dispatch(object)
+
+
+@plottable.register(uproot.behaviors.TH1.Histogram)
+def _hist_plottable(item: uproot.behaviors.TH1.Histogram) -> bool:
+    return len(item.axes) <= 2
+
+
+plottable.register(uproot.TBranch)(_branch_plottable)  # type: ignore[no-untyped-call]
+plottable.register(uproot.models.RNTuple.RField)(_field_plottable)  # type: ignore[no-untyped-call]
+
+
+@plottable.register(BranchPair)
+def _pair_plottable(item: BranchPair) -> bool:
+    return array_plottable(item.x) and array_plottable(item.y)
 
 
 @functools.singledispatch
@@ -598,16 +635,17 @@ def dump_hist(
 
 
 @dump.register
-def dump_pair(tree: BranchPair, *, width: int = 100) -> str:  # noqa: ARG001
+def dump_pair(tree: BranchPair, *, width: int = 100) -> str:
     """
     Source for rebuilding a 2D histogram from branches bound to ``x_item`` and
     ``y_item``.
     """
+    x_source, y_source = array_source(tree.x, "x_item"), array_source(tree.y, "y_item")
     return textwrap.dedent(f"""\
         import awkward as ak
         import hist
         import numpy as np
-        x, y = ak.broadcast_arrays(x_item.array(), y_item.array())
+        x, y = ak.broadcast_arrays({x_source}, {y_source})
         x = np.asarray(ak.ravel(x), dtype=float)
         y = np.asarray(ak.ravel(y), dtype=float)
         finite = np.isfinite(x) & np.isfinite(y)

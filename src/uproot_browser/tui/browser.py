@@ -46,7 +46,7 @@ from textual.reactive import var
 
 from uproot_browser.axis import NO_LIMITS, AxisLimits
 from uproot_browser.exceptions import EmptyTreeError
-from uproot_browser.tree import LocalDirectory
+from uproot_browser.tree import LocalDirectory, open_source
 
 from ..plotext_compat import add_theme
 from .error import Error
@@ -196,7 +196,7 @@ class Browser(textual.app.App[None]):
     def dump_source(self) -> tuple[str, list[Any]]:
         """The Dump & Quit source, and the renderables to show above it."""
 
-        msg = f'\nimport uproot\nuproot_file = uproot.open("{self.path}")'
+        msg = f"\n{open_source(self.path)}"
         item = self.view_widget.item
         if not isinstance(item, (Error, PlotItem)):
             return msg, []
@@ -211,13 +211,11 @@ class Browser(textual.app.App[None]):
             )
             if y_upfile is upfile:
                 # Open only the file that holds the selection
-                msg = (
-                    f'\nimport uproot\nuproot_file = uproot.open("{upfile.file_path}")'
-                )
+                msg = f"\n{open_source(upfile.file_path)}"
             else:
                 msg = (
-                    f'\nimport uproot\nx_file = uproot.open("{upfile.file_path}")'
-                    f'\ny_file = uproot.open("{y_upfile.file_path}")'
+                    f"\nimport uproot\nx_file = uproot.open({upfile.file_path!r})"
+                    f"\ny_file = uproot.open({y_upfile.file_path!r})"
                 )
                 files = {"x_file": "x_file", "y_file": "y_file"}
 
