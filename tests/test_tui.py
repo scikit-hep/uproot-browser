@@ -861,8 +861,8 @@ async def test_jump_directory_is_lazy(root_dir: pathlib.Path) -> None:
             "//sub",
             "//sub/b.root",
         ]
-        assert not tree.upfile["a.root"].is_open
-        assert not tree.upfile["sub/b.root"].is_open
+        assert not tree.root_node.resolve("a.root").is_loaded
+        assert not tree.root_node.resolve("sub/b.root").is_loaded
 
         await jump_to(pilot, "//sub/b.root/hpx")
         await settle_render(pilot)
@@ -884,7 +884,7 @@ async def test_dump_directory_pair(
         tree = pilot.app.query_one("#tree-view", UprootTree)
         x_path = "//a.root/T/event/fNtrack"
         y_path = f"//{y_file}{LEAF_PATH[1:]}"
-        tree.post_message(UprootSelected(tree.upfile, x_path, y_path))
+        tree.post_message(UprootSelected(tree.root_node, x_path, y_path))
         await settle_render(pilot)
 
         msg, _ = pilot.app.dump_source()

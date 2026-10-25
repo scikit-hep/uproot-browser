@@ -32,6 +32,8 @@ if TYPE_CHECKING:
     import hist
     import PIL.Image
 
+    from uproot_browser.nodes import Node
+
     from .browser import Browser
     from .viewer import ViewWidget
 
@@ -94,7 +96,7 @@ class _HistCache:
 
 @dataclasses.dataclass
 class MPLPlot:
-    upfile: Any
+    root: Node
     selection: str
     dark: bool
     app: Browser
@@ -127,10 +129,10 @@ class MPLPlot:
         assert view.image_widget is not None
         view.image_widget.image = None
 
-    def dump_source(self) -> str:
-        selected = resolve_item(self.upfile, self.selection, self.y_selection)
+    def dump_source(self, *, file_var: str = "uproot_file") -> str:
+        selected = resolve_item(self.root, self.selection, self.y_selection)
         with contextlib.suppress(RuntimeError):
-            return f"\n{make_dump(selected, expr=self.expr, limits=self.axis_limits, image=True)}"
+            return f"\n{make_dump(selected, expr=self.expr, limits=self.axis_limits, image=True, file_var=file_var)}"
         return ""
 
     def dump_renderables(self) -> tuple[Any, ...]:
@@ -143,7 +145,7 @@ class MPLPlot:
 
             item = self.built.item
             if item is None:
-                item = resolve_item(self.upfile, self.selection, self.y_selection)
+                item = resolve_item(self.root, self.selection, self.y_selection)
                 self.built.item = item
             histogram = self.built.hist
             if histogram is None:

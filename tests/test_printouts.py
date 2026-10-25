@@ -16,13 +16,17 @@ import rich.console
 import uproot
 from skhep_testdata import data_path
 
+import uproot_browser.nodes
 import uproot_browser.plot
 import uproot_browser.plotext_compat
 import uproot_browser.tree
 import uproot_browser.tui.plot
 from uproot_browser.axis import AxisLimits
+from uproot_browser.backends import as_node
+from uproot_browser.backends.directory import LazyRoot, LocalDirectory
 from uproot_browser.exceptions import ExpressionError
-from uproot_browser.tree import UprootEntry, print_tree, process_item
+from uproot_browser.nodes import Column, FailedNode
+from uproot_browser.tree import print_tree, process_item
 
 if TYPE_CHECKING:
     import pathlib
@@ -157,11 +161,11 @@ def test_tree_with_unreadable_item(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(uproot.reading.ReadOnlyDirectory, "__getitem__", bad_getitem)
 
     with uproot.open(data_path("uproot-Event.root")) as upfile:
-        entry = uproot_browser.tree.UprootEntry("/", upfile)
+        entry = as_node(upfile)
         children = {c.path.rsplit("/", maxsplit=1)[-1]: c for c in entry.children}
 
-        failed = children["hstat"].item
-        assert isinstance(failed, uproot_browser.tree.FailedEntry)
+        failed = children["hstat"]
+        assert isinstance(failed, FailedNode)
         assert isinstance(failed.exception, ValueError)
 
         meta = children["hstat"].meta()
@@ -177,7 +181,7 @@ def test_tree_with_unreadable_item(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_tree_nested_directory_label() -> None:
     """A nested TDirectory is labeled by its own name, not the root one (issue #282)."""
     with uproot.open(data_path("uproot-nesteddirs.root")) as upfile:
-        entry = UprootEntry("/", upfile)
+        entry = as_node(upfile)
         (nested,) = (e for e in entry.walk() if e.path == "//one/two")
 
         label_text = nested.meta()["label_text"]
@@ -753,7 +757,9 @@ def _fail_eval(*_args: object, **_kwargs: object) -> None:
     raise AssertionError(msg)
 
 
-def _pair(upfile: uproot.ReadOnlyDirectory, x: str, y: str) -> object:
+def _pair(
+    upfile: uproot.ReadOnlyDirectory, x: str, y: str
+) -> uproot_browser.nodes.Pair:
     return uproot_browser.plot.BranchPair(upfile[x], upfile[y])
 
 
@@ -778,6 +784,13 @@ def test_pair_histogram_broadcasts_per_entry_values() -> None:
 )
 def test_pair_needs_numbers(x: str, y: str) -> None:
     with uproot.open(data_path("uproot-Event.root")) as upfile:
+        if not isinstance(as_node(upfile[x]), Column) or not isinstance(
+            as_node(upfile[y]), Column
+        ):
+            # A histogram object is not a column at all
+            with pytest.raises(TypeError, match="2D plot"):
+                _pair(upfile, x, y)
+            return
         pair = _pair(upfile, x, y)
         assert not uproot_browser.plot.plottable(pair)
         with pytest.raises(TypeError, match="2D plot"):
@@ -821,8 +834,8 @@ def test_dump_pair_is_runnable(expr: str) -> None:
         pytest.skip("2D dumps draw with plotext 6")
 
     namespace: dict[str, object] = {
-        "x_item": pair.x,
-        "y_item": pair.y,
+        "x_item": pair.x.item,
+        "y_item": pair.y.item,
         "print": lambda *_: None,
     }
     exec(code, namespace)
@@ -839,15 +852,19 @@ def test_dump_pair_is_runnable(expr: str) -> None:
 def test_local_directory_tree(root_dir: pathlib.Path) -> None:
     root = root_dir
     with uproot_browser.tree.open_path(str(root)) as directory:
-        assert isinstance(directory, uproot_browser.tree.LocalDirectory)
+        assert isinstance(directory, LocalDirectory)
         assert directory.keys() == ["a.root", "sub"]
-        paths = {e.path for e in UprootEntry("/", directory).walk()}
+        paths = {e.path for e in directory.walk()}
         assert {"//a.root/hpx", "//sub/b.root/hpx"} <= paths
 
-        upfile, key = directory.locate("//sub/b.root/hpx")
-        assert upfile.file_path == str(root / "sub" / "b.root")
-        assert key == "hpx"
-        assert directory["//sub/b.root/hpx"].name == "hpx"
+        hpx = directory.resolve("//sub/b.root/hpx")
+        assert hpx.name == "hpx"
+        assert hpx.root.open_source("f") == (
+            f'import uproot\nf = uproot.open("{root / "sub" / "b.root"}")'
+        )
+        assert hpx.bind_source() == 'item = uproot_file["hpx"]'
+        assert hpx.path == "//sub/b.root/hpx"
+        assert directory.resolve("sub:b.root/hpx") is not None
 
     console = rich.console.Console(width=80, file=io.StringIO(), record=True)
     print_tree(str(root), console=console)
@@ -868,10 +885,10 @@ def test_local_directory_unreadable_file(root_dir: pathlib.Path) -> None:
     root = root_dir
     (root / "bad.root").write_text("not ROOT")
     with uproot_browser.tree.open_path(str(root)) as directory:
-        entries = {e.path: e for e in UprootEntry("/", directory).walk()}
+        entries = {e.path: e for e in directory.walk()}
         bad = entries["//bad.root"]
-        assert isinstance(bad.item, uproot_browser.tree.LocalFile)
-        assert bad.item.error is not None
+        assert isinstance(bad, LazyRoot)
+        assert bad.error is not None
         assert bad.meta()["label_icon"] == "‼️ "
         assert "//sub/b.root/hpx" in entries
 
@@ -880,6 +897,21 @@ def test_local_directory_unreadable_file(root_dir: pathlib.Path) -> None:
     out = console.export_text()
     assert "bad.root" in out
     assert "b.root" in out
+
+
+def test_resolve_failed_segment() -> None:
+    """A missing key resolves to a failed node that still names its place."""
+    with uproot.open(data_path("uproot-Event.root")) as upfile:
+        root = uproot_browser.tree.open_path(data_path("uproot-Event.root"))
+        node = root.resolve("T/event/missing")
+        assert isinstance(node, FailedNode)
+        assert node.bind_source() == 'item = uproot_file["T/event/missing"]'
+        with pytest.raises(uproot.KeyInFileError):
+            uproot_browser.plot.to_histogram(node)
+        assert as_node(upfile["T/event/fNtrack"]).data_tree_source() == "item.tree"
+        tree = root.resolve("T/event/fNtrack").data_tree()
+        assert tree is not None
+        assert tree.item is root.resolve("T").item
 
 
 @pytest.mark.parametrize(

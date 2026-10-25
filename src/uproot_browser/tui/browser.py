@@ -12,7 +12,6 @@ __lazy_modules__ = {
     "textual.widgets",
     "textual.worker",
     "uproot_browser.exceptions",
-    "uproot_browser.tree",
     f"{__spec__.parent}.error",
     f"{__spec__.parent}.header",
     f"{__spec__.parent}.help",
@@ -46,7 +45,6 @@ from textual.reactive import var
 
 from uproot_browser.axis import NO_LIMITS, AxisLimits
 from uproot_browser.exceptions import EmptyTreeError
-from uproot_browser.tree import LocalDirectory
 
 from ..plotext_compat import add_theme
 from .error import Error
@@ -55,7 +53,7 @@ from .help import HelpScreen
 from .image_plot import MPLPlot
 from .jump import JumpScreen
 from .left_panel import UprootTree
-from .plot import Plotext, PlotItem, selection_source
+from .plot import Plotext, PlotItem, dump_header
 from .right_panel import RightPanel
 from .splitter import Splitter
 from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND
@@ -196,37 +194,32 @@ class Browser(textual.app.App[None]):
     def dump_source(self) -> tuple[str, list[Any]]:
         """The Dump & Quit source, and the renderables to show above it."""
 
-        msg = f'\nimport uproot\nuproot_file = uproot.open("{self.path}")'
         item = self.view_widget.item
-        if not isinstance(item, (Error, PlotItem)):
-            return msg, []
-
-        selection, y_selection = item.selection, item.y_selection
-        files = {"x_file": "uproot_file", "y_file": "uproot_file"}
-        root = self.query_one("#tree-view", UprootTree).upfile
-        if isinstance(root, LocalDirectory):
-            upfile, selection = root.locate(selection)
-            y_upfile, y_selection = (
-                root.locate(y_selection) if y_selection else (upfile, "")
-            )
-            if y_upfile is upfile:
-                # Open only the file that holds the selection
-                msg = (
-                    f'\nimport uproot\nuproot_file = uproot.open("{upfile.file_path}")'
-                )
-            else:
-                msg = (
-                    f'\nimport uproot\nx_file = uproot.open("{upfile.file_path}")'
-                    f'\ny_file = uproot.open("{y_upfile.file_path}")'
-                )
-                files = {"x_file": "x_file", "y_file": "y_file"}
-
-        if item.selection:
-            # Show which branch is plotted, or produced the traceback
-            msg += selection_source(selection, y_selection, **files)
+        root = self.query_one("#tree-view", UprootTree).root_node
+        selection, y_selection = "", ""
+        if isinstance(item, (Error, PlotItem)):
+            selection, y_selection = item.selection, item.y_selection
+        try:
+            header, file_var = dump_header(root, selection, y_selection)
+        except Exception:  # noqa: BLE001
+            # The selection cannot be resolved (it produced the traceback)
+            header, file_var = self._plain_header(selection, y_selection), "uproot_file"
+        msg = f"\n{header}"
         if isinstance(item, Error):
             return msg, [item]
-        return msg + item.dump_source(), list(item.dump_renderables())
+        if not isinstance(item, PlotItem):
+            return msg, []
+        return msg + item.dump_source(file_var=file_var), list(item.dump_renderables())
+
+    def _plain_header(self, selection: str, y_selection: str) -> str:
+        """Open and bind lines from the paths alone, naming what went wrong."""
+        msg = f'import uproot\nuproot_file = uproot.open("{self.path}")'
+        if y_selection:
+            return (
+                f'{msg}\nx_item = uproot_file["{selection.lstrip("/")}"]'
+                f'\ny_item = uproot_file["{y_selection.lstrip("/")}"]'
+            )
+        return f'{msg}\nitem = uproot_file["{selection.lstrip("/")}"]'
 
     def action_quit_with_dump(self) -> None:
         """Dump the current state of the application."""
@@ -259,7 +252,7 @@ class Browser(textual.app.App[None]):
         dark = self.current_theme.dark
         self.view_widget.item = (
             MPLPlot(
-                message.upfile,
+                message.root,
                 message.path,
                 dark=dark,
                 app=self,
@@ -268,7 +261,7 @@ class Browser(textual.app.App[None]):
             )
             if self.image
             else Plotext(
-                message.upfile,
+                message.root,
                 message.path,
                 dark=dark,
                 app=self,

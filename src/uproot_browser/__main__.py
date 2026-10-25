@@ -29,7 +29,7 @@ def get_testdata(filename: str | None, *, testdata: bool) -> str:
         if filename is None:
             msg = "Missing argument 'FILENAME'."
             raise click.UsageError(msg)
-        from .tree import split_spec
+        from .backends import split_spec
 
         name, _ = split_spec(filename)
         if "://" not in filename and not Path(name).exists():

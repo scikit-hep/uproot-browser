@@ -11,40 +11,27 @@ __lazy_modules__ = {
     "hist",
     "math",
     "numpy",
-    "operator",
     "textwrap",
-    "uproot.interpretation",
-    "uproot.interpretation.jagged",
-    "uproot.interpretation.numerical",
-    "uproot.interpretation.objects",
-    "uproot.model",
+    "uproot_browser.backends",
     "uproot_browser.exceptions",
+    "uproot_browser.nodes",
 }
 
 import ast
 import dataclasses
-import functools
 import math
-import operator
 import textwrap
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import awkward as ak
 import boost_histogram as bh
 import hist
 import numpy as np
-import uproot
-import uproot.behaviors.RNTuple
-import uproot.behaviors.TBranch
-import uproot.behaviors.TH1
-import uproot.interpretation.jagged
-import uproot.interpretation.numerical
-import uproot.interpretation.objects
-import uproot.model
-import uproot.models.RNTuple
 
 from uproot_browser.axis import NO_LIMITS, AxisLimits, AxisRange
-from uproot_browser.exceptions import EmptyTreeError, ExpressionError
+from uproot_browser.backends import as_node
+from uproot_browser.exceptions import ExpressionError
+from uproot_browser.nodes import Column, FailedNode, Pair, Plottable, fill_finite
 from uproot_browser.plotext_compat import PLOTEXT_6
 
 if TYPE_CHECKING:
@@ -52,186 +39,53 @@ if TYPE_CHECKING:
 
 
 def make_hist_title(item: Any, histogram: hist.Hist[Any]) -> str:
+    name = as_node(item).name
     # counts() equals values() for plain storage, but gives the entry count for
     # Mean storage (TProfile) and the effective entries for Weight storage.
     inner_sum = float(np.sum(histogram.counts()))
     full_sum = float(np.sum(histogram.counts(flow=True)))
 
     if math.isclose(inner_sum, full_sum):
-        return f"{item.name} -- Entries: {inner_sum:g}"
+        return f"{name} -- Entries: {inner_sum:g}"
 
-    return f"{item.name} -- Entries: {inner_sum:g} ({full_sum:g} with flow)"
+    return f"{name} -- Entries: {inner_sum:g} ({full_sum:g} with flow)"
 
 
-@functools.singledispatch
-def to_histogram(tree: Any, *, bins: int = 50) -> hist.Hist[Any]:  # noqa: ARG001
+def plottable_node(item: Any) -> Plottable:
+    """The node for ``item``, which must be plottable; a failed entry re-raises."""
+    node = as_node(item)
+    if isinstance(node, FailedNode):
+        raise node.exception
+    if not isinstance(node, Plottable):
+        msg = f"This object ({type(node.item)}) is not plottable yet"
+        raise RuntimeError(msg)  # noqa: TRY004
+    return node
+
+
+def to_histogram(item: Any, *, bins: int = 50) -> hist.Hist[Any]:
     """
     Build the histogram that :func:`plot` draws for this object.
-    Implement this for each type of plottable.
+    Each :class:`~uproot_browser.nodes.Plottable` implements it.
     """
-    msg = f"This object ({type(tree)}) is not plottable yet"
-    raise RuntimeError(msg)
+    return plottable_node(item).to_histogram(bins=bins)
 
 
-@to_histogram.register(uproot.TBranch)
-def branch_hist(
-    tree: uproot.TBranch | uproot.models.RNTuple.RField, *, bins: int = 50
-) -> hist.Hist[Any]:
-    """
-    Build a histogram from a branch/field. Branches holding TH1 objects are
-    summed; numeric arrays are flattened, filtered to finite values, and filled.
-    """
-    # RField has no `interpretation`; it is always read as an array.
-    interpretation = getattr(tree, "interpretation", None)
-    if isinstance(interpretation, uproot.interpretation.objects.AsObjects):
-        arr = tree.array(library="np")
-        if len(arr) == 0:
-            msg = f"Branch {tree.name} is empty."
-            raise EmptyTreeError(msg)
-        if not isinstance(arr[0], uproot.behaviors.TH1.Histogram):
-            msg = f"Branch {tree.name} ({tree.typename}) contains objects that cannot be plotted"
+def BranchPair(x: Any, y: Any) -> Pair:  # noqa: N802
+    """Two columns (raw objects or nodes) filled together into a 2D histogram."""
+    x_node, y_node = as_node(x), as_node(y)
+    for node in (x_node, y_node):
+        if not isinstance(node, Column):
+            msg = f"{node.name} does not hold numbers for a 2D plot"
             raise TypeError(msg)
-        histogram: hist.Hist[Any] = functools.reduce(
-            operator.add, (h.to_hist() for h in arr)
-        )
-        return histogram
-    return _fill_finite(
-        tree.array(), bins=bins, empty_msg=f"Branch {tree.name} is empty."
-    )
+    assert isinstance(x_node, Column)
+    assert isinstance(y_node, Column)
+    return Pair(x_node, y_node)
 
 
-def _flatten_object_array(array: Any) -> Any:
-    """Flatten the object array uproot gives for a jagged branch with library="np".
-
-    Concatenating the inner arrays is much faster than ``ak.from_iter``, which
-    stays as the fallback for deeper nesting.
-    """
-    flat = np.concatenate([np.ravel(x) for x in array]) if len(array) else array
-    return ak.from_iter(array) if flat.dtype == object else flat
-
-
-def _fill_finite(array: Any, *, bins: int, empty_msg: str) -> hist.Hist[Any]:
-    """Flatten ``array``, drop non-finite values, and fill a regular histogram."""
-    if isinstance(array, np.ndarray) and array.dtype == object:
-        array = _flatten_object_array(array)
-    values = ak.ravel(array)
-    # pylint: disable-next=unsubscriptable-object  # ak.ravel return is opaque to pylint
-    finite = values[np.isfinite(values)]
-    if len(finite) < 1:
-        raise EmptyTreeError(empty_msg)
-    filled: hist.Hist[Any] = hist.numpy.histogram(
-        finite, bins=bins, histogram=hist.Hist
-    )
-    return filled
-
-
-def field_hist(tree: uproot.models.RNTuple.RField, *, bins: int = 50) -> hist.Hist[Any]:
-    """
-    Build a histogram from an RNTuple field. Only numeric values can be filled.
-    """
-    if not _field_plottable(tree):
-        msg = f"Field {tree.name} ({tree.typename}) contains values that cannot be plotted"
-        raise TypeError(msg)
-    filled: hist.Hist[Any] = branch_hist(tree, bins=bins)
-    return filled
-
-
-to_histogram.register(uproot.models.RNTuple.RField)(field_hist)  # type: ignore[no-untyped-call]
-
-
-# Explicit type: inferring it evaluates the hist.Hist[Any] annotation at
-# runtime, which the minimum hist version cannot subscript.
-@to_histogram.register(uproot.behaviors.TH1.Histogram)
-def _hist_to_histogram(
-    tree: uproot.behaviors.TH1.Histogram,
-    *,
-    bins: int = 50,  # noqa: ARG001
-) -> hist.Hist[Any]:
-    # to_hist() is already a hist.Hist; uproot's untyped stub loses that for mypy.
-    return cast("hist.Hist[Any]", tree.to_hist())
-
-
-@dataclasses.dataclass(frozen=True, slots=True)
-class BranchPair:
-    """Two branches/fields filled together into a 2D histogram (x, y)."""
-
-    x: Any
-    y: Any
-
-    @property
-    def name(self) -> str:
-        return f"{self.y.name} vs {self.x.name}"
-
-
-@to_histogram.register(BranchPair)
-def _pair_hist(pair: BranchPair, *, bins: int = 50) -> hist.Hist[Any]:
-    for item in (pair.x, pair.y):
-        if not array_plottable(item):
-            msg = f"{item.name} ({item.typename}) does not hold numbers for a 2D plot"
-            raise TypeError(msg)
-    if pair.x.num_entries != pair.y.num_entries:
-        msg = (
-            f"{pair.x.name} has {pair.x.num_entries} entries, "
-            f"but {pair.y.name} has {pair.y.num_entries}"
-        )
-        raise ValueError(msg)
-    # A per-entry value broadcasts against a per-item (jagged) value
-    x_array, y_array = ak.broadcast_arrays(pair.x.array(), pair.y.array())
-    x = np.asarray(ak.ravel(x_array), dtype=float)
-    y = np.asarray(ak.ravel(y_array), dtype=float)
-    finite = np.isfinite(x) & np.isfinite(y)
-    if not np.any(finite):
-        msg = f"{pair.name} has no finite values."
-        raise EmptyTreeError(msg)
-    filled: hist.Hist[Any] = hist.numpy.histogram2d(
-        x[finite], y[finite], bins=bins, histogram=hist.Hist
-    )
-    filled.axes[0].label = pair.x.name
-    filled.axes[1].label = pair.y.name
-    return filled
-
-
-@functools.singledispatch
-def containing_tree(item: Any) -> Any:  # noqa: ARG001
-    """The TTree/RNTuple that ``item`` lives in (itself, if it is one), else None."""
-    return None
-
-
-@containing_tree.register(uproot.behaviors.TBranch.HasBranches)
-def _branch_tree(item: uproot.behaviors.TBranch.HasBranches) -> Any:
-    return item.tree
-
-
-@containing_tree.register(uproot.behaviors.RNTuple.HasFields)
-def _field_tree(item: uproot.behaviors.RNTuple.HasFields) -> Any:
-    return item.ntuple
-
-
-@containing_tree.register(BranchPair)
-def _pair_tree(item: BranchPair) -> Any:
-    return containing_tree(item.x)
-
-
-@functools.singledispatch
-def containing_tree_source(item: Any) -> str | None:  # noqa: ARG001
-    """Source for :func:`containing_tree` applied to ``item``, or None."""
-    return None
-
-
-@containing_tree_source.register(uproot.behaviors.TBranch.HasBranches)
-def _branch_tree_source(item: uproot.behaviors.TBranch.HasBranches) -> str:  # noqa: ARG001
-    return "item.tree"
-
-
-@containing_tree_source.register(uproot.behaviors.RNTuple.HasFields)
-def _field_tree_source(item: uproot.behaviors.RNTuple.HasFields) -> str:  # noqa: ARG001
-    return "item.ntuple"
-
-
-@containing_tree_source.register(BranchPair)
-def _pair_tree_source(item: BranchPair) -> str | None:
-    source = containing_tree_source(item.x)
-    return None if source is None else f"x_{source}"
+def containing_tree(item: Any) -> Any:
+    """The TTree/RNTuple (raw object) that ``item`` lives in, else None."""
+    tree = as_node(item).data_tree()
+    return None if tree is None else tree.item
 
 
 @dataclasses.dataclass(slots=True)
@@ -280,9 +134,9 @@ def apply_expr(
             result = cache.entry[1]
         else:
             namespace = {"h": histogram, "ak": ak, "hist": hist, "np": np}
-            tree = containing_tree(item)
+            tree = as_node(item).data_tree()
             if tree is not None:
-                namespace["tree"] = tree
+                namespace["tree"] = tree.item
             result = evaluate_expr(expr, namespace)
             if cache is not None and not _uses_h(expr):
                 cache.entry = (expr, result)
@@ -300,7 +154,7 @@ def _result_to_histogram(result: Any, *, bins: int) -> hist.Hist[Any]:
     if isinstance(result, bh.Histogram):
         return hist.Hist(result)
     if isinstance(result, (ak.Array, np.ndarray)):
-        return _fill_finite(
+        return fill_finite(
             result,
             bins=bins,
             empty_msg="Expression produced no finite values.",
@@ -312,9 +166,9 @@ def _result_to_histogram(result: Any, *, bins: int) -> hist.Hist[Any]:
     raise RuntimeError(msg)
 
 
-def dump_expr(item: Any, expr: str) -> str:
+def dump_expr(item: Any, expr: str, *, file_var: str = "uproot_file") -> str:
     """Self-contained source that applies ``expr`` to ``h`` like :func:`apply_expr`."""
-    tree_source = containing_tree_source(item)
+    tree_source = as_node(item).data_tree_source("item", file_var)
     tree_line = "" if tree_source is None else f"tree = {tree_source}\n\n"
     imports = textwrap.dedent("""\
         import awkward as ak
@@ -451,83 +305,10 @@ def plot(
     draw_hist(fig, tree, apply_expr(histogram, expr, tree, cache=cache), limits=limits)
 
 
-def _model_is_histogram(model: Any) -> bool:
-    if not isinstance(model, type):
-        return False
-    if issubclass(model, uproot.behaviors.TH1.Histogram):
-        return True
-    if issubclass(model, uproot.model.DispatchByVersion):
-        versions: dict[int, type] = getattr(model, "known_versions", {})
-        return any(
-            issubclass(v, uproot.behaviors.TH1.Histogram) for v in versions.values()
-        )
-    return False
-
-
-def _leaf_interpretation(branch: uproot.TBranch) -> Any:
-    interpretation = branch.interpretation
-    if isinstance(interpretation, uproot.interpretation.jagged.AsJagged):
-        return interpretation.content
-    return interpretation
-
-
-def _branch_numeric(branch: uproot.TBranch) -> bool:
-    interpretation = _leaf_interpretation(branch)
-    # AsStridedObjects is a Numerical, but yields records np.isfinite rejects
-    return isinstance(
-        interpretation, uproot.interpretation.numerical.Numerical
-    ) and not isinstance(interpretation, uproot.interpretation.objects.AsStridedObjects)
-
-
-def _branch_plottable(branch: uproot.TBranch) -> bool:
-    interpretation = _leaf_interpretation(branch)
-    if isinstance(interpretation, uproot.interpretation.objects.AsObjects):
-        return _model_is_histogram(interpretation.model)
-    return _branch_numeric(branch)
-
-
-_TEXT_ARRAYS = frozenset({"string", "bytestring"})
-
-
-def _unwrap_lists(form: Any) -> Any:
-    """The content inside any number of lists, or None if the lists hold text."""
-    while form.is_list:
-        if form.parameter("__array__") in _TEXT_ARRAYS:
-            return None
-        form = form.content
-    return form
-
-
-def _field_leaf_form(field: uproot.models.RNTuple.RField) -> Any:
-    """The form of the values that ``field.array()`` gives, or None."""
-    akform = field.to_akform()
-    # uproot 5.7+ gives (form, path); older versions give only the form, whose
-    # single top-level field names the path.
-    form, path = akform if isinstance(akform, tuple) else (akform, None)
-    for name in form.fields if path is None else path:
-        form = _unwrap_lists(form)
-        if form is None or not form.is_record or name not in form.fields:
-            return None
-        form = form.content(name)
-    return _unwrap_lists(form)
-
-
-def _field_plottable(field: uproot.models.RNTuple.RField) -> bool:
-    leaf = _field_leaf_form(field)
-    if leaf is None or not leaf.is_numpy or leaf.parameter("__array__") is not None:
-        return False
-    # bool, integer and float values can go into a histogram; text, records,
-    # unions and datetimes cannot.
-    return np.dtype(leaf.primitive).kind in "biuf"
-
-
 def array_plottable(item: Any) -> bool:
     """Does ``item`` read as a numeric array (not histogram objects)?"""
-    if isinstance(item, uproot.models.RNTuple.RField):
-        return _field_plottable(item)
-    if isinstance(item, uproot.TBranch):
-        return _branch_numeric(item)
-    return False
+    node = as_node(item)
+    return isinstance(node, Column) and node.numeric
 
 
 def plottable(item: Any) -> bool:
@@ -536,103 +317,27 @@ def plottable(item: Any) -> bool:
     succeed. Some failures (like an empty branch) are only found by reading
     the data, so this is a necessary but not sufficient check.
     """
-    if isinstance(item, uproot.behaviors.TH1.Histogram):
-        return len(item.axes) <= 2
-    if isinstance(item, uproot.TBranch):
-        return _branch_plottable(item)
-    if isinstance(item, uproot.models.RNTuple.RField):
-        return _field_plottable(item)
-    if isinstance(item, BranchPair):
-        return array_plottable(item.x) and array_plottable(item.y)
-    return to_histogram.dispatch(type(item)) is not to_histogram.dispatch(object)
+    node = as_node(item)
+    return isinstance(node, Plottable) and node.plottable
 
 
-@functools.singledispatch
-def dump(tree: Any, *, width: int = 100) -> str:  # noqa: ARG001
+def dump(item: Any, *, width: int = 100) -> str:
     """
     Return standalone Python source that rebuilds the plotted histogram as ``h``
     from an object bound to ``item``. Mirrors :func:`plot` for the "Dump & Quit"
-    output. Implement this for each type of plottable.
+    output. Each :class:`~uproot_browser.nodes.Plottable` implements it.
     """
-    msg = f"This object ({type(tree)}) is not plottable yet"
-    raise RuntimeError(msg)
-
-
-@dump.register(uproot.TBranch | uproot.models.RNTuple.RField)
-def dump_branch(
-    tree: uproot.TBranch | uproot.models.RNTuple.RField,
-    *,
-    width: int = 100,
-) -> str:
-    """
-    Source for rebuilding a single tree branch as a histogram.
-    """
-    # RField has no `interpretation`; it is always read as an array.
-    interpretation = getattr(tree, "interpretation", None)
-    if isinstance(interpretation, uproot.interpretation.objects.AsObjects):
-        return textwrap.dedent("""\
-            import functools
-            import operator
-            arr = item.array(library="np")
-            h = functools.reduce(operator.add, [x.to_hist() for x in arr])""")
-    return textwrap.dedent(f"""\
-        import awkward as ak
-        import hist
-        import numpy as np
-        array = item.array()
-        values = ak.ravel(array)
-        finite = values[np.isfinite(values)]
-        h = hist.numpy.histogram(finite, bins={width}, histogram=hist.Hist)""")
-
-
-@dump.register
-def dump_hist(
-    tree: uproot.behaviors.TH1.Histogram,  # noqa: ARG001
-    *,
-    width: int = 100,  # noqa: ARG001
-) -> str:
-    """
-    Source for rebuilding a 1-D histogram.
-    """
-    return "h = item.to_hist()"
-
-
-@dump.register
-def dump_pair(tree: BranchPair, *, width: int = 100) -> str:  # noqa: ARG001
-    """
-    Source for rebuilding a 2D histogram from branches bound to ``x_item`` and
-    ``y_item``.
-    """
-    return textwrap.dedent(f"""\
-        import awkward as ak
-        import hist
-        import numpy as np
-        x, y = ak.broadcast_arrays(x_item.array(), y_item.array())
-        x = np.asarray(ak.ravel(x), dtype=float)
-        y = np.asarray(ak.ravel(y), dtype=float)
-        finite = np.isfinite(x) & np.isfinite(y)
-        h = hist.numpy.histogram2d(x[finite], y[finite], bins={width}, histogram=hist.Hist)
-        h.axes[0].label = x_item.name
-        h.axes[1].label = y_item.name""")
+    return plottable_node(item).dump_hist(width=width)
 
 
 def _dump_ndim(item: Any) -> int:
     """The dimensions of the histogram :func:`dump` builds, without reading data."""
-    if isinstance(item, BranchPair):
-        return 2
-    if isinstance(item, uproot.behaviors.TH1.Histogram):
-        return len(item.axes)
-    return 1
+    return plottable_node(item).ndim
 
 
 def _dump_title(item: Any) -> str:
     """Source for the plot title; the flow count of :func:`make_hist_title` is omitted."""
-    name = (
-        "{y_item.name} vs {x_item.name}"
-        if isinstance(item, BranchPair)
-        else "{item.name}"
-    )
-    return f'f"{name} -- Entries: {{np.sum(h.counts()):g}}"'
+    return plottable_node(item).title_source()
 
 
 def _lim_args(lim: AxisRange) -> str:
