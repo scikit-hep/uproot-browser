@@ -7,7 +7,7 @@ the first time its contents are needed.
 
 from __future__ import annotations
 
-__lazy_modules__ = {"pathlib", "uproot_browser.backends", "uproot_browser.nodes"}
+__lazy_modules__ = {"pathlib", "typing"}
 
 import dataclasses
 import functools
@@ -44,7 +44,9 @@ def _listable(path: Path) -> bool:
     if path.is_file():
         return uproot_browser.backends.claims(str(path))
     return path.is_dir() and any(
-        _listable(p) for p in path.rglob("*") if p.is_file() and not p.name.startswith(".")
+        _listable(p)
+        for p in path.rglob("*")
+        if p.is_file() and not p.name.startswith(".")
     )
 
 

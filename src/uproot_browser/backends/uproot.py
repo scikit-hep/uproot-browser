@@ -6,27 +6,23 @@ fields and histograms. It also opens any spec no other backend claims.
 from __future__ import annotations
 
 __lazy_modules__ = {
+    "hist",
+    "numpy",
+    "operator",
     "pathlib",
     "rich",
     "rich.style",
     "rich.text",
     "textwrap",
+    "typing",
     "uproot._util",
     "uproot.behaviors",
-    "uproot.behaviors.RNTuple",
     "uproot.behaviors.TBranch",
-    "uproot.behaviors.TH1",
     "uproot.interpretation",
     "uproot.interpretation.jagged",
     "uproot.interpretation.numerical",
     "uproot.interpretation.objects",
-    "uproot.model",
-    "uproot.models",
-    "uproot.models.RNTuple",
-    "uproot.reading",
-    "uproot_browser.backends",
     "uproot_browser.exceptions",
-    "uproot_browser.nodes",
 }
 
 import dataclasses

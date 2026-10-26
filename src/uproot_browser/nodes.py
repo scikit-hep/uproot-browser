@@ -13,7 +13,6 @@ __lazy_modules__ = {
     "awkward",
     "hist",
     "numpy",
-    "re",
     "rich",
     "rich.style",
     "rich.text",
@@ -346,7 +345,9 @@ class Column(Plottable):
 
     def to_histogram(self, *, bins: int = 50) -> hist.Hist[Any]:
         if not self.numeric:
-            msg = f"{self.name} ({self.typename}) contains values that cannot be plotted"
+            msg = (
+                f"{self.name} ({self.typename}) contains values that cannot be plotted"
+            )
             raise TypeError(msg)
         return fill_finite(self.read(), bins=bins, empty_msg=f"{self.name} is empty.")
 
