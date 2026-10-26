@@ -104,6 +104,11 @@ class Node(ABC):
     def children(self) -> list[Node]:
         return []
 
+    @property
+    def is_loaded(self) -> bool:
+        """False while listing the children would first open a file."""
+        return True
+
     @abstractmethod
     def meta(self) -> MetaDict:
         """The icon and label shown in the tree."""
@@ -136,27 +141,11 @@ class Node(ABC):
             if not isinstance(node, Folder):
                 msg = f"{node.path!r} has no children, cannot look up {key!r}"
                 raise KeyError(msg)
-            folder = node
-            try:
-                node = folder.lookup(key)  # pylint: disable=no-member
-            except Exception as err:  # noqa: BLE001
-                classname = folder.classname_of(key)  # pylint: disable=no-member
-                return FailedNode(None, folder, key, exception=err, classname=classname)
+            node = node.child(key)  # pylint: disable=no-member
         return node
 
-    @property
-    def root(self) -> Root:
-        """The nearest ancestor (or self) that opened a file."""
-        node: Node = self
-        while not isinstance(node, Root):
-            if node.parent is None:
-                msg = f"{self.path!r} was not opened from a file"
-                raise LookupError(msg)
-            node = node.parent
-        return node
-
-    @property
-    def keys_below_root(self) -> list[str]:
+    def _ancestry(self) -> tuple[Root, list[str]]:
+        """The root that opened the file and the keys from it down to this node."""
         keys: list[str] = []
         node: Node = self
         while not isinstance(node, Root):
@@ -165,11 +154,21 @@ class Node(ABC):
                 raise LookupError(msg)
             keys.append(node.key)
             node = node.parent
-        return keys[::-1]
+        return node, keys[::-1]
+
+    @property
+    def root(self) -> Root:
+        """The nearest ancestor (or self) that opened a file."""
+        return self._ancestry()[0]
+
+    @property
+    def keys_below_root(self) -> list[str]:
+        return self._ancestry()[1]
 
     def bind_source(self, var: str = "item", file_var: str = "uproot_file") -> str:
         """Source that binds ``var`` to this object, given the open file in ``file_var``."""
-        return f"{var} = {self.root.lookup_source(file_var, self.keys_below_root)}"
+        root, keys = self._ancestry()
+        return f"{var} = {root.lookup_source(file_var, keys)}"
 
     def data_tree(self) -> DataTree | None:
         """The columnar dataset this node belongs to (itself, if it is one)."""
@@ -208,11 +207,6 @@ class Folder(Node):
     def is_dir(self) -> bool:
         return True
 
-    @property
-    def is_loaded(self) -> bool:
-        """False while listing the children would first open a file."""
-        return True
-
     @abstractmethod
     def keys(self) -> list[str]:
         """The names of the direct children."""
@@ -225,18 +219,18 @@ class Folder(Node):
         """The type name of a child without loading it, for failed entries."""
         return ""
 
+    def child(self, key: str) -> Node:
+        """:meth:`lookup`, giving a :class:`FailedNode` for a key that fails to load."""
+        try:
+            return self.lookup(key)
+        except Exception as err:  # noqa: BLE001
+            return FailedNode(
+                None, self, key, exception=err, classname=self.classname_of(key)
+            )
+
     @property
     def children(self) -> list[Node]:
-        children: list[Node] = []
-        for key in sorted(self.keys()):
-            try:
-                node = self.lookup(key)
-            except Exception as err:  # noqa: BLE001
-                node = FailedNode(
-                    None, self, key, exception=err, classname=self.classname_of(key)
-                )
-            children.append(node)
-        return children
+        return [self.child(key) for key in sorted(self.keys())]
 
 
 class Root(Node):

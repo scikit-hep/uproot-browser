@@ -70,16 +70,17 @@ def to_histogram(item: Any, *, bins: int = 50) -> hist.Hist[Any]:
     return plottable_node(item).to_histogram(bins=bins)
 
 
+def _column(item: Any) -> Column:
+    node = as_node(item)
+    if not isinstance(node, Column):
+        msg = f"{node.name} does not hold numbers for a 2D plot"
+        raise TypeError(msg)
+    return node
+
+
 def BranchPair(x: Any, y: Any) -> Pair:  # noqa: N802
     """Two columns (raw objects or nodes) filled together into a 2D histogram."""
-    x_node, y_node = as_node(x), as_node(y)
-    for node in (x_node, y_node):
-        if not isinstance(node, Column):
-            msg = f"{node.name} does not hold numbers for a 2D plot"
-            raise TypeError(msg)
-    assert isinstance(x_node, Column)
-    assert isinstance(y_node, Column)
-    return Pair(x_node, y_node)
+    return Pair(_column(x), _column(y))
 
 
 def containing_tree(item: Any) -> Any:
@@ -134,9 +135,9 @@ def apply_expr(
             result = cache.entry[1]
         else:
             namespace = {"h": histogram, "ak": ak, "hist": hist, "np": np}
-            tree = as_node(item).data_tree()
+            tree = containing_tree(item)
             if tree is not None:
-                namespace["tree"] = tree.item
+                namespace["tree"] = tree
             result = evaluate_expr(expr, namespace)
             if cache is not None and not _uses_h(expr):
                 cache.entry = (expr, result)
@@ -347,14 +348,15 @@ def _lim_args(lim: AxisRange) -> str:
 def dump_plotext(item: Any, *, limits: AxisLimits = NO_LIMITS) -> str:
     """Source that draws ``h`` with plotext like :func:`draw_hist` (ticks omitted)."""
     xlabel = "h.axes[0].label"
-    if _dump_ndim(item) == 2 or PLOTEXT_6:
+    ndim = _dump_ndim(item)
+    if ndim == 2 or PLOTEXT_6:
         lines = [
             "import numpy as np",
             "import plotext as plt",
             "",
             "fig = plt.figure",
         ]
-        if _dump_ndim(item) == 2:
+        if ndim == 2:
             # Heatmap rows draw top-to-bottom; flip so y increases upward
             lines += [
                 "values = h.values().T[::-1].tolist()",

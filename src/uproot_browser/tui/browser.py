@@ -199,27 +199,13 @@ class Browser(textual.app.App[None]):
         selection, y_selection = "", ""
         if isinstance(item, (Error, PlotItem)):
             selection, y_selection = item.selection, item.y_selection
-        try:
-            header, file_var = dump_header(root, selection, y_selection)
-        except Exception:  # noqa: BLE001
-            # The selection cannot be resolved (it produced the traceback)
-            header, file_var = self._plain_header(selection, y_selection), "uproot_file"
+        header, file_var = dump_header(root, selection, y_selection)
         msg = f"\n{header}"
         if isinstance(item, Error):
             return msg, [item]
         if not isinstance(item, PlotItem):
             return msg, []
         return msg + item.dump_source(file_var=file_var), list(item.dump_renderables())
-
-    def _plain_header(self, selection: str, y_selection: str) -> str:
-        """Open and bind lines from the paths alone, naming what went wrong."""
-        msg = f'import uproot\nuproot_file = uproot.open("{self.path}")'
-        if y_selection:
-            return (
-                f'{msg}\nx_item = uproot_file["{selection.lstrip("/")}"]'
-                f'\ny_item = uproot_file["{y_selection.lstrip("/")}"]'
-            )
-        return f'{msg}\nitem = uproot_file["{selection.lstrip("/")}"]'
 
     def action_quit_with_dump(self) -> None:
         """Dump the current state of the application."""

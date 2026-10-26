@@ -21,6 +21,7 @@ import uproot_browser.plot
 import uproot_browser.plotext_compat
 from uproot_browser.axis import NO_LIMITS, AxisLimits
 from uproot_browser.exceptions import EmptyTreeError, ExpressionError
+from uproot_browser.nodes import Root
 
 from .error import Error
 from .messages import EmptyMessage, ErrorMessage, ExpressionErrorMessage, RequestPlot
@@ -101,23 +102,25 @@ def dump_header(root: Node, selection: str, y_selection: str = "") -> tuple[str,
     ``x_item`` and ``y_item``), and the variable the x file is bound to.
     """
     file_var = "uproot_file"
-    if not selection:
-        with contextlib.suppress(LookupError):
+    try:
+        if not selection:
             return root.root.open_source(file_var), file_var
-        return "", file_var
-    x = root.resolve(selection)
-    if not y_selection:
-        return "\n".join(
-            [x.root.open_source(file_var), x.bind_source("item")]
-        ), file_var
-    y = root.resolve(y_selection)
-    if x.root is y.root:
-        lines = [
-            x.root.open_source(file_var),
-            x.bind_source("x_item"),
-            y.bind_source("y_item"),
-        ]
-        return "\n".join(lines), file_var
+        x = root.resolve(selection)
+        if not y_selection:
+            lines = [x.root.open_source(file_var), x.bind_source("item")]
+            return "\n".join(lines), file_var
+        y = root.resolve(y_selection)
+        if x.root is y.root:
+            lines = [
+                x.root.open_source(file_var),
+                x.bind_source("x_item"),
+                y.bind_source("y_item"),
+            ]
+            return "\n".join(lines), file_var
+    except LookupError:
+        # Not opened from a file, or a path through a leaf (which produced the
+        # traceback): name the selection from the paths alone
+        return _path_header(root, file_var, selection, y_selection), file_var
     # Two files: open both, but write the shared import lines once
     x_open = x.root.open_source("x_file").splitlines()
     y_open = [
@@ -130,6 +133,17 @@ def dump_header(root: Node, selection: str, y_selection: str = "") -> tuple[str,
         y.bind_source("y_item", "y_file"),
     ]
     return "\n".join(lines), "x_file"
+
+
+def _path_header(root: Node, file_var: str, selection: str, y_selection: str) -> str:
+    if not isinstance(root, Root):
+        return ""
+    binds = [("x_item", selection), ("y_item", y_selection)] if y_selection else []
+    lines = [root.open_source(file_var)]
+    for var, path in binds or [("item", selection)]:
+        keys = path.strip("/").split("/")
+        lines.append(f"{var} = {root.lookup_source(file_var, keys)}")
+    return "\n".join(lines)
 
 
 def resolve_item(root: Node, selection: str, y_selection: str = "") -> Node:

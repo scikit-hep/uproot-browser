@@ -82,6 +82,12 @@ def backends() -> tuple[Backend, ...]:
     )
 
 
+@functools.cache
+def _load_all() -> tuple[BackendModule, ...]:
+    """Import every backend; each registers its raw types with :func:`as_node`."""
+    return tuple(b.load() for b in backends())
+
+
 def _match(spec: str) -> Backend | None:
     return next((b for b in backends() if b.load().matches(spec)), None)
 
@@ -113,7 +119,7 @@ def split_spec(spec: str) -> tuple[str, str]:
     Split ``path:key`` at the first colon that ends an existing local path,
     since keys can contain colons. Returns ``(spec, "")`` if there is none.
     """
-    if "://" in spec or Path(spec).exists():
+    if ":" not in spec or "://" in spec or Path(spec).exists():
         return spec, ""
     for i, char in enumerate(spec):
         if char != ":":
@@ -131,9 +137,7 @@ def as_node(obj: Any) -> Node:
     The node for a raw object, for callers that hold uproot objects directly.
     Backends register their types; nodes pass through.
     """
-    # The uproot backend registers on import; it is the only one with raw types
-    # that reach the plotting API without going through open_path.
-    importlib.import_module("uproot_browser.backends.uproot")
+    _load_all()
     impl = as_node.dispatch(type(obj))
     if impl is _as_node_default:
         msg = f"No backend wraps {type(obj).__name__} objects"

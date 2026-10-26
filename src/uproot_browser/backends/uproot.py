@@ -55,7 +55,6 @@ from uproot_browser.nodes import (
     MetaDict,
     Node,
     Root,
-    fill_finite,
     path_meta,
 )
 
@@ -100,12 +99,16 @@ def _name(item: Any) -> str:
     return str(getattr(item, "name", "<unnamed>"))
 
 
-class UprootObject(Node):
-    """Any object the browser has no special support for."""
+class _UprootNode(Node):  # pylint: disable=abstract-method
+    """A node named after its uproot object."""
 
     @property
     def name(self) -> str:
         return _name(self.item)
+
+
+class UprootObject(_UprootNode):
+    """Any object the browser has no special support for."""
 
     def meta(self) -> MetaDict:
         classname = getattr(self.item, "classname", self.item.__class__.__name__)
@@ -163,16 +166,16 @@ class UprootFile(Root, UprootDirectory):
         self.item.close()
 
 
-class _UprootTreeLike(_UprootFolder, DataTree):
-    icon: ClassVar[str]
-
-    @property
-    def name(self) -> str:
-        return _name(self.item)
+class _UprootContainer(_UprootFolder, _UprootNode):  # pylint: disable=abstract-method
+    """A tree, branch or field: a folder only when it has sub-items."""
 
     @property
     def is_dir(self) -> bool:
         return len(self.item) > 0
+
+
+class _UprootTreeLike(_UprootContainer, DataTree):
+    icon: ClassVar[str]
 
     @property
     def num_entries(self) -> int:
@@ -195,20 +198,12 @@ class UprootRNTuple(_UprootTreeLike):
     icon = "🌳 "
 
 
-class _UprootColumn(Column, _UprootFolder):  # pylint: disable=abstract-method
+class _UprootColumn(Column, _UprootContainer):  # pylint: disable=abstract-method
     """A branch or field; it may have sub-branches or sub-fields."""
 
     @property
     def icon(self) -> str:
         return "🍁 "
-
-    @property
-    def name(self) -> str:
-        return _name(self.item)
-
-    @property
-    def is_dir(self) -> bool:
-        return len(self.item) > 0
 
     @property
     def entry_count(self) -> int:
@@ -287,9 +282,7 @@ class UprootBranch(_UprootColumn):
                 operator.add, (h.to_hist() for h in arr)
             )
             return histogram
-        return fill_finite(
-            self.read(), bins=bins, empty_msg=f"Branch {self.name} is empty."
-        )
+        return super().to_histogram(bins=bins)
 
     def dump_hist(self, *, width: int = 100) -> str:
         if self._holds_objects:
@@ -318,20 +311,8 @@ class UprootField(_UprootColumn):
     ) -> str | None:
         return f"{var}.ntuple"
 
-    def to_histogram(self, *, bins: int = 50) -> hist.Hist[Any]:
-        if not self.numeric:
-            msg = f"Field {self.name} ({self.typename}) contains values that cannot be plotted"
-            raise TypeError(msg)
-        return fill_finite(
-            self.read(), bins=bins, empty_msg=f"Branch {self.name} is empty."
-        )
 
-
-class UprootHistogram(Histogram):
-    @property
-    def name(self) -> str:
-        return _name(self.item)
-
+class UprootHistogram(Histogram, _UprootNode):
     def meta(self) -> MetaDict:
         icon = "📊 " if self.item.kind == "COUNT" else "📈 "
         sizes = " × ".join(f"{len(ax)}" for ax in self.item.axes)

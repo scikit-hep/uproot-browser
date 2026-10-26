@@ -26,7 +26,7 @@ from uproot_browser.backends import as_node
 from uproot_browser.backends.directory import LazyRoot, LocalDirectory
 from uproot_browser.exceptions import ExpressionError
 from uproot_browser.nodes import Column, FailedNode
-from uproot_browser.tree import print_tree, process_item
+from uproot_browser.tree import print_tree
 
 if TYPE_CHECKING:
     import pathlib
@@ -199,7 +199,7 @@ def test_tree_bracket_path_link(tmp_path: pathlib.Path) -> None:
     shutil.copy(src, dest)
 
     with uproot.open(dest) as upfile:
-        meta = process_item(upfile)
+        meta = as_node(upfile).meta()
         assert meta["label_text"].plain == "uproot-Event.root"
         assert meta["label_text"].style.link is not None
         assert meta["label_text"].style.link.startswith("file://")
@@ -851,7 +851,7 @@ def test_dump_pair_is_runnable(expr: str) -> None:
 
 def test_local_directory_tree(root_dir: pathlib.Path) -> None:
     root = root_dir
-    with uproot_browser.tree.open_path(str(root)) as directory:
+    with uproot_browser.backends.open_path(str(root)) as directory:
         assert isinstance(directory, LocalDirectory)
         assert directory.keys() == ["a.root", "sub"]
         paths = {e.path for e in directory.walk()}
@@ -876,7 +876,7 @@ def test_local_directory_tree(root_dir: pathlib.Path) -> None:
 
 
 def test_local_directory_selection(root_dir: pathlib.Path) -> None:
-    item = uproot_browser.tree.open_path(f"{root_dir}:sub/b.root/hpx")
+    item = uproot_browser.backends.open_path(f"{root_dir}:sub/b.root/hpx")
     assert item.name == "hpx"
 
 
@@ -884,7 +884,7 @@ def test_local_directory_unreadable_file(root_dir: pathlib.Path) -> None:
     """A file that fails to open shows as failed; the other files still list."""
     root = root_dir
     (root / "bad.root").write_text("not ROOT")
-    with uproot_browser.tree.open_path(str(root)) as directory:
+    with uproot_browser.backends.open_path(str(root)) as directory:
         entries = {e.path: e for e in directory.walk()}
         bad = entries["//bad.root"]
         assert isinstance(bad, LazyRoot)
@@ -902,7 +902,7 @@ def test_local_directory_unreadable_file(root_dir: pathlib.Path) -> None:
 def test_resolve_failed_segment() -> None:
     """A missing key resolves to a failed node that still names its place."""
     with uproot.open(data_path("uproot-Event.root")) as upfile:
-        root = uproot_browser.tree.open_path(data_path("uproot-Event.root"))
+        root = uproot_browser.backends.open_path(data_path("uproot-Event.root"))
         node = root.resolve("T/event/missing")
         assert isinstance(node, FailedNode)
         assert node.bind_source() == 'item = uproot_file["T/event/missing"]'
@@ -928,6 +928,6 @@ def test_split_spec(
     root_dir: pathlib.Path, spec: str, expected: tuple[str, str]
 ) -> None:
     fmt = {"f": root_dir / "a.root", "d": root_dir}
-    assert uproot_browser.tree.split_spec(spec.format(**fmt)) == tuple(
+    assert uproot_browser.backends.split_spec(spec.format(**fmt)) == tuple(
         e.format(**fmt) for e in expected
     )

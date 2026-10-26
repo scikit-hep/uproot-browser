@@ -108,9 +108,9 @@ def plot(
     """
     Display a plot.
     """
-    import uproot_browser.tree
+    import uproot_browser.backends
 
-    item = uproot_browser.tree.open_path(get_testdata(filename, testdata=testdata))
+    item = uproot_browser.backends.open_path(get_testdata(filename, testdata=testdata))
 
     if save:
         # Set before pyplot is imported: this path must not open a window
