@@ -63,6 +63,10 @@ repository = "https://github.com/scikit-hep/uproot-browser"
 [project.scripts]
 uproot-browser = "uproot_browser.__main__:main"
 
+[project.entry-points."uproot_browser.backends"]
+directory = "uproot_browser.backends.directory"
+uproot = "uproot_browser.backends.uproot"
+
 [dependency-groups]
 test = [
   "pytest >=8",

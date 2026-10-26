@@ -4,10 +4,10 @@ The backend registry: which module opens a path.
 A backend is a module with two functions, ``matches(spec: str) -> bool`` and
 ``open_spec(spec: str, *, parent: Folder | None, key: str) -> Node``. It must be
 importable without its optional dependencies; ``open_spec`` raises
-``ModuleNotFoundError`` for a missing extra. Built-in backends are listed in
-:data:`BUILTIN`; other packages add one with an entry point in the
-``uproot_browser.backends`` group. The uproot backend opens whatever no other
-backend claims.
+``ModuleNotFoundError`` for a missing extra. Every backend, built-in or not, is
+an entry point in the ``uproot_browser.backends`` group, like
+``name = "package.module [extra]"``. The ``uproot`` backend opens whatever no
+other backend claims.
 """
 
 from __future__ import annotations
@@ -27,7 +27,6 @@ if TYPE_CHECKING:
     from uproot_browser.nodes import Folder
 
 __all__ = (
-    "BUILTIN",
     "FALLBACK",
     "Backend",
     "BackendModule",
@@ -69,20 +68,30 @@ class Backend:
             raise ModuleNotFoundError(msg) from err
 
 
-BUILTIN = (Backend("directory", "uproot_browser.backends.directory"),)
-FALLBACK = Backend("uproot", "uproot_browser.backends.uproot")
+FALLBACK = "uproot"
+"""The backend that opens a path no backend claims."""
 
 
 @functools.cache
 def backends() -> tuple[Backend, ...]:
-    """The built-in backends, then the entry points, then the fallback."""
+    """The registered backends, sorted by name."""
     entry_points = importlib.metadata.entry_points(group="uproot_browser.backends")
-    plugins = tuple(Backend(ep.name, ep.module) for ep in entry_points)
-    return (*BUILTIN, *plugins, FALLBACK)
+    return tuple(
+        Backend(ep.name, ep.module, ep.extras[0] if ep.extras else None)
+        for ep in sorted(entry_points, key=lambda ep: ep.name)
+    )
 
 
 def _match(spec: str) -> Backend | None:
     return next((b for b in backends() if b.load().matches(spec)), None)
+
+
+def _fallback() -> Backend:
+    backend = next((b for b in backends() if b.name == FALLBACK), None)
+    if backend is None:
+        msg = f"The {FALLBACK!r} backend is not registered; reinstall uproot-browser"
+        raise RuntimeError(msg)
+    return backend
 
 
 def claims(spec: str) -> bool:
@@ -95,7 +104,7 @@ def open_path(spec: str, *, parent: Folder | None = None, key: str = "") -> Node
     Open a ``path`` or ``path:key`` spec with the backend that claims it. The
     result is the top of a tree, or the node at ``key`` inside it.
     """
-    backend = _match(spec) or FALLBACK
+    backend = _match(spec) or _fallback()
     return backend.open(spec, parent=parent, key=key)
 
 
