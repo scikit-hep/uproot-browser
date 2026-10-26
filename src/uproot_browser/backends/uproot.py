@@ -6,7 +6,6 @@ fields and histograms. It also opens any spec no other backend claims.
 from __future__ import annotations
 
 __lazy_modules__ = {
-    "hist",
     "numpy",
     "operator",
     "pathlib",
@@ -14,7 +13,6 @@ __lazy_modules__ = {
     "rich.style",
     "rich.text",
     "textwrap",
-    "typing",
     "uproot._util",
     "uproot.behaviors",
     "uproot.behaviors.TBranch",
@@ -30,9 +28,8 @@ import functools
 import operator
 import textwrap
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
-import hist
 import numpy as np
 import uproot
 import uproot._util
@@ -61,6 +58,9 @@ from uproot_browser.nodes import (
     fill_finite,
     path_meta,
 )
+
+if TYPE_CHECKING:
+    import hist
 
 __all__ = (
     "UprootBranch",
@@ -268,7 +268,9 @@ class UprootBranch(_UprootColumn):
         return super().data_tree() or UprootTTree(self.item.tree)
 
     def data_tree_source(
-        self, var: str = "item", file_var: str = "uproot_file"
+        self,
+        var: str = "item",
+        file_var: str = "uproot_file",  # noqa: ARG002
     ) -> str | None:
         return f"{var}.tree"
 
@@ -310,7 +312,9 @@ class UprootField(_UprootColumn):
         return super().data_tree() or UprootRNTuple(self.item.ntuple)
 
     def data_tree_source(
-        self, var: str = "item", file_var: str = "uproot_file"
+        self,
+        var: str = "item",
+        file_var: str = "uproot_file",  # noqa: ARG002
     ) -> str | None:
         return f"{var}.ntuple"
 
@@ -412,8 +416,8 @@ def _register(cls: type, node_cls: type[Node]) -> None:
     def make(item: Any, *, parent: Folder | None = None, key: str = "") -> Node:
         return node_cls(item, parent, key)
 
-    wrap.register(cls, make)  # type: ignore[no-untyped-call]
-    as_node.register(cls, make)  # type: ignore[no-untyped-call]
+    wrap.register(cls, make)
+    as_node.register(cls, make)
 
 
 _register(uproot.model.Model, UprootObject)

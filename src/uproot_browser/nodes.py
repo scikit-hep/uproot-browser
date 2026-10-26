@@ -191,7 +191,7 @@ class Node(ABC):
             return var
         return tree.root.lookup_source(file_var, tree.keys_below_root)
 
-    def close(self) -> None:
+    def close(self) -> None:  # noqa: B027
         """Release what this node opened; the default holds nothing."""
 
     def __enter__(self) -> Self:
