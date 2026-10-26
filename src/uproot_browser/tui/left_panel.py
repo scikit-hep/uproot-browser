@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 __lazy_modules__ = {
-    "pathlib",
     "rich.panel",
     "rich.text",
     "textual.events",
@@ -13,7 +12,6 @@ __lazy_modules__ = {
     "uproot_browser.tui.messages",
 }
 
-from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import rich.panel
@@ -27,7 +25,7 @@ from textual.reactive import var
 
 import uproot_browser.plot
 from uproot_browser.backends import open_path
-from uproot_browser.nodes import Folder, Node, Root
+from uproot_browser.nodes import Node
 from uproot_browser.tui.jump import Candidate
 from uproot_browser.tui.messages import UprootSelected
 
@@ -53,7 +51,7 @@ def _in_file(node: Node) -> bool:
 def make_candidate(node: Node) -> Candidate:
     return Candidate(
         path=node.path,
-        name=PurePosixPath(node.path).name,
+        name=node.key,
         icon=node.meta()["label_icon"],
         is_dir=node.is_dir,
         plottable=uproot_browser.plot.plottable(node),
@@ -91,12 +89,12 @@ class UprootTree(textual.widgets.Tree[Node]):
         return list(self._candidates_below(self.root_node))
 
     def _candidates_below(self, node: Node) -> Iterator[Candidate]:
-        if isinstance(node, Root) or (node is self.root_node and _in_file(node)):
+        if _in_file(node):
             yield from self._file_candidates(node)
             return
         for child in node.children:
             yield make_candidate(child)
-            if not isinstance(child, Folder) or child.is_loaded:
+            if child.is_loaded:
                 yield from self._candidates_below(child)
 
     def _file_candidates(self, node: Node) -> list[Candidate]:

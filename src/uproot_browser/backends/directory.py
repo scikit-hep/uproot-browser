@@ -44,7 +44,7 @@ def _listable(path: Path) -> bool:
     if path.is_file():
         return uproot_browser.backends.claims(str(path))
     return path.is_dir() and any(
-        _listable(p)
+        uproot_browser.backends.claims(str(p))
         for p in path.rglob("*")
         if p.is_file() and not p.name.startswith(".")
     )
