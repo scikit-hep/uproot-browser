@@ -935,3 +935,16 @@ async def test_superseded_render_errors_are_ignored() -> None:
         await pilot.pause()
         assert view.item is not None
         assert plot_text(pilot.app) == before
+
+
+async def test_render_errors_are_ignored_on_exit() -> None:
+    # A render worker can report after the view's children are removed
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        item = await settled_plot(pilot)
+        pilot.app.exit()
+        error = Error(RuntimeError("late"), item.selection)
+        pilot.app.on_error_message(ErrorMessage(error, item))
+        pilot.app.on_empty_message(EmptyMessage(item))
+        assert pilot.app.view_widget.item is item
