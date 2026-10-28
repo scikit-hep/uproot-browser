@@ -861,8 +861,8 @@ async def test_jump_directory_is_lazy(root_dir: pathlib.Path) -> None:
             "//sub",
             "//sub/b.root",
         ]
-        assert not tree.upfile["a.root"].is_open
-        assert not tree.upfile["sub/b.root"].is_open
+        assert not tree.root_node.resolve("a.root").is_loaded
+        assert not tree.root_node.resolve("sub/b.root").is_loaded
 
         await jump_to(pilot, "//sub/b.root/hpx")
         await settle_render(pilot)
@@ -884,7 +884,7 @@ async def test_dump_directory_pair(
         tree = pilot.app.query_one("#tree-view", UprootTree)
         x_path = "//a.root/T/event/fNtrack"
         y_path = f"//{y_file}{LEAF_PATH[1:]}"
-        tree.post_message(UprootSelected(tree.upfile, x_path, y_path))
+        tree.post_message(UprootSelected(tree.root_node, x_path, y_path))
         await settle_render(pilot)
 
         msg, _ = pilot.app.dump_source()
@@ -935,3 +935,16 @@ async def test_superseded_render_errors_are_ignored() -> None:
         await pilot.pause()
         assert view.item is not None
         assert plot_text(pilot.app) == before
+
+
+async def test_render_errors_are_ignored_on_exit() -> None:
+    # A render worker can report after the view's children are removed
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        item = await settled_plot(pilot)
+        pilot.app.exit()
+        error = Error(RuntimeError("late"), item.selection)
+        pilot.app.on_error_message(ErrorMessage(error, item))
+        pilot.app.on_empty_message(EmptyMessage(item))
+        assert pilot.app.view_widget.item is item

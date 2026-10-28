@@ -29,7 +29,7 @@ def get_testdata(filename: str | None, *, testdata: bool) -> str:
         if filename is None:
             msg = "Missing argument 'FILENAME'."
             raise click.UsageError(msg)
-        from .tree import split_spec
+        from .backends import split_spec
 
         name, _ = split_spec(filename)
         if "://" not in filename and not Path(name).exists():
@@ -108,9 +108,9 @@ def plot(
     """
     Display a plot.
     """
-    import uproot_browser.tree
+    import uproot_browser.backends
 
-    item = uproot_browser.tree.open_path(get_testdata(filename, testdata=testdata))
+    item = uproot_browser.backends.open_path(get_testdata(filename, testdata=testdata))
 
     if save:
         # Set before pyplot is imported: this path must not open a window

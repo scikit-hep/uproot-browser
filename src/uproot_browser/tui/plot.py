@@ -2,8 +2,6 @@ from __future__ import annotations
 
 __lazy_modules__ = {
     "contextlib",
-    "functools",
-    "operator",
     "rich",
     "rich.text",
     "uproot_browser.exceptions",
@@ -14,8 +12,6 @@ __lazy_modules__ = {
 
 import contextlib
 import dataclasses
-import functools
-import operator
 import threading
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
@@ -25,12 +21,15 @@ import uproot_browser.plot
 import uproot_browser.plotext_compat
 from uproot_browser.axis import NO_LIMITS, AxisLimits
 from uproot_browser.exceptions import EmptyTreeError, ExpressionError
+from uproot_browser.nodes import Root
 
 from .error import Error
 from .messages import EmptyMessage, ErrorMessage, ExpressionErrorMessage, RequestPlot
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from uproot_browser.nodes import Node
 
     from .browser import Browser
     from .viewer import ViewWidget
@@ -70,7 +69,7 @@ class PlotItem(Protocol):
     def show_expression_error(self, view: ViewWidget) -> None:
         """Show in the view that this item's expression failed."""
 
-    def dump_source(self) -> str:
+    def dump_source(self, *, file_var: str = "uproot_file") -> str:
         """Python source for Dump & Quit (appended after the ``item = ...`` lines)."""
 
     def dump_renderables(self) -> tuple[Any, ...]:
@@ -97,36 +96,62 @@ def run_posting_errors(source: PlotItem, fn: Callable[[], T]) -> T | None:
     return None
 
 
-def selection_source(
-    selection: str,
-    y_selection: str = "",
-    *,
-    x_file: str = "uproot_file",
-    y_file: str = "uproot_file",
-) -> str:
-    """The ``item = ...`` line naming the selected branch, or ``x_item`` and
-    ``y_item`` for a 2D selection."""
-    if not y_selection:
-        return f'\nitem = {x_file}["{selection.lstrip("/")}"]'
-    return (
-        f'\nx_item = {x_file}["{selection.lstrip("/")}"]'
-        f'\ny_item = {y_file}["{y_selection.lstrip("/")}"]'
-    )
-
-
-def resolve_selection(tree: Any, selection: str) -> Any:
+def dump_header(root: Node, selection: str, y_selection: str = "") -> tuple[str, str]:
     """
-    Apply a colon-separated selection to an uproot tree. Slashes are handled by uproot.
+    The lines of Dump & Quit that open the file(s) and bind ``item`` (or
+    ``x_item`` and ``y_item``), and the variable the x file is bound to.
     """
-    return functools.reduce(operator.getitem, selection.split(":"), tree)
+    file_var = "uproot_file"
+    try:
+        if not selection:
+            return root.root.open_source(file_var), file_var
+        x = root.resolve(selection)
+        if not y_selection:
+            lines = [x.root.open_source(file_var), x.bind_source("item")]
+            return "\n".join(lines), file_var
+        y = root.resolve(y_selection)
+        if x.root is y.root:
+            lines = [
+                x.root.open_source(file_var),
+                x.bind_source("x_item"),
+                y.bind_source("y_item"),
+            ]
+            return "\n".join(lines), file_var
+    except LookupError:
+        # Not opened from a file, or a path through a leaf (which produced the
+        # traceback): name the selection from the paths alone
+        return _path_header(root, file_var, selection, y_selection), file_var
+    # Two files: open both, but write the shared import lines once
+    x_open = x.root.open_source("x_file").splitlines()
+    y_open = [
+        line for line in y.root.open_source("y_file").splitlines() if line not in x_open
+    ]
+    lines = [
+        *x_open,
+        *y_open,
+        x.bind_source("x_item", "x_file"),
+        y.bind_source("y_item", "y_file"),
+    ]
+    return "\n".join(lines), "x_file"
 
 
-def resolve_item(upfile: Any, selection: str, y_selection: str = "") -> Any:
-    """The selected object, or a :class:`~uproot_browser.plot.BranchPair` for 2D."""
-    item = resolve_selection(upfile, selection)
+def _path_header(root: Node, file_var: str, selection: str, y_selection: str) -> str:
+    if not isinstance(root, Root):
+        return ""
+    binds = [("x_item", selection), ("y_item", y_selection)] if y_selection else []
+    lines = [root.open_source(file_var)]
+    for var, path in binds or [("item", selection)]:
+        keys = path.strip("/").split("/")
+        lines.append(f"{var} = {root.lookup_source(file_var, keys)}")
+    return "\n".join(lines)
+
+
+def resolve_item(root: Node, selection: str, y_selection: str = "") -> Node:
+    """The selected node, or a :class:`~uproot_browser.nodes.Pair` for 2D."""
+    item = root.resolve(selection)
     if not y_selection:
         return item
-    return uproot_browser.plot.BranchPair(item, resolve_selection(upfile, y_selection))
+    return uproot_browser.plot.BranchPair(item, root.resolve(y_selection))
 
 
 # plotext draws on one global figure, and a cancelled thread worker keeps
@@ -160,6 +185,7 @@ def make_dump(
     expr: str = "",
     limits: AxisLimits = NO_LIMITS,
     image: bool = False,
+    file_var: str = "uproot_file",
 ) -> str:
     """Standalone Python source rebuilding the plotted histogram as ``h`` and
     drawing it the way the TUI did. It never imports uproot_browser.
@@ -168,7 +194,7 @@ def make_dump(
     width = 50 if image else (size[0] - 5 if size else 100)
     code = uproot_browser.plot.dump(item, width=width)
     if expr:
-        code += f"\n\n{uproot_browser.plot.dump_expr(item, expr)}"
+        code += f"\n\n{uproot_browser.plot.dump_expr(item, expr, file_var=file_var)}"
     draw = uproot_browser.plot.dump_mpl if image else uproot_browser.plot.dump_plotext
     return f"{code}\n\n{draw(item, limits=limits)}"
 
@@ -176,7 +202,7 @@ def make_dump(
 # What to plot with plotext, and the size the view gives it
 @dataclasses.dataclass
 class Plotext:
-    upfile: Any
+    root: Node
     selection: str
     dark: bool
     app: Browser
@@ -215,11 +241,11 @@ class Plotext:
             "Expression could not be plotted. Edit the expression and try again."
         )
 
-    def dump_source(self) -> str:
-        selected = resolve_item(self.upfile, self.selection, self.y_selection)
+    def dump_source(self, *, file_var: str = "uproot_file") -> str:
+        selected = resolve_item(self.root, self.selection, self.y_selection)
         size = self.size or ()
         with contextlib.suppress(RuntimeError):
-            return f"\n{make_dump(selected, *size, expr=self.expr, limits=self.axis_limits)}"
+            return f"\n{make_dump(selected, *size, expr=self.expr, limits=self.axis_limits, file_var=file_var)}"
         return ""
 
     def dump_renderables(self) -> tuple[Any, ...]:
@@ -227,7 +253,7 @@ class Plotext:
         # widget, and the exit console has a different size than the widget.
         size = self.size or (100, 30)
         try:
-            selected = resolve_item(self.upfile, self.selection, self.y_selection)
+            selected = resolve_item(self.root, self.selection, self.y_selection)
             canvas = render_canvas(
                 selected,
                 self.theme,
@@ -247,7 +273,7 @@ class Plotext:
         assert size
 
         def build() -> rich.text.Text:
-            item = resolve_item(self.upfile, self.selection, self.y_selection)
+            item = resolve_item(self.root, self.selection, self.y_selection)
             canvas = render_canvas(
                 item,
                 self.theme,

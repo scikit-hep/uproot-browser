@@ -1,19 +1,18 @@
 from __future__ import annotations
 
 __lazy_modules__ = {
-    "pathlib",
     "rich",
     "rich.panel",
     "rich.text",
     "textual.events",
     "textual.widget",
     "textual.widgets.tree",
+    "uproot_browser.backends",
     "uproot_browser.plot",
     f"{__spec__.parent}.jump",
     f"{__spec__.parent}.messages",
 }
 
-from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import rich.panel
@@ -26,8 +25,9 @@ import textual.widgets.tree
 from textual.reactive import var
 
 import uproot_browser.plot
+from uproot_browser.backends import open_path
+from uproot_browser.nodes import Node
 
-from ..tree import LocalDirectory, LocalFile, UprootEntry, open_path
 from .jump import Candidate
 from .messages import UprootSelected
 
@@ -42,17 +42,25 @@ COUNT_MOTIONS = frozenset({"up", "down", "j", "k"})
 MODIFIERS = ("shift", "control", "alt", "super", "hyper", "meta")
 
 
-def make_candidate(entry: UprootEntry) -> Candidate:
+def _in_file(node: Node) -> bool:
+    try:
+        node.root  # noqa: B018
+    except LookupError:
+        return False
+    return True
+
+
+def make_candidate(node: Node) -> Candidate:
     return Candidate(
-        path=entry.path,
-        name=PurePosixPath(entry.path).name,
-        icon=entry.meta()["label_icon"],
-        is_dir=entry.is_dir,
-        plottable=uproot_browser.plot.plottable(entry.item),
+        path=node.path,
+        name=node.key,
+        icon=node.meta()["label_icon"],
+        is_dir=node.is_dir,
+        plottable=uproot_browser.plot.plottable(node),
     )
 
 
-class UprootTree(textual.widgets.Tree[UprootEntry]):
+class UprootTree(textual.widgets.Tree[Node]):
     """currently just extending DirectoryTree, showing current path"""
 
     BINDINGS: ClassVar[list[textual.binding.BindingType]] = [
@@ -67,12 +75,12 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
     """Pending vim-style count prefix."""
 
     def __init__(self, path: str, **args: Any) -> None:
-        self.upfile = open_path(path)
-        file_path = Path(self.upfile.file_path)
-        data = UprootEntry("/", self.upfile)
+        self.root_node = open_path(path)
         self._candidates: dict[str, list[Candidate]] = {}
-        super().__init__(name=str(file_path), data=data, label=file_path.stem, **args)
-        self.marks: list[textual.widgets.tree.TreeNode[UprootEntry]] = []
+        super().__init__(
+            name=path, data=self.root_node, label=self.root_node.name, **args
+        )
+        self.marks: list[textual.widgets.tree.TreeNode[Node]] = []
         """The x (and y, once plotted) branches of a 2D plot."""
 
     def jump_candidates(self) -> list[Candidate]:
@@ -80,24 +88,22 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         All jump targets. The files of a directory are listed, but only
         entered after they are opened, so a jump does not open every file.
         """
-        root = UprootEntry("/", self.upfile)
-        if isinstance(self.upfile, LocalDirectory):
-            return list(self._directory_candidates(root))
-        return self._file_candidates(root)
+        return list(self._candidates_below(self.root_node))
 
-    def _directory_candidates(self, entry: UprootEntry) -> Iterator[Candidate]:
-        for child in entry.children:
+    def _candidates_below(self, node: Node) -> Iterator[Candidate]:
+        if _in_file(node):
+            yield from self._file_candidates(node)
+            return
+        for child in node.children:
             yield make_candidate(child)
-            if not isinstance(child.item, LocalFile):
-                yield from self._directory_candidates(child)
-            elif child.item.is_open:
-                yield from self._file_candidates(child)
+            if child.is_loaded:
+                yield from self._candidates_below(child)
 
-    def _file_candidates(self, entry: UprootEntry) -> list[Candidate]:
+    def _file_candidates(self, node: Node) -> list[Candidate]:
         """The jump targets in one file, built once and cached."""
-        if entry.path not in self._candidates:
-            self._candidates[entry.path] = [make_candidate(e) for e in entry.walk()]
-        return self._candidates[entry.path]
+        if node.path not in self._candidates:
+            self._candidates[node.path] = [make_candidate(e) for e in node.walk()]
+        return self._candidates[node.path]
 
     def select_path(self, target: str) -> None:
         """Navigate to (and reveal) the node at ``target``, plotting leaves."""
@@ -187,7 +193,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
 
     def render_label(
         self,
-        node: textual.widgets.tree.TreeNode[UprootEntry],
+        node: textual.widgets.tree.TreeNode[Node],
         base_style: Style,
         style: Style,  # ,
     ) -> rich.text.Text:
@@ -201,7 +207,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
             axis = "xy"[self.marks.index(node)]
             label = rich.text.Text.assemble((f"{axis}: ", "bold"), label)
         label.stylize(style)
-        if not node.data.is_dir and not uproot_browser.plot.plottable(node.data.item):
+        if not node.data.is_dir and not uproot_browser.plot.plottable(node.data):
             label.stylize("dim")
         return label
 
@@ -209,7 +215,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         self.load_directory(self.root)
         self.root.expand()
 
-    def load_directory(self, node: textual.widgets.tree.TreeNode[UprootEntry]) -> None:
+    def load_directory(self, node: textual.widgets.tree.TreeNode[Node]) -> None:
         assert node.data
         if not node.children:
             children = node.data.children
@@ -217,7 +223,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
                 node.add(child.path, child)
 
     def on_tree_node_selected(
-        self, event: textual.widgets.Tree.NodeSelected[UprootEntry]
+        self, event: textual.widgets.Tree.NodeSelected[Node]
     ) -> None:
         event.stop()
         item = event.node.data
@@ -226,7 +232,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
             self._select(item.path)
 
     def on_tree_node_expanded(
-        self, event: textual.widgets.Tree.NodeExpanded[UprootEntry]
+        self, event: textual.widgets.Tree.NodeExpanded[Node]
     ) -> None:
         event.stop()
         item = event.node.data
@@ -259,11 +265,9 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         elif self._pairable(node):
             self._set_marks(*self.marks[:1], node)
 
-    def _pairable(self, node: textual.widgets.tree.TreeNode[UprootEntry]) -> bool:
+    def _pairable(self, node: textual.widgets.tree.TreeNode[Node]) -> bool:
         """Can ``node`` be one axis of a 2D plot? Warns if not."""
-        if node.data is not None and uproot_browser.plot.array_plottable(
-            node.data.item
-        ):
+        if node.data is not None and uproot_browser.plot.array_plottable(node.data):
             return True
         self.app.notify(
             "Only numeric branches and fields can be plotted in 2D.",
@@ -271,7 +275,7 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
         )
         return False
 
-    def _set_marks(self, *nodes: textual.widgets.tree.TreeNode[UprootEntry]) -> None:
+    def _set_marks(self, *nodes: textual.widgets.tree.TreeNode[Node]) -> None:
         """Replace the marks (relabeling old and new); two marks plot in 2D."""
         old, self.marks = self.marks, list(nodes)
         for node in (*old, *nodes):
@@ -281,14 +285,14 @@ class UprootTree(textual.widgets.Tree[UprootEntry]):
             assert x_node.data
             assert y_node.data
             self.post_message(
-                UprootSelected(self.upfile, x_node.data.path, y_node.data.path)
+                UprootSelected(self.root_node, x_node.data.path, y_node.data.path)
             )
 
     def _select(self, path: str) -> None:
         """Plot one item, which replaces a plotted pair but keeps a lone x mark."""
         if len(self.marks) == 2:
             self._set_marks()
-        self.post_message(UprootSelected(self.upfile, path))
+        self.post_message(UprootSelected(self.root_node, path))
 
     def action_cursor_in(self) -> None:
         node = self.cursor_node
