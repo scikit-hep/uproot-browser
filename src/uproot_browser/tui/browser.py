@@ -260,9 +260,10 @@ class Browser(textual.app.App[None]):
 
         A cancelled render worker runs on; its report is dropped. The retry
         flag is reset here, in message order with the render requests, and
-        not from the worker thread.
+        not from the worker thread. A report during shutdown is dropped too,
+        as the view's children can be gone.
         """
-        if self.view_widget.item is not source:
+        if self._exit or not self.is_running or self.view_widget.item is not source:
             return False
         self._plot_rendered = None
         self._image_rendered = None
