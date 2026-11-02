@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-__lazy_modules__ = {"importlib", "importlib.metadata", "textual.app", "textual.widgets"}
+__lazy_modules__ = {
+    "importlib.metadata",
+    "textual.app",
+    "textual.widgets",
+    f"{__spec__.parent.rsplit('.', 1)[0]}",
+}
 
 import importlib.metadata
 
