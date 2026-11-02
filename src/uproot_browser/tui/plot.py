@@ -4,7 +4,6 @@ __lazy_modules__ = {
     "contextlib",
     "functools",
     "operator",
-    "rich",
     "rich.text",
     "uproot_browser.exceptions",
     "uproot_browser.plotext_compat",
