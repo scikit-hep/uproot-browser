@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 __lazy_modules__ = {
-    "rich",
     "rich.text",
     "textual.app",
     "textual.containers",

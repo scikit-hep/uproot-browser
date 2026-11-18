@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-__lazy_modules__ = {"rich", "rich.console", "rich.traceback"}
+__lazy_modules__ = {"rich.console", "rich.traceback"}
 
 import dataclasses
 

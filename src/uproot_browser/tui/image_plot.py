@@ -10,10 +10,10 @@ from __future__ import annotations
 
 __lazy_modules__ = {
     "contextlib",
+    "uproot_browser.tui.messages",
+    "uproot_browser.tui.plot",
+    "uproot_browser.tui.theme",
     "warnings",
-    f"{__spec__.parent}.messages",
-    f"{__spec__.parent}.plot",
-    f"{__spec__.parent}.theme",
 }
 
 import contextlib
@@ -23,17 +23,21 @@ from typing import TYPE_CHECKING, Any
 
 from uproot_browser.axis import NO_LIMITS, AxisLimits
 from uproot_browser.plot import ExprCache
-
-from .messages import RequestImage
-from .plot import make_dump, resolve_item, run_posting_errors
-from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND, as_hex
+from uproot_browser.tui.messages import RequestImage
+from uproot_browser.tui.plot import make_dump, resolve_item, run_posting_errors
+from uproot_browser.tui.theme import (
+    DARK_BACKGROUND,
+    DARK_TEXT,
+    LIGHT_BACKGROUND,
+    as_hex,
+)
 
 if TYPE_CHECKING:
     import hist
     import PIL.Image
 
-    from .browser import Browser
-    from .viewer import ViewWidget
+    from uproot_browser.tui.browser import Browser
+    from uproot_browser.tui.viewer import ViewWidget
 
 
 def make_image(

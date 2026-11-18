@@ -13,7 +13,7 @@ plotext 5, it returns an adaptor over the module-level functions.
 
 from __future__ import annotations
 
-__lazy_modules__ = {"importlib", "importlib.metadata"}
+__lazy_modules__ = {"importlib.metadata"}
 
 import importlib.metadata
 from typing import Any, Protocol, cast

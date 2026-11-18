@@ -5,12 +5,9 @@ Display tools for making plots via matplotlib.
 from __future__ import annotations
 
 __lazy_modules__ = {
-    "PIL",
     "PIL.Image",
     "io",
-    "matplotlib",
     "matplotlib.axes",
-    "matplotlib.backends",
     "matplotlib.backends.backend_agg",
     "matplotlib.figure",
     "matplotlib.pyplot",

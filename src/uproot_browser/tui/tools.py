@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-__lazy_modules__ = {"importlib", "importlib.metadata", "textual.app", "textual.widgets"}
+__lazy_modules__ = {
+    "importlib.metadata",
+    "textual.app",
+    "textual.widgets",
+    "uproot_browser",
+}
 
 import importlib.metadata
 
@@ -8,7 +13,7 @@ import textual.app
 import textual.containers
 import textual.widgets
 
-from .. import __version__
+from uproot_browser import __version__
 
 
 class Info(textual.containers.Container):

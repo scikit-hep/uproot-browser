@@ -13,7 +13,7 @@ import textual.widgets
 from uproot_browser.axis import AxisLimits
 
 if TYPE_CHECKING:
-    from .browser import Browser
+    from uproot_browser.tui.browser import Browser
 
 
 IMAGE_SCALES = [1.0, 1.25, 1.5, 2.0, 2.5, 3.0]

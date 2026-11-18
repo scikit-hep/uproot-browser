@@ -4,12 +4,11 @@ __lazy_modules__ = {
     "contextlib",
     "functools",
     "operator",
-    "rich",
     "rich.text",
     "uproot_browser.exceptions",
     "uproot_browser.plotext_compat",
-    f"{__spec__.parent}.error",
-    f"{__spec__.parent}.messages",
+    "uproot_browser.tui.error",
+    "uproot_browser.tui.messages",
 }
 
 import contextlib
@@ -25,15 +24,19 @@ import uproot_browser.plot
 import uproot_browser.plotext_compat
 from uproot_browser.axis import NO_LIMITS, AxisLimits
 from uproot_browser.exceptions import EmptyTreeError, ExpressionError
-
-from .error import Error
-from .messages import EmptyMessage, ErrorMessage, ExpressionErrorMessage, RequestPlot
+from uproot_browser.tui.error import Error
+from uproot_browser.tui.messages import (
+    EmptyMessage,
+    ErrorMessage,
+    ExpressionErrorMessage,
+    RequestPlot,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from .browser import Browser
-    from .viewer import ViewWidget
+    from uproot_browser.tui.browser import Browser
+    from uproot_browser.tui.viewer import ViewWidget
 
 T = TypeVar("T")
 

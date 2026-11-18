@@ -147,10 +147,11 @@ ignore = [
   "PLR0913", # Too many arguments (pylint "design" is off too)
   "PLR2004", # Magic value used in comparison
   "S",       # Some subset is okay
-  "TID252",  # Relative imports are fine
   "CPY001",  # Copyright notices in every file
+  "TID255",  # False positive: astral-sh/ruff#30545
 ]
 allowed-confusables = ["×"]
+flake8-tidy-imports.ban-relative-imports = "all"
 flake8-annotations.mypy-init-return = true
 flake8-boolean-trap.extend-allowed-calls = ["textual.reactive.var"]
 

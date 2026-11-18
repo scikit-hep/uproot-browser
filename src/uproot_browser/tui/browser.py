@@ -2,7 +2,6 @@ from __future__ import annotations
 
 __lazy_modules__ = {
     "dataclasses",
-    "rich",
     "rich.markup",
     "rich.syntax",
     "rich.text",
@@ -13,17 +12,17 @@ __lazy_modules__ = {
     "textual.worker",
     "uproot_browser.exceptions",
     "uproot_browser.tree",
-    f"{__spec__.parent}.error",
-    f"{__spec__.parent}.header",
-    f"{__spec__.parent}.help",
-    f"{__spec__.parent}.image_plot",
-    f"{__spec__.parent}.jump",
-    f"{__spec__.parent}.left_panel",
-    f"{__spec__.parent}.plot",
-    f"{__spec__.parent}.right_panel",
-    f"{__spec__.parent}.splitter",
-    f"{__spec__.parent}.tools",
-    f"{__spec__.parent}.viewer",
+    "uproot_browser.tui.error",
+    "uproot_browser.tui.header",
+    "uproot_browser.tui.help",
+    "uproot_browser.tui.image_plot",
+    "uproot_browser.tui.jump",
+    "uproot_browser.tui.left_panel",
+    "uproot_browser.tui.plot",
+    "uproot_browser.tui.right_panel",
+    "uproot_browser.tui.splitter",
+    "uproot_browser.tui.tools",
+    "uproot_browser.tui.viewer",
 }
 
 if not __package__:
@@ -46,21 +45,20 @@ from textual.reactive import var
 
 from uproot_browser.axis import NO_LIMITS, AxisLimits
 from uproot_browser.exceptions import EmptyTreeError
+from uproot_browser.plotext_compat import add_theme
 from uproot_browser.tree import LocalDirectory
-
-from ..plotext_compat import add_theme
-from .error import Error
-from .header import Header
-from .help import HelpScreen
-from .image_plot import MPLPlot
-from .jump import JumpScreen
-from .left_panel import UprootTree
-from .plot import Plotext, PlotItem, selection_source
-from .right_panel import RightPanel
-from .splitter import Splitter
-from .theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND
-from .tools import Info
-from .viewer import ViewWidget
+from uproot_browser.tui.error import Error
+from uproot_browser.tui.header import Header
+from uproot_browser.tui.help import HelpScreen
+from uproot_browser.tui.image_plot import MPLPlot
+from uproot_browser.tui.jump import JumpScreen
+from uproot_browser.tui.left_panel import UprootTree
+from uproot_browser.tui.plot import Plotext, PlotItem, selection_source
+from uproot_browser.tui.right_panel import RightPanel
+from uproot_browser.tui.splitter import Splitter
+from uproot_browser.tui.theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND
+from uproot_browser.tui.tools import Info
+from uproot_browser.tui.viewer import ViewWidget
 
 # Registered under our own names to avoid overriding plotext's built-in themes.
 # The light theme uses the dark color variants, which read better on white.
@@ -73,7 +71,7 @@ add_theme(
 add_theme("uproot_dark", canvas=DARK_BACKGROUND, text=(DARK_TEXT, DARK_BACKGROUND))
 
 if TYPE_CHECKING:
-    from .messages import (
+    from uproot_browser.tui.messages import (
         EmptyMessage,
         ErrorMessage,
         ExpressionErrorMessage,

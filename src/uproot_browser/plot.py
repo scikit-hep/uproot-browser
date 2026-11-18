@@ -13,12 +13,12 @@ __lazy_modules__ = {
     "numpy",
     "operator",
     "textwrap",
-    "uproot.interpretation",
     "uproot.interpretation.jagged",
     "uproot.interpretation.numerical",
     "uproot.interpretation.objects",
     "uproot.model",
     "uproot_browser.exceptions",
+    "uproot_browser.plotext_compat",
 }
 
 import ast

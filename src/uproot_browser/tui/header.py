@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-__lazy_modules__ = {"rich", "rich.text", "textual.app"}
+__lazy_modules__ = {"rich.text", "textual.app"}
 
 import typing
 from typing import Any
@@ -11,7 +11,7 @@ import textual.widget
 import textual.widgets
 
 if typing.TYPE_CHECKING:
-    from .browser import Browser
+    from uproot_browser.tui.browser import Browser
 
 
 class HeaderCloseIcon(textual.widgets.Button):

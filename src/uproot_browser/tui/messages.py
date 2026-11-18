@@ -6,8 +6,8 @@ import rich.repr
 import textual.message
 
 if TYPE_CHECKING:
-    from .error import Error
-    from .plot import PlotItem
+    from uproot_browser.tui.error import Error
+    from uproot_browser.tui.plot import PlotItem
 
 
 @rich.repr.auto
