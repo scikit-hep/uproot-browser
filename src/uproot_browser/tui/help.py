@@ -18,7 +18,7 @@ import textual.screen
 import textual.widgets
 
 if typing.TYPE_CHECKING:
-    from .browser import Browser
+    from uproot_browser.tui.browser import Browser
 
 
 class HelpScreen(textual.screen.ModalScreen[None]):

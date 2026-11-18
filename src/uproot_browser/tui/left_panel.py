@@ -8,8 +8,8 @@ __lazy_modules__ = {
     "textual.widget",
     "textual.widgets.tree",
     "uproot_browser.plot",
-    f"{__spec__.parent}.jump",
-    f"{__spec__.parent}.messages",
+    "uproot_browser.tui.jump",
+    "uproot_browser.tui.messages",
 }
 
 from pathlib import Path, PurePosixPath
@@ -25,10 +25,9 @@ import textual.widgets.tree
 from textual.reactive import var
 
 import uproot_browser.plot
-
-from ..tree import LocalDirectory, LocalFile, UprootEntry, open_path
-from .jump import Candidate
-from .messages import UprootSelected
+from uproot_browser.tree import LocalDirectory, LocalFile, UprootEntry, open_path
+from uproot_browser.tui.jump import Candidate
+from uproot_browser.tui.messages import UprootSelected
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

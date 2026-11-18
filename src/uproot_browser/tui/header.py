@@ -11,7 +11,7 @@ import textual.widget
 import textual.widgets
 
 if typing.TYPE_CHECKING:
-    from .browser import Browser
+    from uproot_browser.tui.browser import Browser
 
 
 class HeaderCloseIcon(textual.widgets.Button):

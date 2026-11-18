@@ -4,7 +4,7 @@ __lazy_modules__ = {
     "importlib.metadata",
     "textual.app",
     "textual.widgets",
-    f"{__spec__.parent.rsplit('.', 1)[0]}",
+    "uproot_browser",
 }
 
 import importlib.metadata
@@ -13,7 +13,7 @@ import textual.app
 import textual.containers
 import textual.widgets
 
-from .. import __version__
+from uproot_browser import __version__
 
 
 class Info(textual.containers.Container):

@@ -5,9 +5,9 @@ __lazy_modules__ = {
     "textual.containers",
     "textual.events",
     "textual.timer",
-    f"{__spec__.parent}.error",
-    f"{__spec__.parent}.logo",
-    f"{__spec__.parent}.plot",
+    "uproot_browser.tui.error",
+    "uproot_browser.tui.logo",
+    "uproot_browser.tui.plot",
 }
 
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -25,9 +25,9 @@ if TYPE_CHECKING:
 
     import textual_image.widget
 
-from .error import Error
-from .logo import LOGO_PANEL
-from .plot import PlotItem
+from uproot_browser.tui.error import Error
+from uproot_browser.tui.logo import LOGO_PANEL
+from uproot_browser.tui.plot import PlotItem
 
 
 class PlotButton(textual.widgets.Button):
