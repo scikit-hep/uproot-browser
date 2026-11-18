@@ -13,11 +13,12 @@ maintainers = [
 
 description = "Tools to inspect ROOT files with uproot"
 readme = "README.md"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
 
 requires-python = ">=3.11"
 
 classifiers = [
-  "License :: OSI Approved :: BSD License",
   "Topic :: Scientific/Engineering",
   "Intended Audience :: Science/Research",
   "Intended Audience :: Developers",
@@ -65,7 +66,7 @@ uproot-browser = "uproot_browser.__main__:main"
 
 [dependency-groups]
 test = [
-  "pytest >=8",
+  "pytest >=9",
   "pytest-asyncio >=0.24",
   "scikit-hep-testdata >=0.5.0",
 ]
@@ -83,10 +84,10 @@ exclude-newer = "7 days"
 version.source = "vcs"
 build.hooks.vcs.version-file = "src/uproot_browser/_version.py"
 
-[tool.pytest.ini_options]
-minversion = "8.0"
-addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
-xfail_strict = true
+[tool.pytest]
+minversion = "9.0"
+addopts = ["-ra", "--showlocals"]
+strict = true
 filterwarnings = [
   "error",
   "ignore:can't resolve package from __spec__ or __package__, falling back on __name__ and __path__:ImportWarning",  # PyPy NumPy
@@ -103,6 +104,8 @@ files = "src"
 python_version = "3.11"
 warn_unused_configs = true
 strict = true
+warn_unreachable = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 
 [[tool.mypy.overrides]]
 module = ["plotext.*", "awkward.*", "uproot.*", "matplotlib.*", "skhep_testdata", "textual_image.*", "PIL.*"]
@@ -132,6 +135,10 @@ messages_control.disable = [
   "wrong-import-position",  # Handled by Ruff
   "import-outside-toplevel",  # Handled by Ruff
 ]
+
+
+[tool.codespell]
+ignore-words-list = "hist,iterm"
 
 
 [tool.ruff]
