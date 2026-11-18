@@ -22,7 +22,7 @@ repos:
   rev: "f12be1ebaa5351c1fc76472de98db2c3446c8253"  # frozen: v0.16.10
   hooks:
     - id: ruff-check
-      args: ["--fix", "--show-fixes"]
+      args: ["--fix"]
     - id: ruff-format
 
 - repo: https://github.com/pre-commit/mirrors-mypy
@@ -42,7 +42,6 @@ repos:
   rev: 57b21406f092110c18776e39b0bda50d37c945c8  # frozen: v2.4.3
   hooks:
   - id: codespell
-    args: [-L, "hist,iterm"]
 
 - repo: https://github.com/zizmorcore/zizmor-pre-commit
   rev: fa412071e4f5d44d44f9e365f4676f9df92456a2  # frozen: v1.30.1
