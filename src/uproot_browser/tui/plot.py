@@ -4,7 +4,6 @@ __lazy_modules__ = {
     "contextlib",
     "rich.text",
     "uproot_browser.exceptions",
-    "uproot_browser.nodes",
     "uproot_browser.plotext_compat",
     "uproot_browser.tui.error",
     "uproot_browser.tui.messages",
@@ -21,7 +20,6 @@ import uproot_browser.plot
 import uproot_browser.plotext_compat
 from uproot_browser.axis import NO_LIMITS, AxisLimits
 from uproot_browser.exceptions import EmptyTreeError, ExpressionError
-from uproot_browser.nodes import Root
 from uproot_browser.tui.error import Error
 from uproot_browser.tui.messages import (
     EmptyMessage,
@@ -139,13 +137,15 @@ def dump_header(root: Node, selection: str, y_selection: str = "") -> tuple[str,
 
 
 def _path_header(root: Node, file_var: str, selection: str, y_selection: str) -> str:
-    if not isinstance(root, Root):
+    try:
+        file, base = root.root, root.keys_below_root
+    except LookupError:
         return ""
     binds = [("x_item", selection), ("y_item", y_selection)] if y_selection else []
-    lines = [root.open_source(file_var)]
+    lines = [file.open_source(file_var)]
     for var, path in binds or [("item", selection)]:
-        keys = path.strip("/").split("/")
-        lines.append(f"{var} = {root.lookup_source(file_var, keys)}")
+        keys = [*base, *path.strip("/").split("/")]
+        lines.append(f"{var} = {file.lookup_source(file_var, keys)}")
     return "\n".join(lines)
 
 

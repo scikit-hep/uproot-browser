@@ -43,7 +43,7 @@ import uproot.reading
 from rich.style import Style
 from rich.text import Text
 
-from uproot_browser.backends import as_node, split_spec
+from uproot_browser.backends import as_node, select_key, split_spec
 from uproot_browser.exceptions import EmptyTreeError
 from uproot_browser.nodes import (
     Column,
@@ -90,7 +90,7 @@ def open_spec(spec: str, *, parent: Folder | None = None, key: str = "") -> Node
         name, remote_path = uproot._util.file_object_path_split(spec)  # noqa: SLF001  # pylint: disable=protected-access
         obj_path = remote_path or ""
     root = UprootFile(uproot.open(name), parent, key, spec=name)
-    return root.resolve(obj_path) if obj_path else root
+    return select_key(root, obj_path)
 
 
 def _name(item: Any) -> str:

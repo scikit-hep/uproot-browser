@@ -20,7 +20,6 @@ __lazy_modules__ = {
 }
 
 import dataclasses
-import re
 import textwrap
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Self, TypedDict
@@ -65,9 +64,6 @@ class MetaDictRequired(TypedDict, total=True):
 
 class MetaDict(MetaDictRequired, total=False):
     guide_style: str
-
-
-_SEPARATORS = re.compile(r"[/:]")
 
 
 @dataclasses.dataclass(eq=False)
@@ -129,18 +125,22 @@ class Node(ABC):
 
     def resolve(self, path: str) -> Node:
         """
-        The node at a ``/`` or ``:`` separated path below this one. A segment
-        that fails to load gives a :class:`FailedNode`, so the selection can
-        still be named in Dump & Quit.
+        The node at a ``/`` or ``:`` separated path below this one. A key
+        can contain the separators: the longest run that is a child is used.
+        A key that fails to load gives a :class:`FailedNode`, so the selection
+        can still be named in Dump & Quit.
         """
         node: Node = self
-        for key in filter(None, _SEPARATORS.split(path)):
+        rest = path.lstrip(_SEPARATORS)
+        while rest:
             if isinstance(node, FailedNode):
                 return node
             if not isinstance(node, Folder):
-                msg = f"{node.path!r} has no children, cannot look up {key!r}"
+                msg = f"{node.path!r} has no children, cannot look up {rest!r}"
                 raise KeyError(msg)
+            key = _first_key(node, rest)
             node = node.child(key)  # pylint: disable=no-member
+            rest = rest[len(key) :].lstrip(_SEPARATORS)
         return node
 
     def _ancestry(self) -> tuple[Root, list[str]]:
@@ -196,7 +196,11 @@ class Node(ABC):
         return self
 
     def __exit__(self, *args: object) -> None:
-        self.close()
+        # The top of the tree owns the files, also for a ``path:key`` selection
+        node: Node = self
+        while node.parent is not None:
+            node = node.parent
+        node.close()
 
 
 class Folder(Node):
@@ -223,9 +227,11 @@ class Folder(Node):
         try:
             return self.lookup(key)
         except Exception as err:  # noqa: BLE001
-            return FailedNode(
-                None, self, key, exception=err, classname=self.classname_of(key)
-            )
+            try:
+                classname = self.classname_of(key)
+            except Exception:  # noqa: BLE001
+                classname = ""
+            return FailedNode(None, self, key, exception=err, classname=classname)
 
     @property
     def children(self) -> list[Node]:
@@ -439,6 +445,21 @@ class FailedNode(Node):
 
     def meta(self) -> MetaDict:
         return failed_meta(self.name, self.classname, self.exception)
+
+
+_SEPARATORS = "/:"
+
+
+def _first_key(folder: Folder, path: str) -> str:
+    """The longest leading run of ``path`` that is a key of ``folder``, else its first segment."""
+    ends = [i for i, char in enumerate(path) if char in _SEPARATORS]
+    if not ends:
+        return path
+    keys = set(folder.keys())
+    for end in (len(path), *reversed(ends)):
+        if path[:end].partition(";")[0] in keys:
+            return path[:end]
+    return path[: ends[0]]
 
 
 def failed_meta(name: str, classname: str, exception: Exception) -> MetaDict:

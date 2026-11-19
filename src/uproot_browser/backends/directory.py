@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import uproot_browser.backends
-from uproot_browser.backends import split_spec
+from uproot_browser.backends import select_key, split_spec
 from uproot_browser.nodes import Folder, MetaDict, Node, Root, failed_meta, path_meta
 
 __all__ = ("LazyRoot", "LocalDirectory", "matches", "open_spec")
@@ -34,8 +34,7 @@ def matches(spec: str) -> bool:
 def open_spec(spec: str, *, parent: Folder | None = None, key: str = "") -> Node:
     """Open a directory; a ``directory:key`` spec gives the node at ``key``."""
     name, obj_path = split_spec(spec)
-    directory = LocalDirectory(Path(name), parent, key)
-    return directory.resolve(obj_path) if obj_path else directory
+    return select_key(LocalDirectory(Path(name), parent, key), obj_path)
 
 
 def _listable(path: Path) -> bool:

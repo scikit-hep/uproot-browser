@@ -138,7 +138,7 @@ class UprootTree(textual.widgets.Tree[Node]):
         if target_node.data.is_dir:
             target_node.expand()
         else:
-            self._select(target_node.data.path)
+            self._select(target_node.data)
 
     def scroll_to_line(self, line: int, animate: bool = True) -> None:  # noqa: FBT001, FBT002
         """Scroll to a line, keeping ``SCROLLOFF`` lines visible on both sides."""
@@ -227,7 +227,7 @@ class UprootTree(textual.widgets.Tree[Node]):
         item = event.node.data
         assert item
         if not item.is_dir:
-            self._select(item.path)
+            self._select(item)
 
     def on_tree_node_expanded(
         self, event: textual.widgets.Tree.NodeExpanded[Node]
@@ -283,14 +283,22 @@ class UprootTree(textual.widgets.Tree[Node]):
             assert x_node.data
             assert y_node.data
             self.post_message(
-                UprootSelected(self.root_node, x_node.data.path, y_node.data.path)
+                UprootSelected(
+                    self.root_node,
+                    self._below_root(x_node.data),
+                    self._below_root(y_node.data),
+                )
             )
 
-    def _select(self, path: str) -> None:
+    def _below_root(self, node: Node) -> str:
+        """The path a node has with the displayed root (maybe inside a file) as the top."""
+        return f"/{node.path.removeprefix(self.root_node.path)}"
+
+    def _select(self, node: Node) -> None:
         """Plot one item, which replaces a plotted pair but keeps a lone x mark."""
         if len(self.marks) == 2:
             self._set_marks()
-        self.post_message(UprootSelected(self.root_node, path))
+        self.post_message(UprootSelected(self.root_node, self._below_root(node)))
 
     def action_cursor_in(self) -> None:
         node = self.cursor_node

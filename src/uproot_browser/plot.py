@@ -32,7 +32,7 @@ import numpy as np
 from uproot_browser.axis import NO_LIMITS, AxisLimits, AxisRange
 from uproot_browser.backends import as_node
 from uproot_browser.exceptions import ExpressionError
-from uproot_browser.nodes import Column, FailedNode, Pair, Plottable, fill_finite
+from uproot_browser.nodes import Column, FailedNode, Node, Pair, Plottable, fill_finite
 from uproot_browser.plotext_compat import PLOTEXT_6
 
 if TYPE_CHECKING:
@@ -73,6 +73,8 @@ def to_histogram(item: Any, *, bins: int = 50) -> hist.Hist[Any]:
 
 def _column(item: Any) -> Column:
     node = as_node(item)
+    if isinstance(node, FailedNode):
+        raise node.exception
     if not isinstance(node, Column):
         msg = f"{node.name} does not hold numbers for a 2D plot"
         raise TypeError(msg)
@@ -301,15 +303,24 @@ def plot(
 ) -> None:
     """
     Plot ``tree`` into the given plotext figure.
-    Support new types by registering a :func:`to_histogram` overload.
+    A backend supports a new type with a
+    :class:`~uproot_browser.nodes.Plottable` node.
     """
     histogram = to_histogram(tree, bins=width)
     draw_hist(fig, tree, apply_expr(histogram, expr, tree, cache=cache), limits=limits)
 
 
+def _node_or_none(item: Any) -> Node | None:
+    """The node for ``item``, or None if no backend wraps its type."""
+    try:
+        return as_node(item)
+    except TypeError:
+        return None
+
+
 def array_plottable(item: Any) -> bool:
     """Does ``item`` read as a numeric array (not histogram objects)?"""
-    node = as_node(item)
+    node = _node_or_none(item)
     return isinstance(node, Column) and node.numeric
 
 
@@ -319,7 +330,7 @@ def plottable(item: Any) -> bool:
     succeed. Some failures (like an empty branch) are only found by reading
     the data, so this is a necessary but not sufficient check.
     """
-    node = as_node(item)
+    node = _node_or_none(item)
     return isinstance(node, Plottable) and node.plottable
 
 

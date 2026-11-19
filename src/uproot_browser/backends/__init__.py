@@ -26,7 +26,7 @@ import importlib.metadata
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
-from uproot_browser.nodes import Node
+from uproot_browser.nodes import FailedNode, Node
 
 if TYPE_CHECKING:
     from uproot_browser.nodes import Folder
@@ -39,6 +39,7 @@ __all__ = (
     "backends",
     "claims",
     "open_path",
+    "select_key",
     "split_spec",
 )
 
@@ -117,6 +118,24 @@ def open_path(spec: str, *, parent: Folder | None = None, key: str = "") -> Node
     """
     backend = _match(spec) or _fallback()
     return backend.open(spec, parent=parent, key=key)
+
+
+def select_key(root: Node, key: str) -> Node:
+    """
+    The node at ``key`` below a root that was just opened, for a ``path:key``
+    spec. A key that does not load closes the root and raises.
+    """
+    if not key:
+        return root
+    try:
+        node = root.resolve(key)
+    except BaseException:
+        root.close()
+        raise
+    if isinstance(node, FailedNode):
+        root.close()
+        raise node.exception
+    return node
 
 
 def split_spec(spec: str) -> tuple[str, str]:
