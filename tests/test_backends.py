@@ -1,25 +1,34 @@
 from __future__ import annotations
 
 import importlib.metadata
+import os
 import pathlib
+import shutil
 import sys
 import threading
 import types
 from typing import TYPE_CHECKING, Any
 
 import fsspec
+import numpy as np
 import pytest
+import textual.widgets.tree
+import uproot
+from click.testing import CliRunner
 from conftest import wait_for_workers
 from skhep_testdata import data_path
 
 import uproot_browser.backends
 import uproot_browser.backends.directory
 import uproot_browser.backends.uproot
+import uproot_browser.plot
+from uproot_browser.__main__ import main
 from uproot_browser.backends import Backend, open_path
 from uproot_browser.backends.directory import Directory, LazyRoot
-from uproot_browser.nodes import FILE_VAR, Node
+from uproot_browser.nodes import FILE_VAR, FailedNode, Node
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.left_panel import UprootTree
+from uproot_browser.tui.plot import Plotext
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -93,6 +102,7 @@ def test_backend_order() -> None:
         ("https://example.com/file.root:tree/branch", True),
         ("https://example.com/store.zarr", False),
         ("https://example.com/", False),
+        ("https://example.com/set.root/", False),
     ],
 )
 def test_uproot_matches(spec: str, expected: bool) -> None:  # noqa: FBT001
@@ -182,3 +192,286 @@ async def test_tree_loads_off_ui_thread(
         assert "//a.root/hpx" in paths
         assert len(threads) >= 2
         assert threading.main_thread() not in threads
+
+
+def test_key_with_colon(tmp_path: pathlib.Path) -> None:
+    """An object name can hold a colon; an exact key wins over a split."""
+    path = tmp_path / "colon.root"
+    with uproot.recreate(path) as out:
+        out["h:a"] = np.histogram([1.0, 2.0])
+    with open_path(f"{path}:h:a") as node:
+        assert node.name == "h:a"
+        assert node.keys_below_root == ["h:a"]
+    with open_path(f"{data_path('uproot-Event.root')}:T:event/fFlag") as node:
+        assert node.keys_below_root == ["T", "event", "fFlag"]
+
+
+def test_selected_node_closes_file() -> None:
+    with open_path(f"{data_path('uproot-Event.root')}:T") as tree:
+        assert not tree.root.item.closed
+    assert tree.root.item.closed
+
+
+def test_missing_key_is_failed_node() -> None:
+    with open_path(data_path("uproot-Event.root")) as root:
+        missing = root.resolve("missing")
+        assert isinstance(missing, FailedNode)
+        assert missing.exception.__class__.__name__ == "KeyInFileError"
+
+
+def test_failed_open_is_not_retried_for_classname(
+    memory_dir: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    opens: list[str] = []
+
+    def fail(spec: str, **_: object) -> Node:
+        opens.append(spec)
+        msg = "simulated open failure"
+        raise OSError(msg)
+
+    with open_path(memory_dir) as directory:
+        monkeypatch.setattr(uproot_browser.backends, "open_path", fail)
+        failed = directory.resolve("a.root/hpx")
+        assert isinstance(failed, FailedNode)
+        assert isinstance(failed.exception, OSError)
+        assert len(opens) == 1
+
+
+@pytest.mark.usefixtures("memory_dir")
+def test_filesystem_root_url() -> None:
+    """The scheme stays whole when the directory is the top of a filesystem."""
+    with open_path("memory://") as directory:
+        lazy = directory.resolve("ub-test/a.root")
+        assert isinstance(lazy, LazyRoot)
+        assert lazy.spec == "memory://ub-test/a.root"
+        assert directory.resolve("ub-test/a.root/hpx").name == "hpx"
+    assert uproot_browser.backends.directory._join("file:///", "a.root") == (  # noqa: SLF001
+        "file:///a.root"
+    )
+
+
+@pytest.mark.usefixtures("zzz_backend")
+def test_claimed_directory_in_subtree(tmp_path: pathlib.Path) -> None:
+    """A store that is a directory makes the directories above it visible."""
+    store = tmp_path / "sub" / "data.zzz"
+    store.mkdir(parents=True)
+    (store / "chunk").write_text("")
+    with open_path(str(tmp_path)) as directory:
+        assert isinstance(directory, Directory)
+        assert directory.keys() == ["sub"]
+        assert isinstance(directory.resolve("sub/data.zzz"), LazyRoot)
+
+
+def test_subtree_search_stops_at_first_claim(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "sub" / "deep").mkdir(parents=True)
+    (tmp_path / "sub" / "a.root").write_text("")
+    (tmp_path / "sub" / "deep" / "b.root").write_text("")
+    scanned: list[str] = []
+    scandir = os.scandir
+
+    def recording(path: Any = ".") -> Any:
+        scanned.append(os.fspath(path))
+        return scandir(path)
+
+    monkeypatch.setattr(os, "scandir", recording)
+    with open_path(str(tmp_path)) as directory:
+        assert directory.keys() == ["sub"]
+    assert scanned
+    assert not any(pathlib.Path(p).name == "deep" for p in scanned)
+
+
+@pytest.mark.skipif(sys.platform.startswith("win"), reason="needs symlinks")
+def test_symlink_to_directory(tmp_path: pathlib.Path) -> None:
+    data = tmp_path / "data"
+    data.mkdir()
+    shutil.copy(data_path("uproot-hepdata-example.root"), data / "a.root")
+    top = tmp_path / "top"
+    top.mkdir()
+    (top / "link").symlink_to(data, target_is_directory=True)
+    with open_path(str(top)) as directory:
+        assert directory.keys() == ["link"]
+        assert directory.resolve("link/a.root/hpx").name == "hpx"
+
+
+@pytest.mark.parametrize("obj", [None, 3, "text"])
+def test_plottable_unregistered_object(obj: object) -> None:
+    assert uproot_browser.plot.plottable(obj) is False
+    assert uproot_browser.plot.array_plottable(obj) is False
+
+
+async def test_browse_selected_subtree() -> None:
+    """Selections are relative to the displayed root, here a tree in a file."""
+    path = data_path("uproot-Event.root")
+    async with Browser(f"{path}:T").run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        tree.select_path("//T/event/fFlag")
+        await wait_for_workers(pilot)
+        await pilot.pause()
+        item = pilot.app.view_widget.item
+        assert isinstance(item, Plotext)
+        msg, _ = pilot.app.dump_source()
+        assert f'uproot.open("{path}")' in msg
+        assert 'item = file["T/event/fFlag"]' in msg
+
+
+async def test_jump_to_unopened_file_loads_off_ui_thread(
+    root_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    threads: list[threading.Thread] = []
+    keys = LazyRoot.keys
+
+    def recording(self: Any) -> list[str]:
+        threads.append(threading.current_thread())
+        return keys(self)
+
+    monkeypatch.setattr(LazyRoot, "keys", recording)
+    async with Browser(str(root_dir)).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        tree.select_path("//a.root")
+        await wait_for_workers(pilot)
+        target = next(
+            c for c in tree.root.children if c.data and c.data.key == "a.root"
+        )
+        assert any(c.data and c.data.path == "//a.root/hpx" for c in target.children)
+        assert threads
+        assert threading.main_thread() not in threads
+
+
+def test_directory_named_like_a_file(tmp_path: pathlib.Path) -> None:
+    """A directory with a format suffix (a rucio dataset) is still a directory."""
+    dataset = tmp_path / "user.out.root"
+    dataset.mkdir()
+    shutil.copy(data_path("uproot-hepdata-example.root"), dataset / "a.root")
+    with open_path(str(dataset)) as directory:
+        assert isinstance(directory, Directory)
+        assert directory.keys() == ["a.root"]
+    with open_path(str(tmp_path)) as directory:
+        assert isinstance(directory.resolve("user.out.root"), Directory)
+        assert directory.resolve("user.out.root/a.root/hpx").name == "hpx"
+
+
+def test_remote_directory_named_like_a_file() -> None:
+    fs = fsspec.filesystem("memory")
+    data = pathlib.Path(data_path("uproot-hepdata-example.root")).read_bytes()
+    fs.pipe("/ub-set/user.out.root/a.root", data)
+    try:
+        with open_path("memory://ub-set") as directory:
+            assert isinstance(directory.resolve("user.out.root"), Directory)
+            assert directory.resolve("user.out.root/a.root/hpx").name == "hpx"
+    finally:
+        fs.rm("/ub-set", recursive=True)
+
+
+async def test_jump_on_failed_remote_listing() -> None:
+    """A directory that did not list has no jump targets and is not listed again."""
+    async with Browser("memory://ub-no-such-dir/").run_test() as pilot:
+        await wait_for_workers(pilot)
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        assert tree.jump_candidates() == []
+        tree.select_path("//a.root")
+        await wait_for_workers(pilot)
+        await pilot.press("/")
+        assert pilot.app.is_running
+
+
+def test_key_with_slash(tmp_path: pathlib.Path) -> None:
+    """A branch name can hold a slash; the longest run that is a key wins."""
+    path = tmp_path / "slash.root"
+    with uproot.recreate(path) as out:
+        out.mktree("t", {"a/b": np.float64, "c": np.float64})
+    with open_path(str(path)) as root:
+        node = root.resolve("//t/a/b")
+        assert not isinstance(node, FailedNode)
+        assert node.keys_below_root == ["t", "a/b"]
+        assert root.resolve("//t/c").keys_below_root == ["t", "c"]
+
+
+def test_key_with_double_colon() -> None:
+    selection = "//Beam/Beam./Beam.GMAD::BeamBase/Beam.GMAD::BeamBase.beamEnergy"
+    with open_path(data_path("uproot-issue371.root")) as root:
+        node = root.resolve(selection)
+        assert not isinstance(node, FailedNode)
+        assert node.key == "Beam.GMAD::BeamBase.beamEnergy"
+
+
+@pytest.fixture
+def bad_dir(tmp_path: pathlib.Path) -> pathlib.Path:
+    (tmp_path / "bad.root").write_text("not a ROOT file")
+    return tmp_path
+
+
+async def test_failed_open_updates_label(
+    bad_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    refreshed: list[str] = []
+    refresh = textual.widgets.tree.TreeNode.refresh
+
+    def recording(self: Any) -> None:
+        refreshed.append(self.data.key)
+        refresh(self)
+
+    async with Browser(str(bad_dir)).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        monkeypatch.setattr(textual.widgets.tree.TreeNode, "refresh", recording)
+        tree.root.children[0].expand()
+        await wait_for_workers(pilot)
+        assert refreshed == ["bad.root"]
+        assert tree.root.children[0].data.meta()["label_icon"] == "‼️ "
+
+
+async def test_jump_into_failed_file_stops(
+    bad_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    opens: list[str] = []
+    open_file = LazyRoot.open
+
+    def recording(self: LazyRoot) -> Node:
+        opens.append(self.spec)
+        return open_file(self)
+
+    monkeypatch.setattr(LazyRoot, "open", recording)
+    async with Browser(str(bad_dir)).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        tree.select_path("//bad.root/x")
+        await wait_for_workers(pilot)
+        assert len(opens) == 1
+        assert tree._pending_jump == ""  # noqa: SLF001
+
+
+def test_missing_key_in_spec_raises() -> None:
+    spec = f"{data_path('uproot-Event.root')}:missing"
+    with pytest.raises(uproot.KeyInFileError):
+        open_path(spec)
+    assert CliRunner().invoke(main, ["tree", spec]).exit_code != 0
+
+
+def test_missing_key_in_directory_spec_raises(root_dir: pathlib.Path) -> None:
+    with pytest.raises(KeyError):
+        open_path(f"{root_dir}:a.root/missing")
+
+
+def test_lazy_root_clears_failure(
+    memory_dir: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail(spec: str, **_: object) -> Node:
+        raise TimeoutError(spec)
+
+    with open_path(memory_dir) as directory:
+        lazy = directory.resolve("a.root")
+        assert isinstance(lazy, LazyRoot)
+        with monkeypatch.context() as patch:
+            patch.setattr(uproot_browser.backends, "open_path", fail)
+            assert lazy.keys() == []
+        assert lazy.meta()["label_icon"] == "‼️ "
+        assert lazy.keys().count("hpx") == 1
+        assert lazy.meta()["label_icon"] == "📁 "
+
+
+def test_pair_with_failed_node_raises_its_error() -> None:
+    with open_path(data_path("uproot-Event.root")) as root:
+        x = root.resolve("T/event/fNtrack")
+        missing = root.resolve("T/missing")
+        with pytest.raises(uproot.KeyInFileError):
+            uproot_browser.plot.BranchPair(x, missing)

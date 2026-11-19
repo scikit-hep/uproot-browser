@@ -80,10 +80,12 @@ def __dir__() -> tuple[str, ...]:
 
 
 def matches(spec: str) -> bool:
+    """A ``.root`` name, unless it is a directory (a local one, or a URL that ends with ``/``)."""
     name, _ = split_spec(spec)
     if "://" in name:
         name, _ = uproot._util.file_object_path_split(name)  # noqa: SLF001  # pylint: disable=protected-access
-    return Path(name).suffix.lower() == ".root"
+        return not name.endswith("/") and Path(name).suffix.lower() == ".root"
+    return Path(name).suffix.lower() == ".root" and not Path(name).is_dir()
 
 
 def open_spec(spec: str, *, parent: Folder | None = None, key: str = "") -> Node:

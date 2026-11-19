@@ -18,6 +18,7 @@ __lazy_modules__ = {
 
 import dataclasses
 import functools
+import os
 import threading
 from pathlib import Path
 from typing import Any
@@ -26,7 +27,7 @@ from fsspec.core import url_to_fs
 from fsspec.implementations.local import LocalFileSystem
 
 import uproot_browser.backends
-from uproot_browser.backends import split_spec
+from uproot_browser.backends import select_key, split_spec
 from uproot_browser.nodes import (
     Folder,
     MetaDict,
@@ -70,12 +71,14 @@ def matches(spec: str) -> bool:
 def open_spec(spec: str, *, parent: Folder | None = None, key: str = "") -> Node:
     """Open a directory; a ``directory:key`` spec gives the node at ``key``."""
     name, obj_path = split_spec(spec)
-    directory = Directory(name, parent, key)
-    return directory.resolve(obj_path) if obj_path else directory
+    return select_key(Directory(name, parent, key), obj_path)
 
 
 def _join(spec: str, key: str) -> str:
-    return f"{spec.rstrip('/')}/{key}" if "://" in spec else str(Path(spec, key))
+    if "://" not in spec:
+        return str(Path(spec, key))
+    # "memory://" and "file:///" end with the slashes of the scheme
+    return f"{spec}{key}" if spec.endswith("/") else f"{spec}/{key}"
 
 
 def _basename(path: str) -> str:
@@ -130,6 +133,7 @@ class LazyRoot(Root, Folder):
         except Exception as err:
             self.error = err
             raise
+        self.error = None
         return opened
 
     def keys(self) -> list[str]:
@@ -143,7 +147,9 @@ class LazyRoot(Root, Folder):
         return self._folder().lookup(key)
 
     def classname_of(self, key: str) -> str:
-        return self._folder().classname_of(key)
+        # Without an open: a failed open is not tried again for the type name
+        opened = self._opened
+        return opened.classname_of(key) if isinstance(opened, Folder) else ""
 
     def meta(self) -> MetaDict:
         if self.error is not None:
@@ -205,25 +211,37 @@ class Directory(Folder):
     def _entries(self) -> dict[str, bool]:
         """Every visible entry: its name, and whether it is a directory."""
         fs, path = self._fs
+        local = self.is_local
         return {
             name: info["type"] == "directory"
+            # A local link has the type of the link, not of its target
+            or bool(local and info.get("islink") and fs.isdir(info["name"]))
             for info in fs.ls(path, detail=True)
             if not (name := _basename(info["name"])).startswith(".")
         }
 
+    def _child_spec(self, key: str) -> str:
+        child = _join(self.spec, key)
+        # The "/" tells the formats that a URL is a directory, without I/O
+        return f"{child}/" if self._entries[key] and "://" in child else child
+
     def _listable(self, key: str, *, is_dir: bool) -> bool:
-        if uproot_browser.backends.claims(_join(self.spec, key)):
+        if uproot_browser.backends.claims(self._child_spec(key)):
             return True
         if not is_dir:
             return False
         if not self.is_local:
             return True
-        fs, path = self._fs
-        return any(
-            not _basename(found).startswith(".")
-            and uproot_browser.backends.claims(found)
-            for found in fs.find(f"{path}/{key}")
-        )
+        # A walk stops at the first claim; a format can claim a directory
+        for top, dirs, files in os.walk(Path(self._fs[1], key)):
+            dirs[:] = [name for name in dirs if not name.startswith(".")]
+            if any(
+                uproot_browser.backends.claims(str(Path(top, name)))
+                for name in (*dirs, *files)
+                if not name.startswith(".")
+            ):
+                return True
+        return False
 
     @functools.cached_property
     def _listing(self) -> list[str]:
@@ -242,7 +260,7 @@ class Directory(Folder):
             if key not in self._children:
                 if key not in self._entries:
                     raise KeyError(key)
-                child = _join(self.spec, key)
+                child = self._child_spec(key)
                 # A format can claim a directory (a Zarr store, for example)
                 browse = self._entries[key] and not uproot_browser.backends.claims(
                     child

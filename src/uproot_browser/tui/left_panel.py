@@ -82,6 +82,8 @@ class UprootTree(textual.widgets.Tree[Node]):
         self._candidates: dict[str, list[Candidate]] = {}
         self._loading: set[int] = set()
         """The ids of the tree nodes with a load in progress."""
+        self._pending_jump = ""
+        """The target of a jump that waits for a load on its way."""
         super().__init__(
             name=path, data=self.root_node, label=self.root_node.name, **args
         )
@@ -96,13 +98,15 @@ class UprootTree(textual.widgets.Tree[Node]):
         return list(self._candidates_below(self.root_node))
 
     def _candidates_below(self, node: Node) -> Iterator[Candidate]:
+        # Not loaded: the children need I/O, which a load worker does
+        if not node.is_loaded:
+            return
         if _in_file(node):
             yield from self._file_candidates(node)
             return
         for child in node.children:
             yield make_candidate(child)
-            if child.is_loaded:
-                yield from self._candidates_below(child)
+            yield from self._candidates_below(child)
 
     def _file_candidates(self, node: Node) -> list[Candidate]:
         """The jump targets in one file, built once and cached."""
@@ -112,9 +116,13 @@ class UprootTree(textual.widgets.Tree[Node]):
 
     def select_path(self, target: str) -> None:
         """Navigate to (and reveal) the node at ``target``, plotting leaves."""
+        self._pending_jump = ""
         node = self.root
-        self.load_directory(node)
         assert node.data
+        if not node.data.is_loaded:
+            self._wait_for_load(node, target)
+            return
+        self.load_directory(node)
         while node.data.path != target:
             child = next(
                 (
@@ -127,11 +135,16 @@ class UprootTree(textual.widgets.Tree[Node]):
             )
             if child is None:
                 return
-            self.load_directory(child)
             node = child
             assert node.data
+            # An unopened file or listing loads in a worker, not here
+            if node.data.is_loaded:
+                self.load_directory(node)
             if node.data.path != target:
                 node.expand()
+                if not node.data.is_loaded:
+                    self._wait_for_load(node, target)
+                    return
 
         target_node = node
         assert target_node.data
@@ -235,12 +248,35 @@ class UprootTree(textual.widgets.Tree[Node]):
         if not node.children:
             for child in children:
                 node.add(child.path, child)
+        # A file that failed to open has a new label
+        node.refresh()
+        assert node.data
+        target = self._take_jump(node)
+        # Still not loaded: the open failed, and a jump would open it again
+        if target and node.data.is_loaded:
+            self.select_path(target)
+
+    def _wait_for_load(
+        self, node: textual.widgets.tree.TreeNode[Node], target: str
+    ) -> None:
+        """Load ``node`` in a worker; :meth:`_fill_node` then continues the jump."""
+        self._pending_jump = target
+        self._request_load(node)
+
+    def _take_jump(self, node: textual.widgets.tree.TreeNode[Node]) -> str:
+        """The pending jump that waits for ``node`` (then cleared), else empty."""
+        assert node.data
+        if not self._pending_jump.startswith(f"{node.data.path}/"):
+            return ""
+        target, self._pending_jump = self._pending_jump, ""
+        return target
 
     def _load_failed(
         self, node: textual.widgets.tree.TreeNode[Node], err: Exception
     ) -> None:
         assert node.data
         self._loading.discard(node.id)
+        self._take_jump(node)
         self.app.notify(f"{node.data.name}: {err}", severity="error")
 
     @textual.work(thread=True, group="load")
@@ -276,9 +312,13 @@ class UprootTree(textual.widgets.Tree[Node]):
             return
         if item.is_loaded:
             self.load_directory(event.node)
-        elif event.node.id not in self._loading:
-            self._loading.add(event.node.id)
-            self._load_in_thread(event.node)
+        else:
+            self._request_load(event.node)
+
+    def _request_load(self, node: textual.widgets.tree.TreeNode[Node]) -> None:
+        if node.id not in self._loading:
+            self._loading.add(node.id)
+            self._load_in_thread(node)
 
     def action_cursor_down(self) -> None:
         count = self._take_count()
