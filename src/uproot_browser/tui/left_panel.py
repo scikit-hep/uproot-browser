@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 __lazy_modules__ = {
+    "contextlib",
+    "functools",
     "rich.panel",
     "rich.text",
     "textual.events",
@@ -12,10 +14,13 @@ __lazy_modules__ = {
     "uproot_browser.tui.messages",
 }
 
+import contextlib
+import functools
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import rich.panel
 import rich.text
+import textual
 import textual.binding
 import textual.events
 import textual.widget
@@ -75,6 +80,8 @@ class UprootTree(textual.widgets.Tree[Node]):
     def __init__(self, path: str, **args: Any) -> None:
         self.root_node = open_path(path)
         self._candidates: dict[str, list[Candidate]] = {}
+        self._loading: set[int] = set()
+        """The ids of the tree nodes with a load in progress."""
         super().__init__(
             name=path, data=self.root_node, label=self.root_node.name, **args
         )
@@ -210,15 +217,45 @@ class UprootTree(textual.widgets.Tree[Node]):
         return label
 
     def on_mount(self) -> None:
-        self.load_directory(self.root)
+        assert self.root.data
+        if self.root.data.is_loaded:
+            self.load_directory(self.root)
         self.root.expand()
 
     def load_directory(self, node: textual.widgets.tree.TreeNode[Node]) -> None:
+        """Add the children of a node now, on this thread."""
         assert node.data
         if not node.children:
-            children = node.data.children
+            self._fill_node(node, node.data.children)
+
+    def _fill_node(
+        self, node: textual.widgets.tree.TreeNode[Node], children: list[Node]
+    ) -> None:
+        self._loading.discard(node.id)
+        if not node.children:
             for child in children:
                 node.add(child.path, child)
+
+    def _load_failed(
+        self, node: textual.widgets.tree.TreeNode[Node], err: Exception
+    ) -> None:
+        assert node.data
+        self._loading.discard(node.id)
+        self.app.notify(f"{node.data.name}: {err}", severity="error")
+
+    @textual.work(thread=True, group="load")
+    def _load_in_thread(self, node: textual.widgets.tree.TreeNode[Node]) -> None:
+        """Do the I/O of a listing or a file open off the UI thread."""
+        assert node.data
+        try:
+            children = node.data.children
+        except Exception as err:  # noqa: BLE001
+            call: Any = functools.partial(self._load_failed, node, err)
+        else:
+            call = functools.partial(self._fill_node, node, children)
+        # The app can exit while the load runs
+        with contextlib.suppress(RuntimeError):
+            self.app.call_from_thread(call)
 
     def on_tree_node_selected(
         self, event: textual.widgets.Tree.NodeSelected[Node]
@@ -235,8 +272,13 @@ class UprootTree(textual.widgets.Tree[Node]):
         event.stop()
         item = event.node.data
         assert item
-        if item.is_dir:
+        if not item.is_dir or event.node.children:
+            return
+        if item.is_loaded:
             self.load_directory(event.node)
+        elif event.node.id not in self._loading:
+            self._loading.add(event.node.id)
+            self._load_in_thread(event.node)
 
     def action_cursor_down(self) -> None:
         count = self._take_count()

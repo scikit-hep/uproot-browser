@@ -23,7 +23,7 @@ import uproot_browser.tree
 import uproot_browser.tui.plot
 from uproot_browser.axis import AxisLimits
 from uproot_browser.backends import as_node
-from uproot_browser.backends.directory import LazyRoot, LocalDirectory
+from uproot_browser.backends.directory import Directory, LazyRoot
 from uproot_browser.exceptions import ExpressionError
 from uproot_browser.nodes import Column, FailedNode
 from uproot_browser.tree import print_tree
@@ -251,12 +251,10 @@ def test_tree_bracket_path_link(tmp_path: pathlib.Path) -> None:
 )
 def test_dump_is_runnable(filename: str, selection: str, expr: str) -> None:
     """The exported source rebuilds the plotted histogram without the browser package."""
-    uproot_file = uproot.open(data_path(filename))
+    file = uproot.open(data_path(filename))
     # Navigate key-by-key, like the tree browser does (RNTuple fields are not
     # reachable via a recursive "a/b" lookup on the minimum uproot).
-    item = functools.reduce(
-        lambda obj, key: obj[key], selection.split("/"), uproot_file
-    )
+    item = functools.reduce(lambda obj, key: obj[key], selection.split("/"), file)
 
     code = uproot_browser.tui.plot.make_dump(item, 105, 30, expr=expr)
     assert "uproot_browser" not in code
@@ -332,16 +330,16 @@ def test_dump_image_is_runnable(
     name = (
         "uproot-hepdata-example.root" if selection == "hpxpy" else "uproot-Event.root"
     )
-    uproot_file = uproot.open(data_path(name))
+    file = uproot.open(data_path(name))
     namespace: dict[str, object] = {}
     if y_selection:
-        namespace["x_item"] = uproot_file[selection]
-        namespace["y_item"] = uproot_file[y_selection]
+        namespace["x_item"] = file[selection]
+        namespace["y_item"] = file[y_selection]
         item: object = uproot_browser.plot.BranchPair(
             namespace["x_item"], namespace["y_item"]
         )
     else:
-        item = namespace["item"] = uproot_file[selection]
+        item = namespace["item"] = file[selection]
     limits = AxisLimits(x=(None, 1.0), y=(2.0, None))
 
     code = uproot_browser.tui.plot.make_dump(item, limits=limits, image=True)
@@ -852,7 +850,7 @@ def test_dump_pair_is_runnable(expr: str) -> None:
 def test_local_directory_tree(root_dir: pathlib.Path) -> None:
     root = root_dir
     with uproot_browser.backends.open_path(str(root)) as directory:
-        assert isinstance(directory, LocalDirectory)
+        assert isinstance(directory, Directory)
         assert directory.keys() == ["a.root", "sub"]
         paths = {e.path for e in directory.walk()}
         assert {"//a.root/hpx", "//sub/b.root/hpx"} <= paths
@@ -862,7 +860,7 @@ def test_local_directory_tree(root_dir: pathlib.Path) -> None:
         assert hpx.root.open_source("f") == (
             f'import uproot\nf = uproot.open("{root / "sub" / "b.root"}")'
         )
-        assert hpx.bind_source() == 'item = uproot_file["hpx"]'
+        assert hpx.bind_source() == 'item = file["hpx"]'
         assert hpx.path == "//sub/b.root/hpx"
         assert directory.resolve("sub:b.root/hpx") is not None
 
@@ -905,7 +903,7 @@ def test_resolve_failed_segment() -> None:
         root = uproot_browser.backends.open_path(data_path("uproot-Event.root"))
         node = root.resolve("T/event/missing")
         assert isinstance(node, FailedNode)
-        assert node.bind_source() == 'item = uproot_file["T/event/missing"]'
+        assert node.bind_source() == 'item = file["T/event/missing"]'
         with pytest.raises(uproot.KeyInFileError):
             uproot_browser.plot.to_histogram(node)
         assert as_node(upfile["T/event/fNtrack"]).data_tree_source() == "item.tree"

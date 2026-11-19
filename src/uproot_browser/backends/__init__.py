@@ -6,8 +6,12 @@ A backend is a module with two functions, ``matches(spec: str) -> bool`` and
 importable without its optional dependencies; ``open_spec`` raises
 ``ModuleNotFoundError`` for a missing extra. Every backend, built-in or not, is
 an entry point in the ``uproot_browser.backends`` group, like
-``name = "package.module [extra]"``. The ``uproot`` backend opens whatever no
-other backend claims.
+``name = "package.module [extra]"``.
+
+There are two roles. A format backend claims a spec from its text alone (a
+suffix); formats are asked first, in name order. The ``directory`` backend is a
+container: it is asked last, lists what the formats claim, and opens each entry
+with :func:`open_path`. The ``uproot`` backend opens what nothing claims.
 """
 
 from __future__ import annotations
@@ -32,6 +36,7 @@ if TYPE_CHECKING:
     from uproot_browser.nodes import Folder
 
 __all__ = (
+    "CONTAINER",
     "FALLBACK",
     "Backend",
     "BackendModule",
@@ -70,9 +75,12 @@ class Backend:
         except ModuleNotFoundError as err:
             if self.extra is None:
                 raise
-            msg = f"Install the [{self.extra}] extra to open {spec!r}"
-            raise ModuleNotFoundError(msg) from err
+            msg = f"{err}; install the [{self.extra}] extra to open {spec!r}"
+            raise ModuleNotFoundError(msg, name=err.name) from err
 
+
+CONTAINER = "directory"
+"""The backend that lists a directory; asked after every format."""
 
 FALLBACK = "uproot"
 """The backend that opens a path no backend claims."""
@@ -80,11 +88,11 @@ FALLBACK = "uproot"
 
 @functools.cache
 def backends() -> tuple[Backend, ...]:
-    """The registered backends, sorted by name."""
+    """The registered backends: formats by name, then the container."""
     entry_points = importlib.metadata.entry_points(group="uproot_browser.backends")
     return tuple(
         Backend(ep.name, ep.module, ep.extras[0] if ep.extras else None)
-        for ep in sorted(entry_points, key=lambda ep: ep.name)
+        for ep in sorted(entry_points, key=lambda ep: (ep.name == CONTAINER, ep.name))
     )
 
 
@@ -94,8 +102,15 @@ def _load_all() -> tuple[BackendModule, ...]:
     return tuple(b.load() for b in backends())
 
 
-def _match(spec: str) -> Backend | None:
-    return next((b for b in backends() if b.load().matches(spec)), None)
+def _match(spec: str, *, container: bool = True) -> Backend | None:
+    return next(
+        (
+            b
+            for b in backends()
+            if (container or b.name != CONTAINER) and b.load().matches(spec)
+        ),
+        None,
+    )
 
 
 def _fallback() -> Backend:
@@ -107,8 +122,8 @@ def _fallback() -> Backend:
 
 
 def claims(spec: str) -> bool:
-    """Does some backend recognize this path (without opening it)?"""
-    return _match(spec) is not None
+    """Does some format recognize this path (without any I/O)?"""
+    return _match(spec, container=False) is not None
 
 
 def open_path(spec: str, *, parent: Folder | None = None, key: str = "") -> Node:

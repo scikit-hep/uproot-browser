@@ -1,107 +1,184 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import importlib.metadata
+import pathlib
+import sys
+import threading
+import types
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
+import fsspec
 import pytest
-import uproot
-from click.testing import CliRunner
 from conftest import wait_for_workers
 from skhep_testdata import data_path
 
-import uproot_browser.plot
-from uproot_browser.__main__ import main
-from uproot_browser.backends import open_path
-from uproot_browser.nodes import FailedNode
+import uproot_browser.backends
+import uproot_browser.backends.directory
+import uproot_browser.backends.uproot
+from uproot_browser.backends import Backend, open_path
+from uproot_browser.backends.directory import Directory, LazyRoot
+from uproot_browser.nodes import FILE_VAR, Node
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.left_panel import UprootTree
-from uproot_browser.tui.plot import Plotext
 
 if TYPE_CHECKING:
-    import pathlib
+    from collections.abc import Iterator
+
+# The memory filesystem of old fsspec versions (the minimums session)
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:datetime.datetime.utcnow:DeprecationWarning"
+)
 
 
-def test_key_with_colon(tmp_path: pathlib.Path) -> None:
-    """An object name can hold a colon; an exact key wins over a split."""
-    path = tmp_path / "colon.root"
-    with uproot.recreate(path) as out:
-        out["h:a"] = np.histogram([1.0, 2.0])
-    with open_path(f"{path}:h:a") as node:
-        assert node.name == "h:a"
-        assert node.keys_below_root == ["h:a"]
-    with open_path(f"{data_path('uproot-Event.root')}:T:event/fFlag") as node:
-        assert node.keys_below_root == ["T", "event", "fFlag"]
+@pytest.fixture
+def memory_dir() -> Iterator[str]:
+    """A directory of ROOT files on fsspec's in-memory filesystem."""
+    fs = fsspec.filesystem("memory")
+    data = pathlib.Path(data_path("uproot-hepdata-example.root")).read_bytes()
+    fs.pipe("/ub-test/a.root", data)
+    fs.pipe("/ub-test/sub/b.root", data)
+    fs.pipe("/ub-test/notes.txt", b"text")
+    fs.pipe("/ub-test/.hidden.root", data)
+    yield "memory://ub-test"
+    fs.rm("/ub-test", recursive=True)
 
 
-def test_key_with_slash(tmp_path: pathlib.Path) -> None:
-    """A branch name can hold a slash; the longest run that is a key wins."""
-    path = tmp_path / "slash.root"
-    with uproot.recreate(path) as out:
-        out.mktree("t", {"a/b": np.float64, "c": np.float64})
-    with open_path(str(path)) as root:
-        node = root.resolve("//t/a/b")
-        assert not isinstance(node, FailedNode)
-        assert node.keys_below_root == ["t", "a/b"]
-        assert root.resolve("//t/c").keys_below_root == ["t", "c"]
+class _FakeNode(Node):
+    def meta(self) -> Any:
+        raise NotImplementedError
 
 
-def test_key_with_double_colon() -> None:
-    selection = "//Beam/Beam./Beam.GMAD::BeamBase/Beam.GMAD::BeamBase.beamEnergy"
-    with open_path(data_path("uproot-issue371.root")) as root:
-        node = root.resolve(selection)
-        assert not isinstance(node, FailedNode)
-        assert node.key == "Beam.GMAD::BeamBase.beamEnergy"
+@pytest.fixture
+def zzz_backend(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A format backend whose name sorts after every built-in backend."""
+    module = types.ModuleType("zzz_backend")
+    module.matches = lambda spec: spec.endswith(".zzz")  # type: ignore[attr-defined]
+    module.open_spec = lambda spec, *, parent, key: _FakeNode(spec, parent, key)  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "zzz_backend", module)
+
+    real = importlib.metadata.entry_points
+
+    def entry_points(**kwargs: Any) -> Any:
+        extra = importlib.metadata.EntryPoint(
+            "zzz", "zzz_backend", "uproot_browser.backends"
+        )
+        return [*real(**kwargs), extra]
+
+    monkeypatch.setattr(importlib.metadata, "entry_points", entry_points)
+    uproot_browser.backends.backends.cache_clear()
+    yield
+    monkeypatch.undo()
+    uproot_browser.backends.backends.cache_clear()
 
 
-def test_selected_node_closes_file() -> None:
-    with open_path(f"{data_path('uproot-Event.root')}:T") as tree:
-        assert not tree.root.item.closed
-    assert tree.root.item.closed
+@pytest.mark.usefixtures("zzz_backend")
+def test_format_backend_gets_remote_url() -> None:
+    """The fallback does not claim a URL before a format backend sees it."""
+    node = open_path("memory://nowhere/data.zzz")
+    assert isinstance(node, _FakeNode)
+    assert uproot_browser.backends.claims("memory://nowhere/data.zzz")
 
 
-def test_missing_key_is_failed_node() -> None:
-    with open_path(data_path("uproot-Event.root")) as root:
-        missing = root.resolve("missing")
-        assert isinstance(missing, FailedNode)
-        assert missing.exception.__class__.__name__ == "KeyInFileError"
+def test_backend_order() -> None:
+    """Formats are asked before the directory backend."""
+    names = [b.name for b in uproot_browser.backends.backends()]
+    assert names[-1] == "directory"
 
 
-def test_missing_key_in_spec_raises() -> None:
-    spec = f"{data_path('uproot-Event.root')}:missing"
-    with pytest.raises(uproot.KeyInFileError):
-        open_path(spec)
-    assert CliRunner().invoke(main, ["tree", spec]).exit_code != 0
+@pytest.mark.parametrize(
+    ("spec", "expected"),
+    [
+        ("file.root", True),
+        ("https://example.com/file.root", True),
+        ("https://example.com/file.root:tree/branch", True),
+        ("https://example.com/store.zarr", False),
+        ("https://example.com/", False),
+    ],
+)
+def test_uproot_matches(spec: str, expected: bool) -> None:  # noqa: FBT001
+    assert uproot_browser.backends.uproot.matches(spec) is expected
 
 
-def test_missing_key_in_directory_spec_raises(root_dir: pathlib.Path) -> None:
-    with pytest.raises(KeyError):
-        open_path(f"{root_dir}:a.root/missing")
+def test_http_is_not_probed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An HTTP listing would download the file, so only a ``/`` marks a directory."""
+
+    def fail(*_: object, **__: object) -> None:
+        msg = "probed the network"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr(uproot_browser.backends.directory, "url_to_fs", fail)
+    assert not uproot_browser.backends.directory.matches("https://example.com/file")
+    assert uproot_browser.backends.directory.matches("https://example.com/dir/")
 
 
-def test_pair_with_failed_node_raises_its_error() -> None:
-    with open_path(data_path("uproot-Event.root")) as root:
-        x = root.resolve("T/event/fNtrack")
-        missing = root.resolve("T/missing")
-        with pytest.raises(uproot.KeyInFileError):
-            uproot_browser.plot.BranchPair(x, missing)
+def test_missing_extra_names_module(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = types.ModuleType("needs_extra")
+
+    def open_spec(*_: object, **__: object) -> Node:
+        import not_a_real_module  # noqa: PLC0415
+
+        raise AssertionError(not_a_real_module)
+
+    module.open_spec = open_spec  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "needs_extra", module)
+    backend = Backend("needs", "needs_extra", "extra")
+    with pytest.raises(ModuleNotFoundError, match=r"not_a_real_module.*\[extra\]"):
+        backend.open("x", parent=None, key="")
 
 
-@pytest.mark.parametrize("obj", [None, 3, "text"])
-def test_plottable_unregistered_object(obj: object) -> None:
-    assert uproot_browser.plot.plottable(obj) is False
-    assert uproot_browser.plot.array_plottable(obj) is False
+def test_remote_directory(memory_dir: str) -> None:
+    with open_path(memory_dir) as directory:
+        assert isinstance(directory, Directory)
+        assert directory.name == "ub-test"
+        assert not directory.is_loaded
+        assert directory.keys() == ["a.root", "sub"]
+        assert directory.is_loaded
+
+        hpx = directory.resolve("sub/b.root/hpx")
+        assert hpx.name == "hpx"
+        assert hpx.path == "//sub/b.root/hpx"
+        assert hpx.root.open_source("f") == (
+            f'import uproot\nf = uproot.open("{memory_dir}/sub/b.root")'
+        )
+        assert hpx.bind_source() == f'item = {FILE_VAR}["hpx"]'
+        assert directory.resolve("a.root").meta()["label_text"].plain == "a.root"
 
 
-async def test_browse_selected_subtree() -> None:
-    """Selections are relative to the displayed root, here a tree in a file."""
-    path = data_path("uproot-Event.root")
-    async with Browser(f"{path}:T").run_test() as pilot:
-        tree = pilot.app.query_one("#tree-view", UprootTree)
-        tree.select_path("//T/event/fFlag")
+def test_lazy_root_records_failure(memory_dir: str) -> None:
+    """A file that does not open as a folder lists nothing and shows as failed."""
+    with open_path(memory_dir) as directory:
+        lazy = directory.resolve("a.root")
+        assert isinstance(lazy, LazyRoot)
+        lazy._opened = _FakeNode(None)  # noqa: SLF001
+        assert lazy.keys() == []
+        assert isinstance(lazy.error, TypeError)
+        assert lazy.meta()["label_icon"] == "‼️ "
+
+
+async def test_tree_loads_off_ui_thread(
+    memory_dir: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A listing or a file open that is not done yet runs in a worker."""
+    threads: list[threading.Thread] = []
+    for cls in (Directory, LazyRoot):
+        keys = cls.keys
+
+        def recording(self: Any, keys: Any = keys) -> list[str]:
+            threads.append(threading.current_thread())
+            return keys(self)  # type: ignore[no-any-return]
+
+        monkeypatch.setattr(cls, "keys", recording)
+
+    async with Browser(memory_dir).run_test() as pilot:
         await wait_for_workers(pilot)
-        await pilot.pause()
-        item = pilot.app.view_widget.item
-        assert isinstance(item, Plotext)
-        msg, _ = pilot.app.dump_source()
-        assert f'uproot.open("{path}")' in msg
-        assert 'item = uproot_file["T/event/fFlag"]' in msg
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        assert [c.data.path for c in tree.root.children if c.data] == [
+            "//a.root",
+            "//sub",
+        ]
+        tree.root.children[0].expand()
+        await wait_for_workers(pilot)
+        paths = [c.data.path for c in tree.root.children[0].children if c.data]
+        assert "//a.root/hpx" in paths
+        assert len(threads) >= 2
+        assert threading.main_thread() not in threads

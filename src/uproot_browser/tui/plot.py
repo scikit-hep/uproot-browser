@@ -20,6 +20,7 @@ import uproot_browser.plot
 import uproot_browser.plotext_compat
 from uproot_browser.axis import NO_LIMITS, AxisLimits
 from uproot_browser.exceptions import EmptyTreeError, ExpressionError
+from uproot_browser.nodes import FILE_VAR
 from uproot_browser.tui.error import Error
 from uproot_browser.tui.messages import (
     EmptyMessage,
@@ -70,7 +71,7 @@ class PlotItem(Protocol):
     def show_expression_error(self, view: ViewWidget) -> None:
         """Show in the view that this item's expression failed."""
 
-    def dump_source(self, *, file_var: str = "uproot_file") -> str:
+    def dump_source(self, *, file_var: str = FILE_VAR) -> str:
         """Python source for Dump & Quit (appended after the ``item = ...`` lines)."""
 
     def dump_renderables(self) -> tuple[Any, ...]:
@@ -102,7 +103,7 @@ def dump_header(root: Node, selection: str, y_selection: str = "") -> tuple[str,
     The lines of Dump & Quit that open the file(s) and bind ``item`` (or
     ``x_item`` and ``y_item``), and the variable the x file is bound to.
     """
-    file_var = "uproot_file"
+    file_var = FILE_VAR
     try:
         if not selection:
             return root.root.open_source(file_var), file_var
@@ -188,7 +189,7 @@ def make_dump(
     expr: str = "",
     limits: AxisLimits = NO_LIMITS,
     image: bool = False,
-    file_var: str = "uproot_file",
+    file_var: str = FILE_VAR,
 ) -> str:
     """Standalone Python source rebuilding the plotted histogram as ``h`` and
     drawing it the way the TUI did. It never imports uproot_browser.
@@ -244,7 +245,7 @@ class Plotext:
             "Expression could not be plotted. Edit the expression and try again."
         )
 
-    def dump_source(self, *, file_var: str = "uproot_file") -> str:
+    def dump_source(self, *, file_var: str = FILE_VAR) -> str:
         selected = resolve_item(self.root, self.selection, self.y_selection)
         size = self.size or ()
         with contextlib.suppress(RuntimeError):
