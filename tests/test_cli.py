@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from click.testing import CliRunner
@@ -113,3 +113,38 @@ def test_colon_in_object_name() -> None:
     """ROOT object names can hold colons; only the file path must exist."""
     spec = f"{data_path('uproot-hepdata-example.root')}:h:a"
     assert get_testdata(spec, testdata=False) == spec
+
+
+def _clean_error(result: Any) -> str:
+    """The message of a ClickException; an unexpected error fails here."""
+    assert result.exit_code == 1, result.output
+    assert isinstance(result.exception, SystemExit), result.exception
+    return str(result.output)
+
+
+def test_plot_not_plottable() -> None:
+    result = CliRunner().invoke(main, ["plot", "--testdata", "uproot-Event.root"])
+    assert "not plottable" in _clean_error(result)
+
+
+def test_plot_non_numeric_column() -> None:
+    spec = "uproot-Event.root:T/event/fTracks"
+    result = CliRunner().invoke(main, ["plot", "--testdata", spec])
+    assert "fTracks" in _clean_error(result)
+
+
+@pytest.mark.parametrize("command", ["tree", "plot", "browse"])
+def test_not_a_root_file(command: str, tmp_path: Path) -> None:
+    path = tmp_path / "notes.txt"
+    path.write_text("[build-system]\n" * 100)
+    result = CliRunner().invoke(main, [command, str(path)])
+    output = _clean_error(result)
+    assert "Cannot open" in output
+    assert "not a ROOT file" in output
+
+
+@pytest.mark.parametrize("command", ["tree", "plot", "browse"])
+def test_key_not_found(command: str) -> None:
+    spec = "uproot-Event.root:nope"
+    result = CliRunner().invoke(main, [command, "--testdata", spec])
+    assert "nope" in _clean_error(result)

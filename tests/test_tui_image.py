@@ -184,7 +184,7 @@ async def test_image_expr(monkeypatch: pytest.MonkeyPatch) -> None:
         skhep_testdata.data_path("uproot-Event.root"), image=True
     ).run_test() as pilot:
         await wait_for_tree(pilot)
-        pilot.app.query_one("#tree-view", UprootTree).select_path("//T/event/fNtrack")
+        pilot.app.query_one("#tree-view", UprootTree).select_path("/T/event/fNtrack")
         await pilot.pause()
         await _settle(pilot)
         view = pilot.app.view_widget
@@ -231,7 +231,7 @@ async def test_image_expression_failure_can_be_corrected() -> None:
         skhep_testdata.data_path("uproot-Event.root"), image=True
     ).run_test() as pilot:
         await wait_for_tree(pilot)
-        pilot.app.query_one("#tree-view", UprootTree).select_path("//T/event/fNtrack")
+        pilot.app.query_one("#tree-view", UprootTree).select_path("/T/event/fNtrack")
         await pilot.pause()
         await _settle(pilot)
         view = pilot.app.view_widget

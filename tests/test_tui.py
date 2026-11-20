@@ -41,8 +41,8 @@ from uproot_browser.tui.plot import Plotext, render_canvas
 from uproot_browser.tui.right_panel import RightPanel
 from uproot_browser.tui.tools import dependencies
 
-LEAF_PATH = "//T/event/fFlag"
-# Open //T, then //T/event (26 lines deep)
+LEAF_PATH = "/T/event/fFlag"
+# Open /T, then /T/event (26 lines deep)
 EXPAND_EVENT = (("down", "down", "l"), ("j", "l"))
 # Generous for slow CI runners
 WAIT_TIMEOUT = 30
@@ -325,7 +325,7 @@ async def test_plot_first_branch(monkeypatch: pytest.MonkeyPatch) -> None:
         assert_canvas(pilot.app, item)
         # Dump & Quit source for the text mode rebuilds and draws the histogram
         msg, items = pilot.app.dump_source()
-        assert '\nitem = file["' in msg
+        assert "\nitem = file['" in msg
         assert "import plotext as plt" in msg
         assert "uproot_browser" not in msg
 
@@ -489,7 +489,7 @@ async def test_expr_replots_and_clears_flag(monkeypatch: pytest.MonkeyPatch) -> 
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
         await wait_for_tree(pilot)
-        await jump_to(pilot, "//T/event/fNtrack")
+        await jump_to(pilot, "/T/event/fNtrack")
         await settle_render(pilot)
         view = pilot.app.view_widget
         assert isinstance(view.item, Plotext)
@@ -550,7 +550,7 @@ async def test_empty_plot_notification_names_item(tmp_path: pathlib.Path) -> Non
     with uproot.recreate(path) as f:
         f["t"] = {"x": np.full(10, np.nan)}
     async with Browser(str(path)).run_test() as pilot:
-        await jump_to(pilot, "//t/x")
+        await jump_to(pilot, "/t/x")
         await settle_render(pilot)
         await pilot.pause()
         assert pilot.app.view_widget.item is None
@@ -566,13 +566,13 @@ async def test_nonplottable_grayed_and_warns(tmp_path: pathlib.Path) -> None:
         f["t"] = {"x": np.arange(10.0)}
     async with Browser(str(path)).run_test() as pilot:
         tree = pilot.app.query_one("#tree-view", UprootTree)
-        await jump_to(pilot, "//t/x")
+        await jump_to(pilot, "/t/x")
         await settle_render(pilot)
         plotted = pilot.app.view_widget.item
         assert isinstance(plotted, Plotext)
 
         # A jump selects it too; selecting it warns and keeps the current plot
-        await jump_to(pilot, "//s")  # a TObjString, not plottable
+        await jump_to(pilot, "/s")  # a TObjString, not plottable
         node = tree.cursor_node
         assert node is not None
         label = tree.render_label(node, rich.style.Style(), rich.style.Style())
@@ -622,7 +622,7 @@ async def test_failed_node_shows_traceback(monkeypatch: pytest.MonkeyPatch) -> N
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
         # The jump selects it; the render worker posts an ErrorMessage
-        await jump_to(pilot, "//hstat")
+        await jump_to(pilot, "/hstat")
         await settle_render(pilot)
         await wait_until(pilot, lambda: isinstance(pilot.app.view_widget.item, Error))
         item = pilot.app.view_widget.item
@@ -632,7 +632,7 @@ async def test_failed_node_shows_traceback(monkeypatch: pytest.MonkeyPatch) -> N
         # Dump & Quit names the key that produced the traceback
         msg, items = pilot.app.dump_source()
         assert items == [item]
-        assert 'item = file["hstat"]' in msg
+        assert "item = file['hstat']" in msg
 
 
 async def test_escape_does_not_quit() -> None:
@@ -751,7 +751,7 @@ async def test_count_prefix_after_click() -> None:
         await pilot.press("2", "down")
         assert tree.cursor_node is not None
         assert tree.cursor_node.data is not None
-        assert tree.cursor_node.data.path == "//T/event/fHighPt"
+        assert tree.cursor_node.data.path == "/T/event/fHighPt"
         assert not pilot.app.query_one("#navigation-count").display
 
 
@@ -964,7 +964,7 @@ async def test_click_toggles_directory() -> None:
     ).run_test() as pilot:
         await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
-        node = node_at(tree.root, "//T")
+        node = node_at(tree.root, "/T")
         assert not node.is_expanded
         await click_label(pilot, node)
         assert node.is_expanded
@@ -980,12 +980,12 @@ async def test_mark_two_branches_plots_2d() -> None:
         await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
         assert tree.check_action("mark", ()) is None  # the root folder
-        await jump_to(pilot, "//T/event/fEventName")
+        await jump_to(pilot, "/T/event/fEventName")
         assert tree.check_action("mark", ()) is None  # not numeric
         await pilot.press("m")
         assert tree.marks == []
 
-        await jump_to(pilot, "//T/event/fNtrack")
+        await jump_to(pilot, "/T/event/fNtrack")
         assert tree.check_action("mark", ())
         await pilot.press("m")
         x_node = tree.cursor_node
@@ -1005,7 +1005,7 @@ async def test_mark_two_branches_plots_2d() -> None:
         if uproot_browser.plotext_compat.PLOTEXT_6:
             assert isinstance(item, Plotext)
             assert (item.selection, item.y_selection) == (
-                "//T/event/fNtrack",
+                "/T/event/fNtrack",
                 LEAF_PATH,
             )
             text = plot_text(pilot.app)
@@ -1018,8 +1018,8 @@ async def test_mark_two_branches_plots_2d() -> None:
         assert label_text(tree, x_node).startswith("x: ")
         assert label_text(tree, y_node).startswith("y: ")
         msg, _ = pilot.app.dump_source()
-        assert 'x_item = file["T/event/fNtrack"]' in msg
-        assert f'y_item = file["{LEAF_PATH.lstrip("/")}"]' in msg
+        assert "x_item = file['T/event/fNtrack']" in msg
+        assert f"y_item = file[{LEAF_PATH.lstrip('/')!r}]" in msg
 
         # A single plot replaces the pair, but keeps a pending x mark
         await pilot.press("enter")
@@ -1044,7 +1044,7 @@ async def test_shift_click_pairs_with_cursor() -> None:
         assert pilot.app.view_widget.item is None
         assert pilot.app._notifications  # noqa: SLF001
 
-        await jump_to(pilot, "//T/event/fNtrack")
+        await jump_to(pilot, "/T/event/fNtrack")
         x_node = tree.cursor_node
         assert x_node is not None
         await click_label(pilot, flag, shift=True)
@@ -1053,7 +1053,7 @@ async def test_shift_click_pairs_with_cursor() -> None:
         assert tree.marks == [x_node, flag]
         item = pilot.app.view_widget.item
         assert item is not None
-        assert (item.selection, item.y_selection) == ("//T/event/fNtrack", LEAF_PATH)
+        assert (item.selection, item.y_selection) == ("/T/event/fNtrack", LEAF_PATH)
 
 
 def test_render_canvas_is_thread_safe() -> None:
@@ -1081,18 +1081,18 @@ async def test_browse_directory(tmp_path: pathlib.Path) -> None:
         await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
         assert [c.data.path for c in tree.root.children if c.data] == [
-            "//a.root",
-            "//sub",
+            "/a.root",
+            "/sub",
         ]
-        await jump_to(pilot, "//sub/b.root/hpx")
+        await jump_to(pilot, "/sub/b.root/hpx")
         await settle_render(pilot)
         item = pilot.app.view_widget.item
         assert isinstance(item, Plotext)
         assert_canvas(pilot.app, item)
 
         msg, _ = pilot.app.dump_source()
-        assert f'file = uproot.open("{nested}")' in msg
-        assert 'item = file["hpx"]' in msg
+        assert f"file = uproot.open({str(nested)!r})" in msg
+        assert "item = file['hpx']" in msg
 
 
 async def test_jump_directory_is_lazy(root_dir: pathlib.Path) -> None:
@@ -1101,18 +1101,18 @@ async def test_jump_directory_is_lazy(root_dir: pathlib.Path) -> None:
         await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
         assert [c.path for c in tree.jump_candidates()] == [
-            "//a.root",
-            "//sub",
-            "//sub/b.root",
+            "/a.root",
+            "/sub",
+            "/sub/b.root",
         ]
         assert not tree.root_node.resolve("a.root").is_loaded
         assert not tree.root_node.resolve("sub/b.root").is_loaded
 
-        await jump_to(pilot, "//sub/b.root/hpx")
+        await jump_to(pilot, "/sub/b.root/hpx")
         await settle_render(pilot)
         paths = [c.path for c in tree.jump_candidates()]
-        assert "//sub/b.root/hpx" in paths
-        assert not any(p.startswith("//a.root/") for p in paths)
+        assert "/sub/b.root/hpx" in paths
+        assert not any(p.startswith("/a.root/") for p in paths)
 
 
 @pytest.mark.parametrize(("y_file", "same"), [("a.root", True), ("b.root", False)])
@@ -1127,22 +1127,22 @@ async def test_dump_directory_pair(
     async with Browser(str(tmp_path)).run_test() as pilot:
         await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
-        x_path = "//a.root/T/event/fNtrack"
-        y_path = f"//{y_file}{LEAF_PATH[1:]}"
+        x_path = "/a.root/T/event/fNtrack"
+        y_path = f"/{y_file}{LEAF_PATH}"
         tree.post_message(UprootSelected(tree.root_node, x_path, y_path))
         await settle_render(pilot)
 
         msg, _ = pilot.app.dump_source()
         if same:
-            assert f'uproot.open("{tmp_path / "a.root"}")' in msg
-            assert 'x_item = file["T/event/fNtrack"]' in msg
-            assert f'y_item = file["{LEAF_PATH.lstrip("/")}"]' in msg
+            assert f"uproot.open({str(tmp_path / 'a.root')!r})" in msg
+            assert "x_item = file['T/event/fNtrack']" in msg
+            assert f"y_item = file[{LEAF_PATH.lstrip('/')!r}]" in msg
         else:
             assert "uproot_browser" not in msg
-            assert f'x_file = uproot.open("{tmp_path / "a.root"}")' in msg
-            assert f'y_file = uproot.open("{tmp_path / y_file}")' in msg
-            assert 'x_item = x_file["T/event/fNtrack"]' in msg
-            assert f'y_item = y_file["{LEAF_PATH.lstrip("/")}"]' in msg
+            assert f"x_file = uproot.open({str(tmp_path / 'a.root')!r})" in msg
+            assert f"y_file = uproot.open({str(tmp_path / y_file)!r})" in msg
+            assert "x_item = x_file['T/event/fNtrack']" in msg
+            assert f"y_item = y_file[{LEAF_PATH.lstrip('/')!r}]" in msg
 
 
 async def test_escape_in_right_panel_returns_to_tree() -> None:

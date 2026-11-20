@@ -6,6 +6,7 @@ from __future__ import annotations
 
 __lazy_modules__ = {"difflib", "pathlib", "shutil"}
 
+import contextlib
 import difflib
 import os
 import shutil
@@ -19,6 +20,10 @@ from uproot_browser._version import version as __version__
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from uproot_browser.nodes import Node
+
     DefaultGroup = click.Group
 else:
     from click_default_group import DefaultGroup
@@ -59,6 +64,20 @@ def get_testdata(filename: str | None, *, testdata: bool) -> str:
     return f"{data_name}:{sel}" if sel else data_name
 
 
+@contextlib.contextmanager
+def open_node(spec: str) -> Iterator[Node]:
+    """Open a spec and close it after use. A file or key that fails to open is a CLI error."""
+    from uproot_browser.backends import open_path
+
+    try:
+        node = open_path(spec)
+    except (OSError, ValueError, KeyError) as err:
+        msg = f"Cannot open {spec!r}: {err}"
+        raise click.ClickException(msg) from err
+    with node:
+        yield node
+
+
 def image_extra_required(flag: str) -> NoReturn:
     msg = f"Install the [image] extra to use {flag}"
     raise click.ClickException(msg) from None
@@ -83,7 +102,9 @@ def tree(filename: str | None, *, testdata: bool) -> None:
     """
     import uproot_browser.tree
 
-    uproot_browser.tree.print_tree(get_testdata(filename, testdata=testdata))
+    with open_node(get_testdata(filename, testdata=testdata)) as root:
+        rich_tree = uproot_browser.tree.make_tree(root)
+    uproot_browser.tree.console.print(rich_tree)
 
 
 @main.command()
@@ -108,9 +129,22 @@ def plot(
     """
     Display a plot.
     """
-    import uproot_browser.backends
+    from uproot_browser.exceptions import EmptyTreeError
 
-    item = uproot_browser.backends.open_path(get_testdata(filename, testdata=testdata))
+    spec = get_testdata(filename, testdata=testdata)
+    with open_node(spec) as item:
+        try:
+            _plot(item, spec, image=image, save=save)
+        except EmptyTreeError as err:
+            raise click.ClickException(str(err)) from err
+
+
+def _plot(item: Node, spec: str, *, image: bool, save: str | None) -> None:
+    from uproot_browser.nodes import Plottable
+
+    if not isinstance(item, Plottable) or not item.plottable:
+        msg = f"{spec!r} is not plottable. Select a histogram or a numeric column."
+        raise click.ClickException(msg)
 
     if save:
         # Set before pyplot is imported: this path must not open a window
@@ -178,11 +212,15 @@ def browse(filename: str | None, *, image: bool, testdata: bool) -> None:
         except ModuleNotFoundError:
             image_extra_required("--image")
 
+    spec = get_testdata(filename, testdata=testdata)
+    if "://" not in spec:
+        # Fail before the TUI starts; a remote open is too slow to do twice
+        with open_node(spec):
+            pass
+
     import uproot_browser.tui.browser
 
-    app = uproot_browser.tui.browser.Browser(
-        path=get_testdata(filename, testdata=testdata), image=image
-    )
+    app = uproot_browser.tui.browser.Browser(path=spec, image=image)
 
     app.run()
 

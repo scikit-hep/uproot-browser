@@ -77,7 +77,7 @@ class JumpScreen(textual.screen.ModalScreen[str | None]):
 
     @staticmethod
     def _label(candidate: Candidate) -> rich.text.Text:
-        display = candidate.path.lstrip("/")
+        display = candidate.path.removeprefix("/")
         prefix = display.removesuffix(candidate.name)
         text = rich.text.Text(candidate.icon)
         text.append(prefix, style="dim")

@@ -182,7 +182,7 @@ def test_tree_nested_directory_label() -> None:
     """A nested TDirectory is labeled by its own name, not the root one (issue #282)."""
     with uproot.open(data_path("uproot-nesteddirs.root")) as upfile:
         entry = wrap(upfile)
-        (nested,) = (e for e in entry.walk() if e.path == "//one/two")
+        (nested,) = (e for e in entry.walk() if e.path == "/one/two")
 
         label_text = nested.meta()["label_text"]
         assert label_text.plain == "two"
@@ -853,15 +853,15 @@ def test_local_directory_tree(root_dir: pathlib.Path) -> None:
         assert isinstance(directory, Directory)
         assert directory.keys() == ["a.root", "sub"]
         paths = {e.path for e in directory.walk()}
-        assert {"//a.root/hpx", "//sub/b.root/hpx"} <= paths
+        assert {"/a.root/hpx", "/sub/b.root/hpx"} <= paths
 
-        hpx = directory.resolve("//sub/b.root/hpx")
+        hpx = directory.resolve("/sub/b.root/hpx")
         assert hpx.name == "hpx"
         assert hpx.root.open_source("f") == (
-            f'import uproot\nf = uproot.open("{root / "sub" / "b.root"}")'
+            f"import uproot\nf = uproot.open({str(root / 'sub' / 'b.root')!r})"
         )
-        assert hpx.bind_source() == 'item = file["hpx"]'
-        assert hpx.path == "//sub/b.root/hpx"
+        assert hpx.bind_source() == "item = file['hpx']"
+        assert hpx.path == "/sub/b.root/hpx"
         assert directory.resolve("sub:b.root/hpx") is not None
 
     console = rich.console.Console(width=80, file=io.StringIO(), record=True)
@@ -884,11 +884,11 @@ def test_local_directory_unreadable_file(root_dir: pathlib.Path) -> None:
     (root / "bad.root").write_text("not ROOT")
     with uproot_browser.backends.open_path(str(root)) as directory:
         entries = {e.path: e for e in directory.walk()}
-        bad = entries["//bad.root"]
+        bad = entries["/bad.root"]
         assert isinstance(bad, LazyRoot)
         assert bad.error is not None
         assert bad.meta()["label_icon"] == "‼️ "
-        assert "//sub/b.root/hpx" in entries
+        assert "/sub/b.root/hpx" in entries
 
     console = rich.console.Console(width=80, file=io.StringIO(), record=True)
     print_tree(str(root), console=console)
@@ -903,7 +903,7 @@ def test_resolve_failed_segment() -> None:
         root = uproot_browser.backends.open_path(data_path("uproot-Event.root"))
         node = root.resolve("T/event/missing")
         assert isinstance(node, FailedNode)
-        assert node.bind_source() == 'item = file["T/event/missing"]'
+        assert node.bind_source() == "item = file['T/event/missing']"
         with pytest.raises(uproot.KeyInFileError):
             uproot_browser.plot.plottable_node(node)
         assert wrap(upfile["T/event/fNtrack"]).data_tree_source() == "item.tree"
