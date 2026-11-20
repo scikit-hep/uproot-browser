@@ -22,6 +22,7 @@ import uproot_browser.backends
 import uproot_browser.backends.directory
 import uproot_browser.backends.uproot
 import uproot_browser.plot
+import uproot_browser.progress
 from uproot_browser.__main__ import main
 from uproot_browser.backends import Backend, open_path
 from uproot_browser.backends.directory import Directory, LazyRoot
@@ -475,3 +476,60 @@ def test_pair_with_failed_node_raises_its_error() -> None:
         missing = root.resolve("T/missing")
         with pytest.raises(uproot.KeyInFileError):
             uproot_browser.plot.BranchPair(x, missing)
+
+
+def test_progress_span() -> None:
+    assert not uproot_browser.progress.active()
+    uproot_browser.progress.report(0.5)  # no listener: nothing happens
+    seen: list[float] = []
+    with uproot_browser.progress.reporting(seen.append):
+        assert uproot_browser.progress.active()
+        with uproot_browser.progress.span(0.5, 1):
+            uproot_browser.progress.report(0.5)
+        uproot_browser.progress.report(1)
+    assert seen == [0.75, 1]
+    assert not uproot_browser.progress.active()
+
+
+def test_read_reports_progress(tmp_path: pathlib.Path) -> None:
+    """With a listener, a branch reads basket by basket and gives the same array."""
+    path = tmp_path / "baskets.root"
+    with uproot.recreate(path) as out:
+        out.mktree("t", {"x": np.float64})
+        for start in range(0, 50, 10):
+            out["t"].extend({"x": np.arange(start, start + 10, dtype=np.float64)})
+    with open_path(f"{path}:t/x") as node:
+        assert isinstance(node, uproot_browser.backends.uproot.UprootBranch)
+        seen: list[float] = []
+        with uproot_browser.progress.reporting(seen.append):
+            array = node.read()
+        assert seen == [0.2, 0.4, 0.6, 0.8, 1.0]
+        assert array.tolist() == node.read().tolist() == list(range(50))
+
+
+def test_read_limits_steps(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(uproot_browser.backends.uproot, "MAX_STEPS", 2)
+    monkeypatch.setattr(
+        uproot_browser.backends.uproot.UprootField,
+        "_entry_edges",
+        property(lambda self: [*range(0, self.entry_count, 500), self.entry_count]),
+    )
+    with open_path(
+        f"{data_path('ntpl001_staff_rntuple_v1-0-0-0.root')}:Staff/Age"
+    ) as node:
+        assert isinstance(node, uproot_browser.backends.uproot.UprootField)
+        seen: list[float] = []
+        with uproot_browser.progress.reporting(seen.append):
+            array = node.read()
+        assert len(seen) == 2
+        assert seen[-1] == 1
+        assert array.tolist() == node.read().tolist()
+
+
+async def test_remote_file_opens_in_worker(memory_dir: str) -> None:
+    async with Browser(f"{memory_dir}/a.root").run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        assert isinstance(tree.root_node, LazyRoot)
+        await wait_for_workers(pilot)
+        assert tree.root_node.is_loaded
+        assert "//hpx" in [c.data.path for c in tree.root.children if c.data]

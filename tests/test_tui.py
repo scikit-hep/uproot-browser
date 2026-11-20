@@ -2,6 +2,7 @@ import concurrent.futures
 import io
 import pathlib
 import shutil
+import threading
 from collections.abc import Callable
 
 import pytest
@@ -17,6 +18,8 @@ from conftest import wait_for_workers
 
 import uproot_browser.plot
 import uproot_browser.plotext_compat
+import uproot_browser.progress
+import uproot_browser.tui.status
 from uproot_browser.axis import AxisLimits
 from uproot_browser.exceptions import EmptyTreeError
 from uproot_browser.tui.browser import Browser
@@ -255,7 +258,7 @@ async def test_plot_first_branch(monkeypatch: pytest.MonkeyPatch) -> None:
         assert "import plotext as plt" in msg
         assert "uproot_browser" not in msg
 
-        # Dump & Quit prints the plot, not the "... plotting ..." placeholder
+        # Dump & Quit prints the plot
         console = rich.console.Console(
             width=40, file=io.StringIO(), force_terminal=True
         )
@@ -948,3 +951,43 @@ async def test_render_errors_are_ignored_on_exit() -> None:
         pilot.app.on_error_message(ErrorMessage(error, item))
         pilot.app.on_empty_message(EmptyMessage(item))
         assert pilot.app.view_widget.item is item
+
+
+async def test_status_bar_task(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A task shows its label, then its reported progress, then goes away."""
+    monkeypatch.setattr(uproot_browser.tui.status, "DELAY", 0.001)
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        status = pilot.app.status
+        bar = status.query_one(textual.widgets.ProgressBar)
+        assert not status.display
+        report, done = threading.Event(), threading.Event()
+
+        def work() -> None:
+            with status.running("Loading x.root"):
+                report.wait()
+                uproot_browser.progress.report(0.5)
+                done.wait()
+
+        thread = threading.Thread(target=work)
+        thread.start()
+        try:
+            await wait_until(pilot, lambda: status.display, delay=0.01)
+            assert status.display
+            region = textual.geometry.Region(0, 0, *status.content_size)
+            assert (
+                "Loading x.root"
+                in status.query_one("#task-label").render_lines(region)[0].text
+            )
+            assert bar.total is None
+
+            report.set()
+            await wait_until(pilot, lambda: bar.total is not None, delay=0.01)
+            assert bar.percentage == 0.5
+        finally:
+            report.set()
+            done.set()
+            thread.join()
+        await wait_until(pilot, lambda: not status.display, delay=0.01)
+        assert not status.display

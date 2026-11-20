@@ -4,7 +4,6 @@ __lazy_modules__ = {
     "dataclasses",
     "rich.markup",
     "rich.syntax",
-    "rich.text",
     "textual.containers",
     "textual.events",
     "textual.lazy",
@@ -20,6 +19,7 @@ __lazy_modules__ = {
     "uproot_browser.tui.plot",
     "uproot_browser.tui.right_panel",
     "uproot_browser.tui.splitter",
+    "uproot_browser.tui.status",
     "uproot_browser.tui.tools",
     "uproot_browser.tui.viewer",
 }
@@ -32,7 +32,6 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import rich.markup
 import rich.syntax
-import rich.text
 import textual.app
 import textual.binding
 import textual.containers
@@ -54,6 +53,7 @@ from uproot_browser.tui.left_panel import UprootTree
 from uproot_browser.tui.plot import Plotext, PlotItem, dump_header
 from uproot_browser.tui.right_panel import RightPanel
 from uproot_browser.tui.splitter import Splitter
+from uproot_browser.tui.status import StatusBar
 from uproot_browser.tui.theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND
 from uproot_browser.tui.tools import Info
 from uproot_browser.tui.viewer import ViewWidget
@@ -75,6 +75,11 @@ if TYPE_CHECKING:
         ExpressionErrorMessage,
         UprootSelected,
     )
+
+
+def _plot_label(item: PlotItem) -> str:
+    x, y = item.selection.strip("/"), item.y_selection.strip("/")
+    return f"Plotting {y} vs {x}" if y else f"Plotting {x}"
 
 
 class Browser(textual.app.App[None]):
@@ -111,6 +116,7 @@ class Browser(textual.app.App[None]):
         super().__init__(**kwargs)
 
         self.view_widget = ViewWidget(id="plot-view", image=image)
+        self.status = StatusBar(id="status")
         self.set_reactive(Browser.image_scale, image_scale)
 
     def compose(self) -> textual.app.ComposeResult:
@@ -130,18 +136,12 @@ class Browser(textual.app.App[None]):
             yield RightPanel(id="right-panel")
 
         yield textual.widgets.Footer()
-        yield textual.widgets.Static(id="navigation-count")
+        yield self.status
 
     def on_mount(self, _event: textual.events.Mount) -> None:
         tree = self.query_one("#tree-view", UprootTree)
         tree.focus()
-        self.watch(tree, "count", self._show_count)
-
-    def _show_count(self, count: str) -> None:
-        status = self.query_one("#navigation-count", textual.widgets.Static)
-        if count:
-            status.update(f"Move: {count}")
-        status.display = bool(count)
+        self.watch(tree, "count", self.status.show_count)
 
     def watch_show_tree(self, show_tree: bool) -> None:  # noqa: FBT001
         """Called when show_tree is modified."""
@@ -317,7 +317,6 @@ class Browser(textual.app.App[None]):
         )
         if key != self._plot_rendered:
             self._plot_rendered = key
-            self.view_widget.plot_widget.update(rich.text.Text("... plotting ..."))
             self.render_plot(item)
 
     def watch_image_scale(self, scale: float) -> None:
@@ -349,14 +348,13 @@ class Browser(textual.app.App[None]):
         )
         if key != self._image_rendered:
             self._image_rendered = key
-            assert self.view_widget.image_widget is not None
-            self.view_widget.image_widget.loading = True
             self.render_image(item)
 
     @textual.work(exclusive=True, thread=True)
     def render_plot(self, plot: Plotext) -> None:
         worker = textual.worker.get_current_worker()
-        canvas = plot.make_plot()
+        with self.status.running(_plot_label(plot)):
+            canvas = plot.make_plot()
         if worker.is_cancelled:
             return
         if canvas is not None:
@@ -365,7 +363,8 @@ class Browser(textual.app.App[None]):
     @textual.work(exclusive=True, thread=True)
     def render_image(self, plot: MPLPlot) -> None:
         worker = textual.worker.get_current_worker()
-        image = plot.make_image()
+        with self.status.running(_plot_label(plot)):
+            image = plot.make_image()
         if worker.is_cancelled:
             return
         self.call_from_thread(self.view_widget.update_image, image)

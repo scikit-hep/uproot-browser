@@ -240,7 +240,6 @@ async def test_image_expression_failure_can_be_corrected() -> None:
             assert view.plot_input.has_class("-needs-update")
             assert view.image_widget is not None
             assert view.image_widget.image is None
-            assert not view.image_widget.loading
 
         view.plot_input.value = 'tree["fNtrack"].array()[tree["fNtrack"].array() > 0]'
         view.plot_input.apply_expression()

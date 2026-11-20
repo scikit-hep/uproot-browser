@@ -108,7 +108,6 @@ class ViewWidget(textual.widgets.ContentSwitcher):
 
     def update_image(self, image: Any) -> None:
         assert self.image_widget is not None
-        self.image_widget.loading = False
         if image is not None:
             self.image_widget.image = image
 

@@ -17,6 +17,7 @@ __lazy_modules__ = {
     "rich.style",
     "rich.text",
     "textwrap",
+    "uproot_browser",
     "uproot_browser.exceptions",
 }
 
@@ -32,6 +33,7 @@ import numpy as np
 from rich.style import Style
 from rich.text import Text
 
+from uproot_browser import progress
 from uproot_browser.exceptions import EmptyTreeError
 
 if TYPE_CHECKING:
@@ -409,7 +411,11 @@ class Pair(Plottable):
             msg = f"{self.x.name} has {x_entries} entries, but {self.y.name} has {y_entries}"
             raise ValueError(msg)
         # A per-entry value broadcasts against a per-item (jagged) value
-        x_array, y_array = ak.broadcast_arrays(self.x.read(), self.y.read())
+        with progress.span(0, 0.5):
+            x_read = self.x.read()
+        with progress.span(0.5, 1):
+            y_read = self.y.read()
+        x_array, y_array = ak.broadcast_arrays(x_read, y_read)
         x = np.asarray(ak.ravel(x_array), dtype=float)
         y = np.asarray(ak.ravel(y_array), dtype=float)
         finite = np.isfinite(x) & np.isfinite(y)
