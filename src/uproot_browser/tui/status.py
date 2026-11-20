@@ -1,11 +1,6 @@
 from __future__ import annotations
 
-__lazy_modules__ = {
-    "contextlib",
-    "dataclasses",
-    "itertools",
-    "uproot_browser.progress",
-}
+__lazy_modules__ = {"itertools", "textual.widgets", "uproot_browser.progress"}
 
 import contextlib
 import dataclasses
@@ -20,7 +15,7 @@ import uproot_browser.progress
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    import textual.app
+    from textual.app import ComposeResult
 
 DELAY = 0.25
 """Seconds a task runs before it shows, so a fast one does not flash."""
@@ -35,8 +30,9 @@ class _Task:
 
 class StatusBar(textual.containers.Horizontal):
     """
-    One line above the footer: the pending count of the tree, and the newest
-    running task with its progress bar. Hidden when it has nothing to show.
+    Above the footer: the pending count of the tree, and a box with the
+    newest running task and its progress bar. Hidden when it has nothing to
+    show.
     """
 
     def __init__(self, **kwargs: Any) -> None:
@@ -47,11 +43,11 @@ class StatusBar(textual.containers.Horizontal):
         self._count.display = False
         self._label = textual.widgets.Static(id="task-label")
         self._bar = textual.widgets.ProgressBar(id="task-bar", show_eta=False)
+        self._box = textual.containers.Horizontal(self._label, self._bar, id="task")
 
-    def compose(self) -> textual.app.ComposeResult:
+    def compose(self) -> ComposeResult:
         yield self._count
-        yield self._label
-        yield self._bar
+        yield self._box
 
     def on_mount(self) -> None:
         self._update()
@@ -74,9 +70,7 @@ class StatusBar(textual.containers.Horizontal):
         self.call_later(self._start, key, label)
         try:
             with uproot_browser.progress.reporting(
-                lambda fraction: self.call_later(
-                    self._advance, key, fraction=fraction
-                )
+                lambda fraction: self.call_later(self._advance, key, fraction=fraction)
             ):
                 yield
         finally:
@@ -98,7 +92,8 @@ class StatusBar(textual.containers.Horizontal):
 
     def _update(self) -> None:
         shown = [t for t in self._tasks.values() if t.shown]
-        self._label.display = self._bar.display = bool(shown)
+        self._box.display = bool(shown)
+        self.set_class(bool(shown), "-working")
         self.display = bool(shown) or self._count.display
         if shown:
             task = shown[-1]

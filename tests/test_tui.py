@@ -975,7 +975,7 @@ async def test_status_bar_task(monkeypatch: pytest.MonkeyPatch) -> None:
         try:
             await wait_until(pilot, lambda: status.display, delay=0.01)
             assert status.display
-            region = textual.geometry.Region(0, 0, *status.size)
+            region = textual.geometry.Region(0, 0, *status.content_size)
             assert (
                 "Loading x.root"
                 in status.query_one("#task-label").render_lines(region)[0].text
