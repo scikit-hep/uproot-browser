@@ -172,7 +172,7 @@ Screen {
     layers: default overlay;
 }
 
-#navigation-count {
+#status {
     display: none;
     /* Own layer, so showing it does not resize the panels. */
     layer: overlay;
@@ -182,6 +182,24 @@ Screen {
     height: 1;
     padding: 0 1;
     background: $surface;
+}
+
+#navigation-count {
+    width: auto;
+    margin-right: 2;
+}
+
+#task-label {
+    width: 1fr;
+}
+
+#task-bar {
+    margin-left: 2;
+}
+
+/* Not the padding of the Label rule above */
+#task-bar PercentageStatus {
+    padding: 0;
 }
 
 Footer {

@@ -9,9 +9,11 @@ __lazy_modules__ = {
     "textual.widget",
     "textual.widgets.tree",
     "uproot_browser.backends",
+    "uproot_browser.backends.directory",
     "uproot_browser.plot",
     "uproot_browser.tui.jump",
     "uproot_browser.tui.messages",
+    "uproot_browser.tui.status",
 }
 
 import contextlib
@@ -29,10 +31,12 @@ import textual.widgets.tree
 from textual.reactive import var
 
 import uproot_browser.plot
-from uproot_browser.backends import open_path
+from uproot_browser.backends import claims, open_path
+from uproot_browser.backends.directory import LazyRoot
 from uproot_browser.nodes import Node
 from uproot_browser.tui.jump import Candidate
 from uproot_browser.tui.messages import UprootSelected
+from uproot_browser.tui.status import StatusBar
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -78,7 +82,9 @@ class UprootTree(textual.widgets.Tree[Node]):
     """Pending vim-style count prefix."""
 
     def __init__(self, path: str, **args: Any) -> None:
-        self.root_node = open_path(path)
+        # A remote file opens in a load worker, with the app on screen
+        remote = "://" in path and claims(path)
+        self.root_node = LazyRoot(path) if remote else open_path(path)
         self._candidates: dict[str, list[Candidate]] = {}
         self._loading: set[int] = set()
         """The ids of the tree nodes with a load in progress."""
@@ -284,7 +290,8 @@ class UprootTree(textual.widgets.Tree[Node]):
         """Do the I/O of a listing or a file open off the UI thread."""
         assert node.data
         try:
-            children = node.data.children
+            with self.app.query_one(StatusBar).running(f"Loading {node.data.name}"):
+                children = node.data.children
         except Exception as err:  # noqa: BLE001
             call: Any = functools.partial(self._load_failed, node, err)
         else:

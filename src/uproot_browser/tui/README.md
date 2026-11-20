@@ -35,6 +35,9 @@ be plotted, you'll see a scrollable error traceback. If you think it should
 be plottable, feel free to open an issue. 2D histograms draw as heatmaps
 (text mode needs plotext 6 or newer; `--image` mode always supports them).
 
+A slow operation (a remote file that opens, a directory that lists, a plot
+that reads data) shows a progress bar on the line above the footer.
+
 To plot two numeric branches or fields against each other, press `m` on the
 first one (the x axis) to mark it, then press `m` on the second one (the y
 axis). The pair is filled into a 2D histogram, and the tree labels the two

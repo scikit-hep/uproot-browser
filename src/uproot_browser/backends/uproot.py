@@ -6,6 +6,8 @@ fields and histograms. It also opens any spec no other backend claims.
 from __future__ import annotations
 
 __lazy_modules__ = {
+    "awkward",
+    "itertools",
     "numpy",
     "operator",
     "pathlib",
@@ -17,17 +19,20 @@ __lazy_modules__ = {
     "uproot.interpretation.jagged",
     "uproot.interpretation.numerical",
     "uproot.interpretation.objects",
+    "uproot_browser",
     "uproot_browser.backends",
     "uproot_browser.exceptions",
 }
 
 import dataclasses
 import functools
+import itertools
 import operator
 import textwrap
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
+import awkward as ak
 import numpy as np
 import uproot
 import uproot._util
@@ -43,6 +48,7 @@ import uproot.reading
 from rich.style import Style
 from rich.text import Text
 
+from uproot_browser import progress
 from uproot_browser.backends import as_node, select_key, split_spec
 from uproot_browser.exceptions import EmptyTreeError
 from uproot_browser.nodes import (
@@ -77,6 +83,10 @@ __all__ = (
 
 def __dir__() -> tuple[str, ...]:
     return __all__
+
+
+MAX_STEPS = 20
+"""The most reads one column is split into, to report its progress."""
 
 
 def matches(spec: str) -> bool:
@@ -216,8 +226,23 @@ class _UprootColumn(Column, _UprootContainer):  # pylint: disable=abstract-metho
     def typename(self) -> str:
         return str(self.item.typename)
 
+    @property
+    def _entry_edges(self) -> list[int]:
+        """The entries where a read can be split without reading data twice."""
+        return [0, self.entry_count]
+
     def read(self) -> Any:
-        return self.item.array()
+        edges = self._entry_edges
+        # A step for each ``MAX_STEPS``-th edge, and always the last edge
+        step = -(-(len(edges) - 1) // MAX_STEPS)
+        edges = [*edges[:-1:step], edges[-1]] if step else edges
+        if not progress.active() or len(edges) < 3:
+            return self.item.array()
+        chunks = []
+        for start, stop in itertools.pairwise(edges):
+            chunks.append(self.item.array(entry_start=start, entry_stop=stop))
+            progress.report(stop / edges[-1])
+        return ak.concatenate(chunks)
 
     def read_source(self, var: str) -> str:
         return f"{var}.array()"
@@ -262,6 +287,10 @@ class UprootBranch(_UprootColumn):
             self.item.interpretation, uproot.interpretation.objects.AsObjects
         )
 
+    @property
+    def _entry_edges(self) -> list[int]:
+        return [int(edge) for edge in self.item.entry_offsets]
+
     def data_tree(self) -> DataTree | None:
         return super().data_tree() or UprootTTree(self.item.tree)
 
@@ -303,6 +332,11 @@ class UprootField(_UprootColumn):
     @property
     def numeric(self) -> bool:
         return _field_plottable(self.item)
+
+    @property
+    def _entry_edges(self) -> list[int]:
+        clusters = self.item.ntuple.cluster_summaries
+        return [*(int(c.num_first_entry) for c in clusters), self.entry_count]
 
     def data_tree(self) -> DataTree | None:
         return super().data_tree() or UprootRNTuple(self.item.ntuple)
