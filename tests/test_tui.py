@@ -234,8 +234,9 @@ async def test_entry_box_toggle() -> None:
 
 @pytest.mark.xfail(
     TEXTUAL_VERSION < (4, 1),
-    reason="Textual < 4.1: the render request comes before the new layout",
-    strict=True,
+    # Not strict: the order depends on timing, and the CI runners pass
+    reason="Textual < 4.1: the render request can come before the new layout",
+    strict=False,
 )
 async def test_entry_box_rerenders_plot() -> None:
     """The plot renders again in the space the entry box leaves."""
