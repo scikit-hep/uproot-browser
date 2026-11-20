@@ -85,7 +85,7 @@ When a plottable object is selected in `browse`, the right-side **Axis scaling**
 The render scale control (in `browse --image`) and theme selector are also located in this panel. The Tree and Info tabs remain on the left. Use the following keyboard shortcuts from the bottom footer:
 
 ```text
-b  Navbar    t  Tools    e  Entry Box    /  Jump    m  Mark 2D    q  Quit    d  Dump & Quit    F1  Help
+b  Tree    t  Tools    e  Expression    /  Jump    m  Mark 2D    q  Quit    d  Dump & Quit    F1  Help
 ```
 
 ### Tree navigation

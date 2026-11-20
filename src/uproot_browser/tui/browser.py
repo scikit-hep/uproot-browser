@@ -79,9 +79,13 @@ if TYPE_CHECKING:
     )
 
 
-def _plot_label(item: PlotItem) -> str:
+def _plot_name(item: PlotItem) -> str:
     x, y = item.selection.strip("/"), item.y_selection.strip("/")
-    return f"Plotting {y} vs {x}" if y else f"Plotting {x}"
+    return f"{y} vs {x}" if y else x
+
+
+def _plot_label(item: PlotItem) -> str:
+    return f"Plotting {_plot_name(item)}"
 
 
 class Browser(textual.app.App[None]):
@@ -90,18 +94,17 @@ class Browser(textual.app.App[None]):
     CSS_PATH = "browser.css"
     TITLE = "uproot-browser"
     BINDINGS: ClassVar[list[textual.binding.BindingType]] = [
-        textual.binding.Binding("b", "toggle_files", "Navbar"),
+        textual.binding.Binding("b", "toggle_left_panel", "Tree"),
         textual.binding.Binding("t", "toggle_right_panel", "Tools"),
-        textual.binding.Binding("e", "toggle_entry_box", "Entry Box"),
+        textual.binding.Binding("e", "toggle_entry_box", "Expression"),
         textual.binding.Binding("/", "jump", "Jump"),
         textual.binding.Binding("q", "quit", "Quit"),
         textual.binding.Binding("d", "quit_with_dump", "Dump & Quit"),
         textual.binding.Binding("f1", "help", "Help"),
         textual.binding.Binding("?", "help", "Help", show=False),
-        textual.binding.Binding("escape", "quit", "Quit", show=False),
     ]
 
-    show_tree = var(True)
+    show_left_panel = var(True)
     show_right_panel = var(True)
     show_entry_box = var(False)
     image_scale = var(1.5)
@@ -148,10 +151,19 @@ class Browser(textual.app.App[None]):
         tree = self.query_one("#tree-view", UprootTree)
         tree.focus()
         self.watch(tree, "count", self.status.show_count)
+        self.watch(self.view_widget, "item", self.refresh_bindings, init=False)
 
-    def watch_show_tree(self, show_tree: bool) -> None:  # noqa: FBT001
-        """Called when show_tree is modified."""
-        self.set_class(show_tree, "-show-panel")
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:  # noqa: ARG002
+        if action == "toggle_entry_box":
+            # The entry box is in the plot window, which shows only with a plot.
+            # Textual 0.86 runs the item watcher on a read before the mount.
+            view = self.view_widget
+            return (view.is_mounted and isinstance(view.item, PlotItem)) or None
+        return True
+
+    def watch_show_left_panel(self, show: bool) -> None:  # noqa: FBT001
+        """Called when the left panel visibility changes."""
+        self.set_class(not show, "-hide-left-panel")
 
     def get_system_commands(
         self, screen: Screen[Any]
@@ -178,9 +190,9 @@ class Browser(textual.app.App[None]):
         self.query_one("#left-view", textual.widgets.TabbedContent).active = "tree-tab"
         self.query_one("#tree-view", UprootTree).select_path(path)
 
-    def action_toggle_files(self) -> None:
-        """Called in response to key binding."""
-        self.show_tree = not self.show_tree
+    def action_toggle_left_panel(self) -> None:
+        """Toggle the tree and info panel."""
+        self.show_left_panel = not self.show_left_panel
 
     def action_toggle_right_panel(self) -> None:
         """Toggle the typed axis controls and render scale panel."""
@@ -287,6 +299,12 @@ class Browser(textual.app.App[None]):
     def on_empty_message(self, message: EmptyMessage) -> None:
         if self._render_failed(message.source):
             self.view_widget.item = None
+            self.notify(
+                rich.markup.escape(
+                    f"{_plot_name(message.source)} has no finite values to plot"
+                ),
+                severity="warning",
+            )
 
     def on_error_message(self, message: ErrorMessage) -> None:
         if self._render_failed(message.source):

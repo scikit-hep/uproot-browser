@@ -30,9 +30,11 @@ or quit the program.
 ## Plotting
 
 Histograms, rectangular simple data (e.g. TTree's), and jagged arrays can
-be plotted. Click on an item or press `enter` to plot. If something can't
-be plotted, you'll see a scrollable error traceback. If you think it should
-be plottable, feel free to open an issue. 2D histograms draw as heatmaps
+be plotted. Click on an item or press `enter` to plot. The tree shows items
+that cannot be plotted with dim labels; selecting one shows a notification,
+and the current plot stays. An item that fails to load or draw shows a
+scrollable error traceback. An item with no finite values shows a
+notification. If you think an item should be plottable, open an issue. 2D histograms draw as heatmaps
 (text mode needs plotext 6 or newer; `--image` mode always supports them).
 
 A slow operation (a remote file that opens, a directory that lists, a plot
@@ -43,9 +45,11 @@ first one (the x axis) to mark it, then press `m` on the second one (the y
 axis). The pair is filled into a 2D histogram, and the tree labels the two
 items with `x:` and `y:`. A per-entry value pairs with each value of a jagged
 branch from the same entry. Press `m` on a marked item to clear the marks.
+The footer shows `m` dimmed when the cursor item is not numeric.
 Shift+click plots the item at the cursor (x) against the clicked item (y).
 
-Press `e` to open the expression input, and `esc` to close it. Type an
+Press `e` to open the expression input, and `esc` to close it. The input is
+in the plot window, so `e` is dimmed in the footer until an item is plotted. Type an
 expression and press `enter` to apply it. The expression sees `h`, the default
 histogram, and `tree`, the containing TTree or RNTuple when available. Use the
 normal uproot API to read branches, for example `tree["branch"].array()`.
@@ -64,15 +68,17 @@ and apply it to restore the default histogram.
 ## Panels
 
 The panel on the left can be hidden or shown with `b`. It has `Tree` and `Info`
-tabs. The panel on the right can be hidden or shown with `t`. Drag the bar
-next to a panel to resize it. It has the axis
-ranges, the image scale (with `--image`), and the theme selector.
+tabs. The panel on the right can be hidden or shown with `t`. It has the axis
+ranges, the image scale (with `--image`), and the theme selector. Press `esc`
+in the right panel to go back to the tree. Drag the bar next to a panel to
+resize it.
 
 
 ## Leaving
 
-You can press `q` or `esc` to quit. You can also press `d` to quit with a dump
-of the current plot and standalone Python code (uproot, hist, and plotext or
+Press `q` to quit. The `esc` key does not quit; it closes the entry box,
+leaves the right panel, and closes dialogs. Press `d` to quit with a dump of
+the current plot and standalone Python code (uproot, hist, and plotext or
 matplotlib) that reproduces it.
 
 ## Exiting the help.

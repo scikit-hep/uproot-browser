@@ -9,10 +9,10 @@ Browser Widget {
 }
 
 #left-view {
-    display: none;
     overflow: auto;
     width: 20%;
     min-width: 30;
+    max-width: 50%;
     height: 100%;
     padding-top: 1;
 }
@@ -21,16 +21,8 @@ Tree > .tree--cursor {
     text-style: bold;
 }
 
-#left-splitter {
+Browser.-hide-left-panel #left-view, Browser.-hide-left-panel #left-splitter {
     display: none;
-}
-
-Browser.-show-panel #left-view, Browser.-show-panel #left-splitter {
-    display: block;
-}
-
-Browser.-show-panel #left-view {
-    max-width: 50%;
 }
 
 ViewWidget {

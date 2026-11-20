@@ -26,7 +26,7 @@ class RightPanel(textual.containers.Container):
     """Typed X/Y range controls, image scale, and theme selector."""
 
     BINDINGS: ClassVar[list[textual.binding.BindingType]] = [
-        # Otherwise escape reaches the app binding and quits mid-edit
+        # Escape leaves the panel, as it closes the entry box and modals
         textual.binding.Binding("escape", "focus_tree", "Back to tree", show=False),
     ]
 
