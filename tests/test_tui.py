@@ -1,3 +1,4 @@
+import asyncio
 import concurrent.futures
 import io
 import pathlib
@@ -39,25 +40,29 @@ from uproot_browser.tui.right_panel import RightPanel
 LEAF_PATH = "//T/event/fFlag"
 # Open //T, then //T/event (26 lines deep)
 EXPAND_EVENT = (("down", "down", "l"), ("j", "l"))
+# Generous for slow CI runners
+WAIT_TIMEOUT = 30
 
 
 async def wait_until(
     pilot: textual.pilot.Pilot[None],
     predicate: Callable[[], bool],
     *,
-    tries: int = 100,
     delay: float | None = None,
 ) -> None:
-    """Pump the event loop until predicate holds (or give up after `tries`).
+    """Pump the event loop until predicate holds, or fail after ``WAIT_TIMEOUT`` s.
 
     Lazy-mounted widgets can take a variable number of message cycles to settle,
     especially on slower CI runners, so poll instead of guessing a pause count.
     Give a `delay` to wait for something on a timer, which needs real time.
     """
-    for _ in range(tries):
-        if predicate():
-            return
-        await pilot.pause(delay)
+    try:
+        async with asyncio.timeout(WAIT_TIMEOUT):
+            while not predicate():
+                await pilot.pause(delay)
+    except TimeoutError:
+        msg = f"The condition was not true after {WAIT_TIMEOUT} s"
+        raise AssertionError(msg) from None
 
 
 def plot_text(app: Browser) -> str:
@@ -84,6 +89,8 @@ async def jump_to(pilot: textual.pilot.Pilot[None], path: str) -> None:
     """Select ``path`` and wait for the cursor, which moves after a refresh."""
     tree = pilot.app.query_one("#tree-view", UprootTree)
     tree.select_path(path)
+    # Each node on the way loads in a worker
+    await wait_for_workers(pilot)
     await wait_until(
         pilot,
         lambda: (
@@ -199,15 +206,11 @@ async def test_entry_box_toggle() -> None:
         await pilot.press("e")
         assert not pilot.app.show_entry_box
 
-        item = await settled_plot(pilot)
-        assert item.size is not None
-        _, height = item.size
+        await settled_plot(pilot)
         await pilot.press("e")
         assert pilot.app.show_entry_box
         assert entry_box.display
         assert plot_input.has_focus
-        # the plot re-renders in the space the box leaves
-        await wait_until(pilot, lambda: item.size is not None and item.size[1] < height)
 
         # Typing "e" in the box must not close it; escape does
         await pilot.press("e")
@@ -223,6 +226,20 @@ async def test_entry_box_toggle() -> None:
         assert not plot_input.has_focus
         await pilot.press("e")
         assert not entry_box.display
+
+
+async def test_entry_box_rerenders_plot() -> None:
+    """The plot renders again in the space the entry box leaves."""
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        item = await settled_plot(pilot)
+        assert item.size is not None
+        _, height = item.size
+        await pilot.press("e")
+        await wait_for_workers(pilot)
+        await wait_until(pilot, lambda: item.size is not None and item.size[1] < height)
+        assert_canvas(pilot.app, item)
 
 
 async def test_help_screen() -> None:
@@ -458,9 +475,6 @@ async def test_jump_screen() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
-        # Grab the tree before opening the modal: older Textual scopes
-        # app.query_one to the active screen, so #tree-view is unreachable
-        # once the JumpScreen is on top.
         expected = len(pilot.app.query_one("#tree-view", UprootTree).jump_candidates())
         await pilot.press("/")
         assert isinstance(pilot.app.screen, JumpScreen)
@@ -468,7 +482,7 @@ async def test_jump_screen() -> None:
             "#jump-results", textual.widgets.OptionList
         )
         # on_mount population can lag on slow runners; let it settle
-        await wait_until(pilot, lambda: bool(results.option_count), tries=10)
+        await wait_until(pilot, lambda: bool(results.option_count))
         assert results.option_count == expected
 
         await pilot.press("escape")

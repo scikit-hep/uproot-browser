@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import pathlib
 import shutil
@@ -72,8 +73,9 @@ async def wait_for_workers(pilot: textual.pilot.Pilot[object]) -> None:
 async def _pause(
     pilot: textual.pilot.Pilot[object], delay: float | None = None
 ) -> None:
-    if delay is not None:
-        await _wait.sleep(delay)
+    # settle does not suspend when no message is pending, and a poll loop
+    # that never suspends starves the worker callbacks
+    await (asyncio.sleep(0) if delay is None else _wait.sleep(delay))
     await settle(pilot)
 
 
