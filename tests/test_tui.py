@@ -1,6 +1,5 @@
 import asyncio
 import concurrent.futures
-import importlib.metadata
 import io
 import pathlib
 import shutil
@@ -43,9 +42,6 @@ LEAF_PATH = "//T/event/fFlag"
 EXPAND_EVENT = (("down", "down", "l"), ("j", "l"))
 # Generous for slow CI runners
 WAIT_TIMEOUT = 30
-TEXTUAL_VERSION = tuple(
-    int(p) for p in importlib.metadata.version("textual").split(".")[:2]
-)
 
 
 async def wait_until(
@@ -232,12 +228,6 @@ async def test_entry_box_toggle() -> None:
         assert not entry_box.display
 
 
-@pytest.mark.xfail(
-    TEXTUAL_VERSION < (4, 1),
-    # Not strict: the order depends on timing, and the CI runners pass
-    reason="Textual < 4.1: the render request can come before the new layout",
-    strict=False,
-)
 async def test_entry_box_rerenders_plot() -> None:
     """The plot renders again in the space the entry box leaves."""
     async with Browser(
@@ -485,9 +475,6 @@ async def test_jump_screen() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
-        # Grab the tree before opening the modal: older Textual scopes
-        # app.query_one to the active screen, so #tree-view is unreachable
-        # once the JumpScreen is on top.
         expected = len(pilot.app.query_one("#tree-view", UprootTree).jump_candidates())
         await pilot.press("/")
         assert isinstance(pilot.app.screen, JumpScreen)
