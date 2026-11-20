@@ -40,7 +40,7 @@ class StatusBar(textual.containers.Horizontal):
         self._tasks: dict[int, _Task] = {}
         self._ids = itertools.count()
         self._count = textual.widgets.Static(id="navigation-count")
-        self._count.display = False
+        self._count_text = ""
         self._label = textual.widgets.Static(id="task-label")
         self._bar = textual.widgets.ProgressBar(id="task-bar", show_eta=False)
         self._box = textual.containers.Horizontal(self._label, self._bar, id="task")
@@ -53,9 +53,8 @@ class StatusBar(textual.containers.Horizontal):
         self._update()
 
     def show_count(self, count: str) -> None:
-        if count:
-            self._count.update(f"Move: {count}")
-        self._count.display = bool(count)
+        self._count_text = f"Move: {count}" if count else ""
+        self._count.update(self._count_text)
         self._update()
 
     @contextlib.contextmanager
@@ -94,6 +93,9 @@ class StatusBar(textual.containers.Horizontal):
         shown = [t for t in self._tasks.values() if t.shown]
         self._box.display = bool(shown)
         self.set_class(bool(shown), "-working")
+        # With the box on screen, the count is the title of the box
+        self._box.border_title = self._count_text
+        self._count.display = bool(self._count_text) and not shown
         self.display = bool(shown) or self._count.display
         if shown:
             task = shown[-1]

@@ -180,7 +180,6 @@ Screen {
     /* Docked above the footer row, not over it. */
     margin-bottom: 1;
     height: 1;
-    align-horizontal: center;
 }
 
 #status.-working {
@@ -188,7 +187,6 @@ Screen {
 }
 
 #navigation-count {
-    dock: left;
     width: auto;
     height: 1;
     margin-left: 1;
@@ -196,8 +194,8 @@ Screen {
 }
 
 #task {
-    width: auto;
-    max-width: 100%;
+    width: 100%;
+    align-horizontal: center;
     height: 3;
     padding: 0 1;
     border: round $accent;
