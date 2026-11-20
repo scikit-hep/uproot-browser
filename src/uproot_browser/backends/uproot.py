@@ -46,6 +46,7 @@ from rich.text import Text
 from uproot_browser.backends import as_node, select_key, split_spec
 from uproot_browser.exceptions import EmptyTreeError
 from uproot_browser.nodes import (
+    FILE_VAR,
     Column,
     DataTree,
     Folder,
@@ -79,8 +80,12 @@ def __dir__() -> tuple[str, ...]:
 
 
 def matches(spec: str) -> bool:
+    """A ``.root`` name, unless it is a directory (a local one, or a URL that ends with ``/``)."""
     name, _ = split_spec(spec)
-    return "://" in name or Path(name).suffix.lower() == ".root"
+    if "://" in name:
+        name, _ = uproot._util.file_object_path_split(name)  # noqa: SLF001  # pylint: disable=protected-access
+        return not name.endswith("/") and Path(name).suffix.lower() == ".root"
+    return Path(name).suffix.lower() == ".root" and not Path(name).is_dir()
 
 
 def open_spec(spec: str, *, parent: Folder | None = None, key: str = "") -> Node:
@@ -136,7 +141,7 @@ class UprootDirectory(_UprootFolder):
         return str(self.item.path[-1]) if self.item.path else _name(self.item)
 
     def meta(self) -> MetaDict:
-        path = Path(self.item.file_path)
+        path = self.item.file_path
         if not self.item.path:
             # The top of the tree: the file
             return path_meta(path, "📁 ")
@@ -263,7 +268,7 @@ class UprootBranch(_UprootColumn):
     def data_tree_source(
         self,
         var: str = "item",
-        file_var: str = "uproot_file",  # noqa: ARG002
+        file_var: str = FILE_VAR,  # noqa: ARG002
     ) -> str | None:
         return f"{var}.tree"
 
@@ -305,7 +310,7 @@ class UprootField(_UprootColumn):
     def data_tree_source(
         self,
         var: str = "item",
-        file_var: str = "uproot_file",  # noqa: ARG002
+        file_var: str = FILE_VAR,  # noqa: ARG002
     ) -> str | None:
         return f"{var}.ntuple"
 

@@ -39,6 +39,7 @@ dependencies = [
   'awkward >=2',
   'click >=8',
   'click-default-group >=1.2',
+  'fsspec >=2023.1',
   'hist >=2.6',
   'numpy >=1.18',
   'plotext >=5.2.8',
@@ -112,7 +113,7 @@ warn_unreachable = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 
 [[tool.mypy.overrides]]
-module = ["plotext.*", "awkward.*", "uproot.*", "matplotlib.*", "skhep_testdata", "textual_image.*", "PIL.*"]
+module = ["plotext.*", "awkward.*", "uproot.*", "fsspec.*", "matplotlib.*", "skhep_testdata", "textual_image.*", "PIL.*"]
 ignore_missing_imports = true
 
 

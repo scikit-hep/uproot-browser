@@ -251,7 +251,7 @@ async def test_plot_first_branch(monkeypatch: pytest.MonkeyPatch) -> None:
         assert_canvas(pilot.app, item)
         # Dump & Quit source for the text mode rebuilds and draws the histogram
         msg, items = pilot.app.dump_source()
-        assert '\nitem = uproot_file["' in msg
+        assert '\nitem = file["' in msg
         assert "import plotext as plt" in msg
         assert "uproot_browser" not in msg
 
@@ -431,7 +431,7 @@ async def test_nonplottable_grayed_but_errors() -> None:
         # Dump & Quit names the branch that produced the traceback
         msg, items = pilot.app.dump_source()
         assert items == [item]
-        assert 'item = uproot_file["ProcessID0"]' in msg
+        assert 'item = file["ProcessID0"]' in msg
 
 
 async def test_theme_select_tracks_theme() -> None:
@@ -777,8 +777,8 @@ async def test_mark_two_branches_plots_2d() -> None:
         assert label_text(tree, x_node).startswith("x: ")
         assert label_text(tree, y_node).startswith("y: ")
         msg, _ = pilot.app.dump_source()
-        assert 'x_item = uproot_file["T/event/fNtrack"]' in msg
-        assert f'y_item = uproot_file["{LEAF_PATH.lstrip("/")}"]' in msg
+        assert 'x_item = file["T/event/fNtrack"]' in msg
+        assert f'y_item = file["{LEAF_PATH.lstrip("/")}"]' in msg
 
         # A single plot replaces the pair, but keeps a pending x mark
         await pilot.press("enter")
@@ -848,8 +848,8 @@ async def test_browse_directory(tmp_path: pathlib.Path) -> None:
         assert_canvas(pilot.app, item)
 
         msg, _ = pilot.app.dump_source()
-        assert f'uproot_file = uproot.open("{nested}")' in msg
-        assert 'item = uproot_file["hpx"]' in msg
+        assert f'file = uproot.open("{nested}")' in msg
+        assert 'item = file["hpx"]' in msg
 
 
 async def test_jump_directory_is_lazy(root_dir: pathlib.Path) -> None:
@@ -890,8 +890,8 @@ async def test_dump_directory_pair(
         msg, _ = pilot.app.dump_source()
         if same:
             assert f'uproot.open("{tmp_path / "a.root"}")' in msg
-            assert 'x_item = uproot_file["T/event/fNtrack"]' in msg
-            assert f'y_item = uproot_file["{LEAF_PATH.lstrip("/")}"]' in msg
+            assert 'x_item = file["T/event/fNtrack"]' in msg
+            assert f'y_item = file["{LEAF_PATH.lstrip("/")}"]' in msg
         else:
             assert "uproot_browser" not in msg
             assert f'x_file = uproot.open("{tmp_path / "a.root"}")' in msg

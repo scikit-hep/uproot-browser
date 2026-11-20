@@ -13,6 +13,7 @@ __lazy_modules__ = {
     "awkward",
     "hist",
     "numpy",
+    "pathlib",
     "rich.style",
     "rich.text",
     "textwrap",
@@ -22,6 +23,7 @@ __lazy_modules__ = {
 import dataclasses
 import textwrap
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Self, TypedDict
 
 import awkward as ak
@@ -34,9 +36,9 @@ from uproot_browser.exceptions import EmptyTreeError
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
-    from pathlib import Path
 
 __all__ = (
+    "FILE_VAR",
     "Column",
     "DataTree",
     "FailedNode",
@@ -50,6 +52,7 @@ __all__ = (
     "failed_meta",
     "fill_finite",
     "path_meta",
+    "spec_name",
 )
 
 
@@ -64,6 +67,10 @@ class MetaDictRequired(TypedDict, total=True):
 
 class MetaDict(MetaDictRequired, total=False):
     guide_style: str
+
+
+FILE_VAR = "file"
+"""The variable Dump & Quit binds the open file to."""
 
 
 @dataclasses.dataclass(eq=False)
@@ -101,7 +108,7 @@ class Node(ABC):
 
     @property
     def is_loaded(self) -> bool:
-        """False while listing the children would first open a file."""
+        """False while listing the children needs I/O (a file open, a remote listing)."""
         return True
 
     @abstractmethod
@@ -164,7 +171,7 @@ class Node(ABC):
     def keys_below_root(self) -> list[str]:
         return self._ancestry()[1]
 
-    def bind_source(self, var: str = "item", file_var: str = "uproot_file") -> str:
+    def bind_source(self, var: str = "item", file_var: str = FILE_VAR) -> str:
         """Source that binds ``var`` to this object, given the open file in ``file_var``."""
         root, keys = self._ancestry()
         return f"{var} = {root.lookup_source(file_var, keys)}"
@@ -179,7 +186,7 @@ class Node(ABC):
         return None
 
     def data_tree_source(
-        self, var: str = "item", file_var: str = "uproot_file"
+        self, var: str = "item", file_var: str = FILE_VAR
     ) -> str | None:
         """Source for :meth:`data_tree` given this object in ``var``, or None."""
         tree = self.data_tree()
@@ -388,7 +395,7 @@ class Pair(Plottable):
         return self.x.data_tree()
 
     def data_tree_source(
-        self, var: str = "item", file_var: str = "uproot_file"
+        self, var: str = "item", file_var: str = FILE_VAR
     ) -> str | None:
         return self.x.data_tree_source(f"x_{var}", file_var)
 
@@ -472,11 +479,19 @@ def failed_meta(name: str, classname: str, exception: Exception) -> MetaDict:
     return MetaDict(label_icon="‼️ ", label_text=label_text)
 
 
-def path_meta(path: Path, icon: str) -> MetaDict:
-    """Meta for a local file or directory: its name, linked to the path."""
+def spec_name(spec: str) -> str:
+    """The last segment of a local path or a URL."""
+    if "://" in spec:
+        return spec.rstrip("/").rpartition("/")[2]
+    return Path(spec).name
+
+
+def path_meta(spec: str, icon: str) -> MetaDict:
+    """Meta for a file or directory: its name, linked to the path or URL."""
+    link = spec if "://" in spec else f"file://{Path(spec).resolve()}"
     return MetaDict(
         label_icon=icon,
-        label_text=Text(path.name, style=Style(link=f"file://{path.resolve()}")),
+        label_text=Text(spec_name(spec), style=Style(link=link)),
         guide_style="bold bright_blue",
     )
 

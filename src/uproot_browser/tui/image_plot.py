@@ -22,6 +22,7 @@ import warnings
 from typing import TYPE_CHECKING, Any
 
 from uproot_browser.axis import NO_LIMITS, AxisLimits
+from uproot_browser.nodes import FILE_VAR
 from uproot_browser.plot import ExprCache
 from uproot_browser.tui.messages import RequestImage
 from uproot_browser.tui.plot import make_dump, resolve_item, run_posting_errors
@@ -132,7 +133,7 @@ class MPLPlot:
         assert view.image_widget is not None
         view.image_widget.image = None
 
-    def dump_source(self, *, file_var: str = "uproot_file") -> str:
+    def dump_source(self, *, file_var: str = FILE_VAR) -> str:
         selected = resolve_item(self.root, self.selection, self.y_selection)
         with contextlib.suppress(RuntimeError):
             return f"\n{make_dump(selected, expr=self.expr, limits=self.axis_limits, image=True, file_var=file_var)}"

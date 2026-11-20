@@ -14,7 +14,6 @@ __lazy_modules__ = {
     "textwrap",
     "uproot_browser.backends",
     "uproot_browser.exceptions",
-    "uproot_browser.nodes",
     "uproot_browser.plotext_compat",
 }
 
@@ -32,7 +31,15 @@ import numpy as np
 from uproot_browser.axis import NO_LIMITS, AxisLimits, AxisRange
 from uproot_browser.backends import as_node
 from uproot_browser.exceptions import ExpressionError
-from uproot_browser.nodes import Column, FailedNode, Node, Pair, Plottable, fill_finite
+from uproot_browser.nodes import (
+    FILE_VAR,
+    Column,
+    FailedNode,
+    Node,
+    Pair,
+    Plottable,
+    fill_finite,
+)
 from uproot_browser.plotext_compat import PLOTEXT_6
 
 if TYPE_CHECKING:
@@ -170,7 +177,7 @@ def _result_to_histogram(result: Any, *, bins: int) -> hist.Hist[Any]:
     raise RuntimeError(msg)
 
 
-def dump_expr(item: Any, expr: str, *, file_var: str = "uproot_file") -> str:
+def dump_expr(item: Any, expr: str, *, file_var: str = FILE_VAR) -> str:
     """Self-contained source that applies ``expr`` to ``h`` like :func:`apply_expr`."""
     tree_source = as_node(item).data_tree_source("item", file_var)
     tree_line = "" if tree_source is None else f"tree = {tree_source}\n\n"
