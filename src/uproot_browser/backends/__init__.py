@@ -12,6 +12,9 @@ There are two roles. A format backend claims a spec from its text alone (a
 suffix); formats are asked first, in name order. The ``directory`` backend is a
 container: it is asked last, lists what the formats claim, and opens each entry
 with :func:`open_path`. The ``uproot`` backend opens what nothing claims.
+
+A backend gives :class:`~uproot_browser.nodes.Node` objects only; the rest of
+the package uses no other interface.
 """
 
 from __future__ import annotations
@@ -28,7 +31,7 @@ import functools
 import importlib
 import importlib.metadata
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from uproot_browser.nodes import FailedNode, Node
 
@@ -40,7 +43,6 @@ __all__ = (
     "FALLBACK",
     "Backend",
     "BackendModule",
-    "as_node",
     "backends",
     "claims",
     "open_path",
@@ -94,12 +96,6 @@ def backends() -> tuple[Backend, ...]:
         Backend(ep.name, ep.module, ep.extras[0] if ep.extras else None)
         for ep in sorted(entry_points, key=lambda ep: (ep.name == CONTAINER, ep.name))
     )
-
-
-@functools.cache
-def _load_all() -> tuple[BackendModule, ...]:
-    """Import every backend; each registers its raw types with :func:`as_node`."""
-    return tuple(b.load() for b in backends())
 
 
 def _match(spec: str, *, container: bool = True) -> Backend | None:
@@ -168,25 +164,3 @@ def split_spec(spec: str) -> tuple[str, str]:
         if path.drive != spec[: i + 1] and path.exists():
             return spec[:i], spec[i + 1 :]
     return spec, ""
-
-
-@functools.singledispatch
-def as_node(obj: Any) -> Node:
-    """
-    The node for a raw object, for callers that hold uproot objects directly.
-    Backends register their types; nodes pass through.
-    """
-    _load_all()
-    impl = as_node.dispatch(type(obj))
-    if impl is _as_node_default:
-        msg = f"No backend wraps {type(obj).__name__} objects"
-        raise TypeError(msg)
-    return impl(obj)
-
-
-_as_node_default = as_node.dispatch(object)
-
-
-@as_node.register
-def _(obj: Node) -> Node:
-    return obj

@@ -50,8 +50,8 @@ dependencies = [
 
 [project.optional-dependencies]
 image = [
+  "hist[plot]",  # Hist.plot needs mplhep
   "matplotlib",
-  "mplhep",
   "textual-image >=0.8",
 ]
 testdata = [

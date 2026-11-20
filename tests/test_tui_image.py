@@ -1,5 +1,4 @@
 import concurrent.futures
-import functools
 
 import pytest
 import skhep_testdata
@@ -18,6 +17,7 @@ from conftest import wait_for_workers
 import uproot_browser.plot
 import uproot_browser.plot_mpl
 from uproot_browser.axis import AxisLimits
+from uproot_browser.backends.uproot import wrap
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.image_plot import MPLPlot, make_image
 from uproot_browser.tui.left_panel import UprootTree
@@ -27,7 +27,7 @@ from uproot_browser.tui.messages import RequestImage
 def test_make_image_object_branch() -> None:
     """A branch holding TH1 objects (AsObjects) is summed and plotted."""
     with uproot.open(skhep_testdata.data_path("uproot-Event.root")) as f:
-        histogram = uproot_browser.plot.to_histogram(f["T"]["event"]["fH"])
+        histogram = wrap(f["T"]["event"]["fH"]).to_histogram()
     image = make_image(histogram, title="fH", dark=True, size=(400, 300))
     assert (image.width, image.height) == (400, 300)
 
@@ -42,7 +42,7 @@ def test_render_image_touches_no_pyplot_state(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(plt, "figure", no_pyplot)
     monkeypatch.setattr(plt, "gca", no_pyplot)
     with uproot.open(skhep_testdata.data_path("uproot-Event.root")) as f:
-        histogram = uproot_browser.plot.to_histogram(f["hstat"])
+        histogram = wrap(f["hstat"]).to_histogram()
     figures = plt.get_fignums()
     image = uproot_browser.plot_mpl.render_image(histogram, "t", size=(200, 100))
     assert (image.width, image.height) == (200, 100)
@@ -70,8 +70,6 @@ def test_render_image_2d() -> None:
     assert plt.get_fignums() == figures
 
 
-# singledispatch so plottable()'s to_histogram.dispatch probe still works
-@functools.singledispatch
 def _fail_build(*_args: object, **_kwargs: object) -> None:
     msg = "histogram was rebuilt"
     raise AssertionError(msg)
@@ -131,7 +129,7 @@ async def test_browse_image_plot(monkeypatch: pytest.MonkeyPatch) -> None:
         # A theme change redraws the cached histogram without re-reading data
         built = item.built.hist
         assert built is not None
-        monkeypatch.setattr(uproot_browser.plot, "to_histogram", _fail_build)
+        monkeypatch.setattr(type(item.built.item), "to_histogram", _fail_build)
         pilot.app.theme = "textual-light"
         await pilot.pause()
         item = pilot.app.view_widget.item
@@ -189,7 +187,7 @@ async def test_image_expr(monkeypatch: pytest.MonkeyPatch) -> None:
         assert isinstance(view.item, MPLPlot)
         built = view.item.built.hist
         assert built is not None
-        monkeypatch.setattr(uproot_browser.plot, "to_histogram", _fail_build)
+        monkeypatch.setattr(type(view.item.built.item), "to_histogram", _fail_build)
 
         view.plot_input.value = "h[::2j]"
         view.plot_input.apply_expression()
@@ -254,7 +252,7 @@ def test_render_image_is_thread_safe() -> None:
     # catch_warnings and style contexts change global state, so overlapping
     # renders could leak a warning that the render should silence.
     tree = uproot.open(skhep_testdata.data_path("uproot-Event.root"))["T"]
-    histogram = uproot_browser.plot.to_histogram(tree["event/fNtrack"])
+    histogram = wrap(tree["event/fNtrack"]).to_histogram()
 
     def render(_: int) -> tuple[int, int]:
         return uproot_browser.plot_mpl.render_image(histogram, "t", size=(100, 80)).size

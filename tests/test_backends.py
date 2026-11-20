@@ -26,7 +26,7 @@ import uproot_browser.progress
 from uproot_browser.__main__ import main
 from uproot_browser.backends import Backend, open_path
 from uproot_browser.backends.directory import Directory, LazyRoot
-from uproot_browser.nodes import FILE_VAR, FailedNode, Node
+from uproot_browser.nodes import FILE_VAR, FailedNode, Node, Pair, Plottable
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.left_panel import UprootTree
 from uproot_browser.tui.plot import Plotext
@@ -297,9 +297,11 @@ def test_symlink_to_directory(tmp_path: pathlib.Path) -> None:
 
 
 @pytest.mark.parametrize("obj", [None, 3, "text"])
-def test_plottable_unregistered_object(obj: object) -> None:
-    assert uproot_browser.plot.plottable(obj) is False
-    assert uproot_browser.plot.array_plottable(obj) is False
+def test_wrap_unregistered_object(obj: object) -> None:
+    node = uproot_browser.backends.uproot.wrap(obj)
+    assert not isinstance(node, Plottable)
+    with pytest.raises(RuntimeError, match="not plottable yet"):
+        uproot_browser.plot.plottable_node(node)
 
 
 async def test_browse_selected_subtree() -> None:
@@ -475,7 +477,7 @@ def test_pair_with_failed_node_raises_its_error() -> None:
         x = root.resolve("T/event/fNtrack")
         missing = root.resolve("T/missing")
         with pytest.raises(uproot.KeyInFileError):
-            uproot_browser.plot.BranchPair(x, missing)
+            Pair(x, missing)
 
 
 def test_progress_span() -> None:

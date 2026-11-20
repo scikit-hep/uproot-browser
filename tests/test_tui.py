@@ -22,6 +22,7 @@ import uproot_browser.plotext_compat
 import uproot_browser.progress
 import uproot_browser.tui.status
 from uproot_browser.axis import AxisLimits
+from uproot_browser.backends.uproot import wrap
 from uproot_browser.exceptions import EmptyTreeError
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.error import Error
@@ -834,7 +835,7 @@ async def test_shift_click_pairs_with_cursor() -> None:
 def test_render_canvas_is_thread_safe() -> None:
     # A cancelled thread worker keeps running, so two renders can overlap
     # on plotext's shared global figure.
-    item = uproot.open(skhep_testdata.data_path("uproot-Event.root"))["hstat"]
+    item = wrap(uproot.open(skhep_testdata.data_path("uproot-Event.root"))["hstat"])
 
     def render() -> str:
         return render_canvas(item, "dark", 80, 24, expr="", limits=AxisLimits())
