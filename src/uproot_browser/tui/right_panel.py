@@ -94,20 +94,20 @@ class RightPanel(textual.containers.Container):
     def _sync_theme(self, theme: str) -> None:
         self.query_one("#theme-select", textual.widgets.Select).value = theme
 
+    def _parse_limit(self, control_id: str) -> float | None:
+        field = self.query_one(f"#{control_id}", textual.widgets.Input)
+        value = field.value.strip()
+        if not value:
+            return None
+        result = field.validate(value)
+        if result is not None and not result.is_valid:
+            msg = "Axis limits must be finite numbers."
+            raise ValueError(msg)
+        return float(value)
+
     def _parse_range(self, axis: str) -> tuple[float | None, float | None]:
-        limits: list[float | None] = []
-        for end in ("min", "max"):
-            field = self.query_one(f"#{axis}-{end}", textual.widgets.Input)
-            value = field.value.strip()
-            if not value:
-                limits.append(None)
-                continue
-            result = field.validate(value)
-            if result is not None and not result.is_valid:
-                msg = "Axis limits must be finite numbers."
-                raise ValueError(msg)
-            limits.append(float(value))
-        lower, upper = limits
+        lower = self._parse_limit(f"{axis}-min")
+        upper = self._parse_limit(f"{axis}-max")
         if lower is not None and upper is not None and lower >= upper:
             msg = "Minimum must be smaller than maximum."
             raise ValueError(msg)
