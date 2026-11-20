@@ -600,10 +600,9 @@ async def test_failed_node_shows_traceback(monkeypatch: pytest.MonkeyPatch) -> N
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        # The jump selects it; the render worker posts an ErrorMessage
         await jump_to(pilot, "//hstat")
-        await pilot.press("enter")
-        await settle_render(pilot)  # the worker posts an ErrorMessage
-        await pilot.pause()
+        await wait_until(pilot, lambda: isinstance(pilot.app.view_widget.item, Error))
         item = pilot.app.view_widget.item
         assert isinstance(item, Error)
         assert isinstance(item.exc, ValueError)
