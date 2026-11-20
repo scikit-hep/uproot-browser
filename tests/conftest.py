@@ -1,6 +1,7 @@
 import contextlib
 import pathlib
 import shutil
+import sys
 from collections.abc import Iterator
 
 import pytest
@@ -90,6 +91,24 @@ textual.pilot.Pilot.press = _press  # type: ignore[method-assign]
 # Tests read app._notifications, which drops expired entries. Slow CI runners
 # can take longer than the default 5 s timeout between notify and the assert.
 Browser.NOTIFICATION_TIMEOUT = 600
+
+
+@pytest.fixture(autouse=True)
+def _mpl_agg(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Draw with the non-interactive Agg backend, so no test opens a window.
+
+    The default GUI backend (TkAgg on Windows) can fail on a broken Tcl
+    install. The environment variable covers a later first import of pyplot.
+    """
+    monkeypatch.setenv("MPLBACKEND", "agg")
+    plt = sys.modules.get("matplotlib.pyplot")
+    if plt is not None and plt.get_backend().lower() != "agg":
+        plt.switch_backend("agg")
+    yield
+    plt = sys.modules.get("matplotlib.pyplot")
+    if plt is not None:
+        assert plt.get_backend().lower() == "agg"
+        plt.close("all")
 
 
 @pytest.fixture
