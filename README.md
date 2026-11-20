@@ -116,6 +116,22 @@ uproot-browser plot --testdata uproot-Event.root:hstat
                                [x] xaxis
 ```
 
+## CDF support
+
+NASA CDF files (`.cdf`) open with the `[cdf]` extra, which adds
+[cdflib](https://github.com/MAVENSDC/cdflib) and
+[xarray](https://xarray.dev):
+
+```bash
+uvx uproot-browser[cdf] browse data.cdf
+uproot-browser plot data.cdf:variable
+```
+
+Each variable is a leaf in the tree. Numeric variables are flattened and
+histogrammed; integer `FILLVAL` entries and float fill values are dropped.
+Coordinates show with a ruler icon. The `d` (Dump & Quit) source opens the
+file with `cdflib.xarray.cdf_to_xarray`.
+
 ## Image support
 
 If your terminal supports images (Sixel or TGP, such as iTerm2), you can use `--image` mode.
