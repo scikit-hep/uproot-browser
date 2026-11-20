@@ -442,7 +442,9 @@ def test_key_with_slash(tmp_path: pathlib.Path) -> None:
 
 def test_dump_source_quotes_path_and_key(tmp_path: pathlib.Path) -> None:
     """Dump & Quit gives valid Python for a backslash or a quote in a name."""
-    path = tmp_path / 'we\\ird"name.root'
+    # Windows does not permit a quote or a backslash in a file name
+    name = "we'ird.root" if sys.platform == "win32" else 'we\\ird"name.root'
+    path = tmp_path / name
     with uproot.recreate(path) as out:
         out.mktree('t"q', {"x\\n": np.float64})
         out['t"q'].extend({"x\\n": np.array([1.0, 2.0])})
