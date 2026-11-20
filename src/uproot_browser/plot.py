@@ -12,7 +12,6 @@ __lazy_modules__ = {
     "math",
     "numpy",
     "textwrap",
-    "uproot_browser.backends",
     "uproot_browser.exceptions",
     "uproot_browser.plotext_compat",
 }
@@ -29,25 +28,17 @@ import hist
 import numpy as np
 
 from uproot_browser.axis import NO_LIMITS, AxisLimits, AxisRange
-from uproot_browser.backends import as_node
 from uproot_browser.exceptions import ExpressionError
-from uproot_browser.nodes import (
-    FILE_VAR,
-    Column,
-    FailedNode,
-    Node,
-    Pair,
-    Plottable,
-    fill_finite,
-)
+from uproot_browser.nodes import FILE_VAR, FailedNode, Plottable, fill_finite
 from uproot_browser.plotext_compat import PLOTEXT_6
 
 if TYPE_CHECKING:
+    from uproot_browser.nodes import Node
     from uproot_browser.plotext_compat import PlotextFigure
 
 
-def make_hist_title(item: Any, histogram: hist.Hist[Any]) -> str:
-    name = as_node(item).name
+def make_hist_title(item: Node, histogram: hist.Hist[Any]) -> str:
+    name = item.name
     # counts() equals values() for plain storage, but gives the entry count for
     # Mean storage (TProfile) and the effective entries for Weight storage.
     inner_sum = float(np.sum(histogram.counts()))
@@ -59,44 +50,14 @@ def make_hist_title(item: Any, histogram: hist.Hist[Any]) -> str:
     return f"{name} -- Entries: {inner_sum:g} ({full_sum:g} with flow)"
 
 
-def plottable_node(item: Any) -> Plottable:
-    """The node for ``item``, which must be plottable; a failed entry re-raises."""
-    node = as_node(item)
-    if isinstance(node, FailedNode):
-        raise node.exception
-    if not isinstance(node, Plottable):
-        msg = f"This object ({type(node.item)}) is not plottable yet"
+def plottable_node(item: Node) -> Plottable:
+    """``item`` as a plottable node; a failed entry re-raises its error."""
+    if isinstance(item, FailedNode):
+        raise item.exception
+    if not isinstance(item, Plottable):
+        msg = f"This object ({type(item.item)}) is not plottable yet"
         raise RuntimeError(msg)  # noqa: TRY004
-    return node
-
-
-def to_histogram(item: Any, *, bins: int = 50) -> hist.Hist[Any]:
-    """
-    Build the histogram that :func:`plot` draws for this object.
-    Each :class:`~uproot_browser.nodes.Plottable` implements it.
-    """
-    return plottable_node(item).to_histogram(bins=bins)
-
-
-def _column(item: Any) -> Column:
-    node = as_node(item)
-    if isinstance(node, FailedNode):
-        raise node.exception
-    if not isinstance(node, Column):
-        msg = f"{node.name} does not hold numbers for a 2D plot"
-        raise TypeError(msg)
-    return node
-
-
-def BranchPair(x: Any, y: Any) -> Pair:  # noqa: N802
-    """Two columns (raw objects or nodes) filled together into a 2D histogram."""
-    return Pair(_column(x), _column(y))
-
-
-def containing_tree(item: Any) -> Any:
-    """The TTree/RNTuple (raw object) that ``item`` lives in, else None."""
-    tree = as_node(item).data_tree()
-    return None if tree is None else tree.item
+    return item
 
 
 @dataclasses.dataclass(slots=True)
@@ -125,7 +86,7 @@ def evaluate_expr(expr: str, namespace: dict[str, Any]) -> Any:
 
 
 def apply_expr(
-    histogram: hist.Hist[Any], expr: str, item: Any, *, cache: ExprCache | None = None
+    histogram: hist.Hist[Any], expr: str, item: Node, *, cache: ExprCache | None = None
 ) -> hist.Hist[Any]:
     """
     Evaluate with ``h`` as the histogram and ``tree`` as the containing
@@ -145,9 +106,9 @@ def apply_expr(
             result = cache.entry[1]
         else:
             namespace = {"h": histogram, "ak": ak, "hist": hist, "np": np}
-            tree = containing_tree(item)
+            tree = item.data_tree()
             if tree is not None:
-                namespace["tree"] = tree
+                namespace["tree"] = tree.item
             result = evaluate_expr(expr, namespace)
             if cache is not None and not _uses_h(expr):
                 cache.entry = (expr, result)
@@ -177,9 +138,9 @@ def _result_to_histogram(result: Any, *, bins: int) -> hist.Hist[Any]:
     raise RuntimeError(msg)
 
 
-def dump_expr(item: Any, expr: str, *, file_var: str = FILE_VAR) -> str:
+def dump_expr(item: Node, expr: str, *, file_var: str = FILE_VAR) -> str:
     """Self-contained source that applies ``expr`` to ``h`` like :func:`apply_expr`."""
-    tree_source = as_node(item).data_tree_source("item", file_var)
+    tree_source = item.data_tree_source("item", file_var)
     tree_line = "" if tree_source is None else f"tree = {tree_source}\n\n"
     imports = textwrap.dedent("""\
         import awkward as ak
@@ -239,7 +200,7 @@ def _set_lim(fig: PlotextFigure, axis: str, lim: AxisRange) -> None:
 
 
 def _draw_hist_2d(
-    fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any], *, limits: AxisLimits
+    fig: PlotextFigure, item: Node, histogram: hist.Hist[Any], *, limits: AxisLimits
 ) -> None:
     xaxis, yaxis = histogram.axes
     values = histogram.values().astype(float)
@@ -253,7 +214,7 @@ def _draw_hist_2d(
     _set_lim(fig, "y", ylim)
     fig.label(xaxis.label, axis="x")
     fig.label(yaxis.label, axis="y")
-    fig.title(make_hist_title(tree, histogram))
+    fig.title(make_hist_title(item, histogram))
 
 
 def _collapses_in_float32(lower: float, upper: float) -> bool:
@@ -264,7 +225,7 @@ def _collapses_in_float32(lower: float, upper: float) -> bool:
 
 
 def _draw_hist_1d(
-    fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any], *, limits: AxisLimits
+    fig: PlotextFigure, item: Node, histogram: hist.Hist[Any], *, limits: AxisLimits
 ) -> None:
     axis = histogram.axes[0]
     values = histogram.values().astype(float)
@@ -282,25 +243,25 @@ def _draw_hist_1d(
     lower, upper = limits.y
     fig.ruler("y").lim(0 if lower is None else lower, upper)
     fig.label(axis.label, axis="x")
-    fig.title(make_hist_title(tree, histogram))
+    fig.title(make_hist_title(item, histogram))
 
 
 def draw_hist(
-    fig: PlotextFigure, tree: Any, histogram: hist.Hist[Any], *, limits: AxisLimits
+    fig: PlotextFigure, item: Node, histogram: hist.Hist[Any], *, limits: AxisLimits
 ) -> None:
-    """Draw an already-built histogram into the figure, titled for ``tree``."""
+    """Draw an already-built histogram into the figure, titled for ``item``."""
     match len(histogram.axes):
         case 1:
-            _draw_hist_1d(fig, tree, histogram, limits=limits)
+            _draw_hist_1d(fig, item, histogram, limits=limits)
         case 2:
-            _draw_hist_2d(fig, tree, histogram, limits=limits)
+            _draw_hist_2d(fig, item, histogram, limits=limits)
         case ndim:
             msg = f"Histograms with {ndim} dimensions are not plottable; reduce to 1 or 2 first"
             raise RuntimeError(msg)
 
 
 def plot(
-    tree: Any,
+    item: Node,
     *,
     fig: PlotextFigure,
     width: int = 100,
@@ -309,65 +270,22 @@ def plot(
     cache: ExprCache | None = None,
 ) -> None:
     """
-    Plot ``tree`` into the given plotext figure.
+    Plot ``item`` into the given plotext figure.
     A backend supports a new type with a
     :class:`~uproot_browser.nodes.Plottable` node.
     """
-    histogram = to_histogram(tree, bins=width)
-    draw_hist(fig, tree, apply_expr(histogram, expr, tree, cache=cache), limits=limits)
-
-
-def _node_or_none(item: Any) -> Node | None:
-    """The node for ``item``, or None if no backend wraps its type."""
-    try:
-        return as_node(item)
-    except TypeError:
-        return None
-
-
-def array_plottable(item: Any) -> bool:
-    """Does ``item`` read as a numeric array (not histogram objects)?"""
-    node = _node_or_none(item)
-    return isinstance(node, Column) and node.numeric
-
-
-def plottable(item: Any) -> bool:
-    """
-    True if :func:`plot` has an implementation for this object that can
-    succeed. Some failures (like an empty branch) are only found by reading
-    the data, so this is a necessary but not sufficient check.
-    """
-    node = _node_or_none(item)
-    return isinstance(node, Plottable) and node.plottable
-
-
-def dump(item: Any, *, width: int = 100) -> str:
-    """
-    Return standalone Python source that rebuilds the plotted histogram as ``h``
-    from an object bound to ``item``. Mirrors :func:`plot` for the "Dump & Quit"
-    output. Each :class:`~uproot_browser.nodes.Plottable` implements it.
-    """
-    return plottable_node(item).dump_hist(width=width)
-
-
-def _dump_ndim(item: Any) -> int:
-    """The dimensions of the histogram :func:`dump` builds, without reading data."""
-    return plottable_node(item).ndim
-
-
-def _dump_title(item: Any) -> str:
-    """Source for the plot title; the flow count of :func:`make_hist_title` is omitted."""
-    return plottable_node(item).title_source()
+    histogram = plottable_node(item).to_histogram(bins=width)
+    draw_hist(fig, item, apply_expr(histogram, expr, item, cache=cache), limits=limits)
 
 
 def _lim_args(lim: AxisRange) -> str:
     return ", ".join("None" if v is None else repr(float(v)) for v in lim)
 
 
-def dump_plotext(item: Any, *, limits: AxisLimits = NO_LIMITS) -> str:
+def dump_plotext(item: Plottable, *, limits: AxisLimits = NO_LIMITS) -> str:
     """Source that draws ``h`` with plotext like :func:`draw_hist` (ticks omitted)."""
     xlabel = "h.axes[0].label"
-    ndim = _dump_ndim(item)
+    ndim = item.ndim
     if ndim == 2 or PLOTEXT_6:
         lines = [
             "import numpy as np",
@@ -392,7 +310,7 @@ def dump_plotext(item: Any, *, limits: AxisLimits = NO_LIMITS) -> str:
                 f'fig.ruler("y").lim({_lim_args((0 if lower is None else lower, upper))})',
                 f'fig.label({xlabel}, axis="x")',
             ]
-        lines += [f"fig.title({_dump_title(item)})", "print(fig.build())"]
+        lines += [f"fig.title({item.title_source()})", "print(fig.build())"]
         return "\n".join(lines)
 
     lines = [
@@ -407,20 +325,20 @@ def dump_plotext(item: Any, *, limits: AxisLimits = NO_LIMITS) -> str:
     lines += [
         f"plt.ylim({_lim_args((0 if lower is None else lower, upper))})",
         f"plt.xlabel({xlabel})",
-        f"plt.title({_dump_title(item)})",
+        f"plt.title({item.title_source()})",
         "plt.show()",
     ]
     return "\n".join(lines)
 
 
-def dump_mpl(item: Any, *, limits: AxisLimits = NO_LIMITS) -> str:
+def dump_mpl(item: Plottable, *, limits: AxisLimits = NO_LIMITS) -> str:
     """Source that draws ``h`` with matplotlib like :mod:`uproot_browser.plot_mpl`."""
     lines = [
         "import matplotlib.pyplot as plt",
         "import numpy as np",
         "",
         "h.plot()",
-        f"plt.title({_dump_title(item)})",
+        f"plt.title({item.title_source()})",
     ]
     if limits.x != (None, None):
         lines.append(f"plt.xlim({_lim_args(limits.x)})")

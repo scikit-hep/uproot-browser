@@ -20,7 +20,7 @@ import uproot_browser.plot
 import uproot_browser.plotext_compat
 from uproot_browser.axis import NO_LIMITS, AxisLimits
 from uproot_browser.exceptions import EmptyTreeError, ExpressionError
-from uproot_browser.nodes import FILE_VAR
+from uproot_browser.nodes import FILE_VAR, Pair
 from uproot_browser.tui.error import Error
 from uproot_browser.tui.messages import (
     EmptyMessage,
@@ -155,7 +155,7 @@ def resolve_item(root: Node, selection: str, y_selection: str = "") -> Node:
     item = root.resolve(selection)
     if not y_selection:
         return item
-    return uproot_browser.plot.BranchPair(item, root.resolve(y_selection))
+    return Pair(item, root.resolve(y_selection))
 
 
 # plotext draws on one global figure, and a cancelled thread worker keeps
@@ -196,11 +196,12 @@ def make_dump(
     """
     # plot_mpl builds with the to_histogram default bins
     width = 50 if image else (size[0] - 5 if size else 100)
-    code = uproot_browser.plot.dump(item, width=width)
+    node = uproot_browser.plot.plottable_node(item)
+    code = node.dump_hist(width=width)
     if expr:
-        code += f"\n\n{uproot_browser.plot.dump_expr(item, expr, file_var=file_var)}"
+        code += f"\n\n{uproot_browser.plot.dump_expr(node, expr, file_var=file_var)}"
     draw = uproot_browser.plot.dump_mpl if image else uproot_browser.plot.dump_plotext
-    return f"{code}\n\n{draw(item, limits=limits)}"
+    return f"{code}\n\n{draw(node, limits=limits)}"
 
 
 # What to plot with plotext, and the size the view gives it

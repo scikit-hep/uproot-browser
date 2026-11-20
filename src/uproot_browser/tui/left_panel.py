@@ -10,7 +10,6 @@ __lazy_modules__ = {
     "textual.widgets.tree",
     "uproot_browser.backends",
     "uproot_browser.backends.directory",
-    "uproot_browser.plot",
     "uproot_browser.tui.jump",
     "uproot_browser.tui.messages",
     "uproot_browser.tui.status",
@@ -30,10 +29,9 @@ import textual.widgets
 import textual.widgets.tree
 from textual.reactive import var
 
-import uproot_browser.plot
 from uproot_browser.backends import claims, open_path
 from uproot_browser.backends.directory import LazyRoot
-from uproot_browser.nodes import Node
+from uproot_browser.nodes import Column, Node, Plottable
 from uproot_browser.tui.jump import Candidate
 from uproot_browser.tui.messages import UprootSelected
 from uproot_browser.tui.status import StatusBar
@@ -57,13 +55,18 @@ def _in_file(node: Node) -> bool:
     return True
 
 
+def _plottable(node: Node) -> bool:
+    """Can the node plot? An empty branch is only found when it reads."""
+    return isinstance(node, Plottable) and node.plottable
+
+
 def make_candidate(node: Node) -> Candidate:
     return Candidate(
         path=node.path,
         name=node.key,
         icon=node.meta()["label_icon"],
         is_dir=node.is_dir,
-        plottable=uproot_browser.plot.plottable(node),
+        plottable=_plottable(node),
     )
 
 
@@ -231,7 +234,7 @@ class UprootTree(textual.widgets.Tree[Node]):
             axis = "xy"[self.marks.index(node)]
             label = rich.text.Text.assemble((f"{axis}: ", "bold"), label)
         label.stylize(style)
-        if not node.data.is_dir and not uproot_browser.plot.plottable(node.data):
+        if not node.data.is_dir and not _plottable(node.data):
             label.stylize("dim")
         return label
 
@@ -354,7 +357,7 @@ class UprootTree(textual.widgets.Tree[Node]):
 
     def _pairable(self, node: textual.widgets.tree.TreeNode[Node]) -> bool:
         """Can ``node`` be one axis of a 2D plot? Warns if not."""
-        if node.data is not None and uproot_browser.plot.array_plottable(node.data):
+        if isinstance(node.data, Column) and node.data.numeric:
             return True
         self.app.notify(
             "Only numeric branches and fields can be plotted in 2D.",

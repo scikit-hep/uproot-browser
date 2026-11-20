@@ -373,10 +373,10 @@ class Column(Plottable):
 class Pair(Plottable):
     """Two columns filled together into a 2D histogram (x, y)."""
 
-    def __init__(self, x: Column, y: Column) -> None:
+    def __init__(self, x: Node, y: Node) -> None:
+        self.x = _column(x)
+        self.y = _column(y)
         super().__init__((x.item, y.item))
-        self.x = x
-        self.y = y
 
     @property
     def name(self) -> str:
@@ -458,6 +458,16 @@ class FailedNode(Node):
 
     def meta(self) -> MetaDict:
         return failed_meta(self.name, self.classname, self.exception)
+
+
+def _column(node: Node) -> Column:
+    """``node`` as one axis of a :class:`Pair`; a failed entry re-raises its error."""
+    if isinstance(node, FailedNode):
+        raise node.exception
+    if not isinstance(node, Column):
+        msg = f"{node.name} does not hold numbers for a 2D plot"
+        raise TypeError(msg)
+    return node
 
 
 _SEPARATORS = "/:"

@@ -49,7 +49,7 @@ from rich.style import Style
 from rich.text import Text
 
 from uproot_browser import progress
-from uproot_browser.backends import as_node, select_key, split_spec
+from uproot_browser.backends import select_key, split_spec
 from uproot_browser.exceptions import EmptyTreeError
 from uproot_browser.nodes import (
     FILE_VAR,
@@ -435,7 +435,6 @@ def _register(cls: type, node_cls: type[Node]) -> None:
         return node_cls(item, parent, key)
 
     wrap.register(cls, make)
-    as_node.register(cls, make)
 
 
 _register(uproot.model.Model, UprootObject)

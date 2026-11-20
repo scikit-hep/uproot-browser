@@ -158,7 +158,7 @@ class MPLPlot:
                     warnings.catch_warnings(),
                 ):
                     warnings.simplefilter("ignore")
-                    histogram = uproot_browser.plot.to_histogram(item)
+                    histogram = uproot_browser.plot.plottable_node(item).to_histogram()
                 self.built.hist = histogram
             if self.expr:
                 # copy so an in-place expr cannot corrupt the cache

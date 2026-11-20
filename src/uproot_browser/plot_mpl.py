@@ -34,6 +34,8 @@ from uproot_browser.axis import NO_LIMITS, AxisLimits
 if TYPE_CHECKING:
     import hist
 
+    from uproot_browser.nodes import Node
+
 DPI = 100
 ASPECT_RATIO = 5 / 8  # height / width of the default figure
 
@@ -80,7 +82,7 @@ def draw_hist(
 
 
 def plot(
-    tree: Any,
+    item: Node,
     *,
     expr: str = "",
     limits: AxisLimits = NO_LIMITS,
@@ -91,11 +93,11 @@ def plot(
     (e.g. ``h[::2j]``).
     """
     histogram = uproot_browser.plot.apply_expr(
-        uproot_browser.plot.to_histogram(tree), expr, tree
+        uproot_browser.plot.plottable_node(item).to_histogram(), expr, item
     )
     draw_hist(
         histogram,
-        uproot_browser.plot.make_hist_title(tree, histogram),
+        uproot_browser.plot.make_hist_title(item, histogram),
         limits=limits,
     )
 
@@ -140,7 +142,7 @@ def render_image(
 
 
 def make_image(
-    tree: Any,
+    item: Node,
     *,
     expr: str = "",
     size: tuple[int, int] | None = None,
@@ -152,11 +154,11 @@ def make_image(
     Build and render to a PIL image in one step.
     """
     histogram = uproot_browser.plot.apply_expr(
-        uproot_browser.plot.to_histogram(tree), expr, tree
+        uproot_browser.plot.plottable_node(item).to_histogram(), expr, item
     )
     return render_image(
         histogram,
-        uproot_browser.plot.make_hist_title(tree, histogram),
+        uproot_browser.plot.make_hist_title(item, histogram),
         size=size,
         scale=scale,
         style=style,

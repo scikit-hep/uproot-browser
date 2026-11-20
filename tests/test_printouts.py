@@ -22,10 +22,10 @@ import uproot_browser.plotext_compat
 import uproot_browser.tree
 import uproot_browser.tui.plot
 from uproot_browser.axis import AxisLimits
-from uproot_browser.backends import as_node
 from uproot_browser.backends.directory import Directory, LazyRoot
+from uproot_browser.backends.uproot import wrap
 from uproot_browser.exceptions import ExpressionError
-from uproot_browser.nodes import Column, FailedNode
+from uproot_browser.nodes import Column, FailedNode, Node, Pair, Plottable
 from uproot_browser.tree import print_tree
 
 if TYPE_CHECKING:
@@ -161,7 +161,7 @@ def test_tree_with_unreadable_item(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(uproot.reading.ReadOnlyDirectory, "__getitem__", bad_getitem)
 
     with uproot.open(data_path("uproot-Event.root")) as upfile:
-        entry = as_node(upfile)
+        entry = wrap(upfile)
         children = {c.path.rsplit("/", maxsplit=1)[-1]: c for c in entry.children}
 
         failed = children["hstat"]
@@ -181,7 +181,7 @@ def test_tree_with_unreadable_item(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_tree_nested_directory_label() -> None:
     """A nested TDirectory is labeled by its own name, not the root one (issue #282)."""
     with uproot.open(data_path("uproot-nesteddirs.root")) as upfile:
-        entry = as_node(upfile)
+        entry = wrap(upfile)
         (nested,) = (e for e in entry.walk() if e.path == "//one/two")
 
         label_text = nested.meta()["label_text"]
@@ -199,7 +199,7 @@ def test_tree_bracket_path_link(tmp_path: pathlib.Path) -> None:
     shutil.copy(src, dest)
 
     with uproot.open(dest) as upfile:
-        meta = as_node(upfile).meta()
+        meta = wrap(upfile).meta()
         assert meta["label_text"].plain == "uproot-Event.root"
         assert meta["label_text"].style.link is not None
         assert meta["label_text"].style.link.startswith("file://")
@@ -254,24 +254,23 @@ def test_dump_is_runnable(filename: str, selection: str, expr: str) -> None:
     file = uproot.open(data_path(filename))
     # Navigate key-by-key, like the tree browser does (RNTuple fields are not
     # reachable via a recursive "a/b" lookup on the minimum uproot).
-    item = functools.reduce(lambda obj, key: obj[key], selection.split("/"), file)
+    item = wrap(functools.reduce(lambda obj, key: obj[key], selection.split("/"), file))
 
     code = uproot_browser.tui.plot.make_dump(item, 105, 30, expr=expr)
     assert "uproot_browser" not in code
     if "heatmap" in code and not uproot_browser.plotext_compat.PLOTEXT_6:
         pytest.skip("2D dumps draw with plotext 6")
 
-    namespace: dict[str, object] = {"item": item, "print": lambda *_: None}
+    namespace: dict[str, object] = {"item": item.item, "print": lambda *_: None}
     exec(code, namespace)
 
     actual = namespace["h"]
     assert isinstance(actual, hist.Hist)
     if expr:
         assert "t" not in namespace
-        assert namespace.get("tree") is uproot_browser.plot.containing_tree(item)
-    expected = uproot_browser.plot.apply_expr(
-        uproot_browser.plot.to_histogram(item, bins=100), expr, item
-    )
+        tree = item.data_tree()
+        assert namespace.get("tree") is (None if tree is None else tree.item)
+    expected = uproot_browser.plot.apply_expr(item.to_histogram(bins=100), expr, item)
     np.testing.assert_array_equal(actual.values(flow=True), expected.values(flow=True))
     for actual_axis, expected_axis in zip(actual.axes, expected.axes, strict=True):
         np.testing.assert_array_equal(actual_axis.edges, expected_axis.edges)
@@ -279,7 +278,7 @@ def test_dump_is_runnable(filename: str, selection: str, expr: str) -> None:
 
 def test_dump_with_limits_draws_once() -> None:
     """With limits, the dump draws ``h`` instead of re-evaluating the expression."""
-    item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
+    item = wrap(uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"])
     expr = 'tree["fTracks.fPx"].array()[tree["fTracks.fPy"].array() < 0]'
     limits = AxisLimits(x=(-1.0, 1.0), y=(None, None))
 
@@ -287,7 +286,7 @@ def test_dump_with_limits_draws_once() -> None:
 
     assert code.count(expr) == 1
     assert "uproot_browser" not in code
-    namespace: dict[str, object] = {"item": item, "print": lambda *_: None}
+    namespace: dict[str, object] = {"item": item.item, "print": lambda *_: None}
     exec(code, namespace)
     assert isinstance(namespace["h"], hist.Hist)
 
@@ -301,19 +300,19 @@ def test_dump_with_limits_draws_once() -> None:
 )
 def test_dump_expr_errors_match_tui(expr: str, match: str) -> None:
     """The dumped script fails the way the TUI did, not inside awkward."""
-    item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
-    default = uproot_browser.plot.to_histogram(item)
+    item = wrap(uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"])
+    default = item.to_histogram()
     with pytest.raises(Exception, match=match):
         uproot_browser.plot.apply_expr(default, expr, item)
 
     code = uproot_browser.tui.plot.make_dump(item, 105, 30, expr=expr)
     with pytest.raises(Exception, match=match):
-        exec(code, {"item": item})
+        exec(code, {"item": item.item})
 
 
 def test_dump_without_tree_omits_tree() -> None:
     """A histogram in a directory has no containing tree to bind."""
-    item = uproot.open(data_path("uproot-Event.root"))["hstat"]
+    item = wrap(uproot.open(data_path("uproot-Event.root"))["hstat"])
     code = uproot_browser.tui.plot.make_dump(item, 105, 30, expr="h[::2j]")
     assert "tree" not in code
 
@@ -335,11 +334,10 @@ def test_dump_image_is_runnable(
     if y_selection:
         namespace["x_item"] = file[selection]
         namespace["y_item"] = file[y_selection]
-        item: object = uproot_browser.plot.BranchPair(
-            namespace["x_item"], namespace["y_item"]
-        )
+        item: Node = Pair(wrap(namespace["x_item"]), wrap(namespace["y_item"]))
     else:
-        item = namespace["item"] = file[selection]
+        namespace["item"] = file[selection]
+        item = wrap(namespace["item"])
     limits = AxisLimits(x=(None, 1.0), y=(2.0, None))
 
     code = uproot_browser.tui.plot.make_dump(item, limits=limits, image=True)
@@ -361,8 +359,8 @@ def test_dump_image_is_runnable(
 
 def test_make_hist_title_counts_profile_entries() -> None:
     """A TProfile title counts entries, not the sum of per-bin means (issue #282)."""
-    item = uproot.open(data_path("uproot-hepdata-example.root"))["hprof"]
-    h = uproot_browser.plot.to_histogram(item)
+    item = wrap(uproot.open(data_path("uproot-hepdata-example.root"))["hprof"])
+    h = item.to_histogram()
 
     inner_sum = float(np.sum(h.counts()))
     full_sum = float(np.sum(h.counts(flow=True)))
@@ -374,8 +372,8 @@ def test_make_hist_title_counts_profile_entries() -> None:
 
 def test_make_hist_title_th1_unchanged() -> None:
     """An ordinary TH1 title still sums bin values, unaffected by the TProfile fix."""
-    item = uproot.open(data_path("uproot-Event.root"))["hstat"]
-    h = uproot_browser.plot.to_histogram(item)
+    item = wrap(uproot.open(data_path("uproot-Event.root"))["hstat"])
+    h = item.to_histogram()
 
     inner_sum = float(np.sum(h.values()))
     full_sum = float(np.sum(h.values(flow=True)))
@@ -388,7 +386,7 @@ def test_make_hist_title_th1_unchanged() -> None:
 
 def test_plot_1d_draws_bars() -> None:
     """A TH1 renders actual bars, not an empty frame (plotext 6 regression)."""
-    item = uproot.open(data_path("uproot-Event.root"))["hstat"]
+    item = wrap(uproot.open(data_path("uproot-Event.root"))["hstat"])
 
     fig = uproot_browser.plotext_compat.make_figure()
     fig.clear()
@@ -402,7 +400,7 @@ def test_plot_1d_draws_bars() -> None:
 
 def test_plot_narrow_range_branch() -> None:
     """A branch whose range is tiny next to its magnitude still plots (float32 rescale)."""
-    item = uproot.open(data_path("uproot-Event.root"))["T/event/TObject/fBits"]
+    item = wrap(uproot.open(data_path("uproot-Event.root"))["T/event/TObject/fBits"])
 
     fig = uproot_browser.plotext_compat.make_figure()
     fig.clear()
@@ -419,7 +417,7 @@ def test_plot_narrow_range_branch() -> None:
 )
 def test_plot_2d() -> None:
     """A TH2 renders as a heatmap with both axes labeled (issue #175)."""
-    item = uproot.open(data_path("uproot-hepdata-example.root"))["hpxpy"]
+    item = wrap(uproot.open(data_path("uproot-hepdata-example.root"))["hpxpy"])
 
     fig = uproot_browser.plotext_compat.make_figure()
     fig.clear()
@@ -433,7 +431,7 @@ def test_plot_2d() -> None:
     assert "█" in out
 
 
-def _render(item: object, limits: AxisLimits, size: tuple[int, int]) -> str:
+def _render(item: Node, limits: AxisLimits, size: tuple[int, int]) -> str:
     fig = uproot_browser.plotext_compat.make_figure()
     fig.clear()
     fig.plot_size(*size)
@@ -443,8 +441,8 @@ def _render(item: object, limits: AxisLimits, size: tuple[int, int]) -> str:
 
 def test_y_range_clips_tall_bars() -> None:
     """A bar above the typed Y maximum is clipped at the limit, not hidden."""
-    item = uproot.open(data_path("uproot-Event.root"))["hstat"]
-    peak = float(np.max(item.values()))
+    item = wrap(uproot.open(data_path("uproot-Event.root"))["hstat"])
+    peak = float(np.max(item.item.values()))
 
     out = _render(item, AxisLimits(y=(None, peak / 2)), (60, 12))
     rows = [line.split("┤", 1) for line in out.splitlines() if "┤" in line]
@@ -460,7 +458,7 @@ def test_y_range_clips_tall_bars() -> None:
 )
 def test_2d_ranges_are_in_data_units() -> None:
     """Typed limits window the heatmap's bin-index axes in data units."""
-    item = uproot.open(data_path("uproot-hepdata-example.root"))["hpxpy"]
+    item = wrap(uproot.open(data_path("uproot-hepdata-example.root"))["hpxpy"])
 
     full = _render(item, AxisLimits(), (80, 20))
     zoomed = _render(item, AxisLimits(x=(-1, 1), y=(-1, 1)), (80, 20))
@@ -478,7 +476,7 @@ def test_2d_ranges_are_in_data_units() -> None:
 )
 def test_plot_2d_errors_on_plotext_5() -> None:
     """On plotext 5, a TH2 gives a clear upgrade message instead of a crash."""
-    item = uproot.open(data_path("uproot-hepdata-example.root"))["hpxpy"]
+    item = wrap(uproot.open(data_path("uproot-hepdata-example.root"))["hpxpy"])
 
     fig = uproot_browser.plotext_compat.make_figure()
     fig.clear()
@@ -493,7 +491,7 @@ def test_custom_theme_keeps_signal_colors() -> None:
     plotext 6's ``add_theme`` without a ``sequence`` makes every signal
     colorless, so they all render in the theme's text color.
     """
-    item = uproot.open(data_path("uproot-Event.root"))["hstat"]
+    item = wrap(uproot.open(data_path("uproot-Event.root"))["hstat"])
 
     uproot_browser.plotext_compat.add_theme(
         "test_signal_colors", canvas=(20, 20, 20), text=((255, 166, 43), (20, 20, 20))
@@ -512,7 +510,7 @@ def test_custom_theme_keeps_signal_colors() -> None:
 
 def test_plot_3d_errors() -> None:
     """3+ dimensional histograms give a clear error, not a plotext internal one."""
-    item = uproot.open(data_path("uproot-hepdata-example.root"))["hpxpy"]
+    item = wrap(uproot.open(data_path("uproot-hepdata-example.root"))["hpxpy"])
     # the expr namespace only holds ``h``, so reach hist.Hist through it
     expr = "h.__class__.new.Reg(4, 0, 4).Reg(3, 0, 3).Reg(2, 0, 2).Double()"
 
@@ -521,6 +519,10 @@ def test_plot_3d_errors() -> None:
     fig.plot_size(80, 25)
     with pytest.raises(RuntimeError, match="3 dimensions"):
         uproot_browser.plot.plot(item, fig=fig, expr=expr)
+
+
+def _plottable(node: Node) -> bool:
+    return isinstance(node, Plottable) and node.plottable
 
 
 @pytest.mark.parametrize(
@@ -539,7 +541,7 @@ def test_plot_3d_errors() -> None:
 def test_plottable(selection: str, expected: bool) -> None:  # noqa: FBT001
     """Plottability is decided from the interpretation, without reading data."""
     with uproot.open(data_path("uproot-Event.root")) as upfile:
-        assert uproot_browser.plot.plottable(upfile[selection]) is expected
+        assert _plottable(wrap(upfile[selection])) is expected
 
 
 @pytest.mark.parametrize(
@@ -555,21 +557,21 @@ def test_plottable_rfield(filename: str, selection: str, expected: bool) -> None
     """Plottability of an RNTuple field comes from its form, not from the data."""
     with uproot.open(data_path(filename)) as upfile:
         item = functools.reduce(lambda obj, key: obj[key], selection.split("/"), upfile)
-        assert uproot_browser.plot.plottable(item) is expected
+        assert _plottable(wrap(item)) is expected
 
 
 def test_to_histogram_rejects_string_field() -> None:
     """A string field gives a clear error, not a numpy one."""
     with uproot.open(data_path("ntpl001_staff_rntuple_v1-0-0-0.root")) as upfile:
-        item = upfile["Staff"]["Division"]
+        item = wrap(upfile["Staff"]["Division"])
         with pytest.raises(TypeError, match="Division"):
-            uproot_browser.plot.to_histogram(item)
+            item.to_histogram()
 
 
 def test_apply_expr_binds_tree() -> None:
     """The containing tree supplies arrays for custom histogram binning."""
-    item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
-    default = uproot_browser.plot.to_histogram(item)
+    item = wrap(uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"])
+    default = item.to_histogram()
 
     result = uproot_browser.plot.apply_expr(
         default,
@@ -590,8 +592,8 @@ def test_apply_expr_binds_tree() -> None:
 )
 def test_apply_expr_cut_ttree(expr: str) -> None:
     """Plain uproot array access supports jagged cuts from the containing tree."""
-    item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
-    default = uproot_browser.plot.to_histogram(item)
+    item = wrap(uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"])
+    default = item.to_histogram()
 
     result = uproot_browser.plot.apply_expr(default, expr, item)
     uncut = uproot_browser.plot.apply_expr(default, 'tree["fTracks.fPx"].array()', item)
@@ -603,8 +605,10 @@ def test_apply_expr_cut_ttree(expr: str) -> None:
 
 def test_apply_expr_cut_rntuple() -> None:
     """Cuts work on RNTuple files too, not just TTree files."""
-    item = uproot.open(data_path("ntpl001_staff_rntuple_v1-0-0-0.root"))["Staff"]["Age"]
-    default = uproot_browser.plot.to_histogram(item)
+    item = wrap(
+        uproot.open(data_path("ntpl001_staff_rntuple_v1-0-0-0.root"))["Staff"]["Age"]
+    )
+    default = item.to_histogram()
 
     result = uproot_browser.plot.apply_expr(
         default, 'tree["Age"].array()[tree["Age"].array() > 30]', item
@@ -616,8 +620,8 @@ def test_apply_expr_cut_rntuple() -> None:
 
 def test_apply_expr_rejects_non_data() -> None:
     """An expression returning neither a histogram nor an array gives an error."""
-    item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
-    default = uproot_browser.plot.to_histogram(item)
+    item = wrap(uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"])
+    default = item.to_histogram()
 
     with pytest.raises(ExpressionError, match=r"hist\.Hist") as excinfo:
         uproot_browser.plot.apply_expr(default, "42", item)
@@ -639,11 +643,13 @@ def test_expression_objects_use_uproot_api(
     """Expressions receive the containing tree and retain sub-branch lookup."""
     with uproot.open(data_path(filename)) as upfile:
         tree = upfile[tree_name]
-        item = tree if selection is None else tree[selection]
+        item = wrap(tree if selection is None else tree[selection])
         default = hist.Hist.new.Reg(4, 0, 4).Double()
         expression = f"h if id(tree) == {id(tree)} else None"
         assert uproot_browser.plot.apply_expr(default, expression, item) is default
-        assert uproot_browser.plot.containing_tree(tree) is tree
+        data_tree = wrap(tree).data_tree()
+        assert data_tree is not None
+        assert data_tree.item is tree
         if selection == "fTracks":
             result = uproot_browser.plot.apply_expr(
                 default, 'tree["fTracks"]["fTracks.fPx"].array()', item
@@ -653,8 +659,8 @@ def test_expression_objects_use_uproot_api(
 
 def test_apply_expr_does_not_bind_selected_object_alias() -> None:
     with uproot.open(data_path("uproot-Event.root")) as upfile:
-        item = upfile["T/event/fNtrack"]
-        default = uproot_browser.plot.to_histogram(item)
+        item = wrap(upfile["T/event/fNtrack"])
+        default = item.to_histogram()
         with pytest.raises(ExpressionError, match="'t'") as excinfo:
             uproot_browser.plot.apply_expr(default, "t", item)
         assert isinstance(excinfo.value.__cause__, NameError)
@@ -662,8 +668,8 @@ def test_apply_expr_does_not_bind_selected_object_alias() -> None:
 
 def test_apply_expr_object_array() -> None:
     """A numpy object array (jagged branch read with library="np") is flattened."""
-    item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
-    default = uproot_browser.plot.to_histogram(item)
+    item = wrap(uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"])
+    default = item.to_histogram()
 
     result = uproot_browser.plot.apply_expr(
         default, 'tree["fTracks.fPx"].array(library="np")', item
@@ -677,8 +683,8 @@ def test_apply_expr_object_array() -> None:
 
 def test_apply_expr_nested_object_array() -> None:
     """A doubly jagged object array falls back to awkward."""
-    item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
-    default = uproot_browser.plot.to_histogram(item)
+    item = wrap(uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"])
+    default = item.to_histogram()
     expr = "np.array([np.array([np.array([1.0, 2.0]), np.array([3.0])], dtype=object), np.array([4.0])], dtype=object)"
 
     result = uproot_browser.plot.apply_expr(default, expr, item)
@@ -694,8 +700,8 @@ def test_apply_expr_nested_object_array() -> None:
 )
 def test_apply_expr_converts_to_hist(expr: str) -> None:
     """Objects that convert to hist.Hist are accepted, not rejected."""
-    item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
-    default = uproot_browser.plot.to_histogram(item)
+    item = wrap(uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"])
+    default = item.to_histogram()
 
     result = uproot_browser.plot.apply_expr(default, expr, item)
 
@@ -705,8 +711,8 @@ def test_apply_expr_converts_to_hist(expr: str) -> None:
 
 def test_apply_expr_no_tree_outside_tree() -> None:
     """A histogram in a directory does not bind ``tree`` at all."""
-    item = uproot.open(data_path("uproot-Event.root"))["hstat"]
-    default = uproot_browser.plot.to_histogram(item)
+    item = wrap(uproot.open(data_path("uproot-Event.root"))["hstat"])
+    default = item.to_histogram()
 
     with pytest.raises(ExpressionError, match="tree") as excinfo:
         uproot_browser.plot.apply_expr(default, 'tree["fNtrack"].array()', item)
@@ -715,8 +721,8 @@ def test_apply_expr_no_tree_outside_tree() -> None:
 
 def test_expr_cache_reuses_tree_results(monkeypatch: pytest.MonkeyPatch) -> None:
     """An expression that does not use ``h`` is evaluated once per cache."""
-    item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
-    default = uproot_browser.plot.to_histogram(item)
+    item = wrap(uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"])
+    default = item.to_histogram()
     cache = uproot_browser.plot.ExprCache()
     expr = 'tree["fTracks.fPx"].array()'
 
@@ -727,7 +733,7 @@ def test_expr_cache_reuses_tree_results(monkeypatch: pytest.MonkeyPatch) -> None
 
     # a different bin count rebins the cached array
     rebinned = uproot_browser.plot.apply_expr(
-        uproot_browser.plot.to_histogram(item, bins=7), expr, item, cache=cache
+        item.to_histogram(bins=7), expr, item, cache=cache
     )
     assert rebinned.axes[0].size == 7
 
@@ -738,10 +744,10 @@ def test_expr_cache_reuses_tree_results(monkeypatch: pytest.MonkeyPatch) -> None
 
 def test_expr_cache_skips_h_expressions() -> None:
     """An expression using ``h`` depends on the bin count, so it is not cached."""
-    item = uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"]
+    item = wrap(uproot.open(data_path("uproot-Event.root"))["T/event/fNtrack"])
     cache = uproot_browser.plot.ExprCache()
-    wide = uproot_browser.plot.to_histogram(item, bins=100)
-    narrow = uproot_browser.plot.to_histogram(item, bins=10)
+    wide = item.to_histogram(bins=100)
+    narrow = item.to_histogram(bins=10)
 
     uproot_browser.plot.apply_expr(wide, "h[::2j]", item, cache=cache)
     result = uproot_browser.plot.apply_expr(narrow, "h[::2j]", item, cache=cache)
@@ -755,22 +761,20 @@ def _fail_eval(*_args: object, **_kwargs: object) -> None:
     raise AssertionError(msg)
 
 
-def _pair(
-    upfile: uproot.ReadOnlyDirectory, x: str, y: str
-) -> uproot_browser.nodes.Pair:
-    return uproot_browser.plot.BranchPair(upfile[x], upfile[y])
+def _pair(upfile: uproot.ReadOnlyDirectory, x: str, y: str) -> Pair:
+    return Pair(wrap(upfile[x]), wrap(upfile[y]))
 
 
 def test_pair_histogram_broadcasts_per_entry_values() -> None:
     """A per-entry branch pairs with each value of a jagged branch."""
     with uproot.open(data_path("uproot-Event.root")) as upfile:
         pair = _pair(upfile, "T/event/fNtrack", "T/event/fTracks/fTracks.fPx")
-        histogram = uproot_browser.plot.to_histogram(pair, bins=20)
+        histogram = pair.to_histogram(bins=20)
         ntrack = upfile["T/event/fNtrack"].array()
 
     assert [ax.label for ax in histogram.axes] == ["fNtrack", "fTracks.fPx"]
     assert histogram.sum(flow=True) == np.sum(ntrack)
-    assert uproot_browser.plot.plottable(pair)
+    assert pair.plottable
 
 
 @pytest.mark.parametrize(
@@ -782,17 +786,17 @@ def test_pair_histogram_broadcasts_per_entry_values() -> None:
 )
 def test_pair_needs_numbers(x: str, y: str) -> None:
     with uproot.open(data_path("uproot-Event.root")) as upfile:
-        if not isinstance(as_node(upfile[x]), Column) or not isinstance(
-            as_node(upfile[y]), Column
+        if not isinstance(wrap(upfile[x]), Column) or not isinstance(
+            wrap(upfile[y]), Column
         ):
             # A histogram object is not a column at all
             with pytest.raises(TypeError, match="2D plot"):
                 _pair(upfile, x, y)
             return
         pair = _pair(upfile, x, y)
-        assert not uproot_browser.plot.plottable(pair)
+        assert not pair.plottable
         with pytest.raises(TypeError, match="2D plot"):
-            uproot_browser.plot.to_histogram(pair)
+            pair.to_histogram()
 
 
 def test_pair_needs_same_entries() -> None:
@@ -800,11 +804,9 @@ def test_pair_needs_same_entries() -> None:
         uproot.open(data_path("uproot-Event.root")) as event,
         uproot.open(data_path("uproot-HZZ.root")) as hzz,
     ):
-        pair = uproot_browser.plot.BranchPair(
-            event["T/event/fNtrack"], hzz["events/NJet"]
-        )
+        pair = Pair(wrap(event["T/event/fNtrack"]), wrap(hzz["events/NJet"]))
         with pytest.raises(ValueError, match="1000 entries, but NJet has 2421"):
-            uproot_browser.plot.to_histogram(pair)
+            pair.to_histogram()
 
 
 @pytest.mark.skipif(
@@ -838,9 +840,7 @@ def test_dump_pair_is_runnable(expr: str) -> None:
     }
     exec(code, namespace)
 
-    expected = uproot_browser.plot.apply_expr(
-        uproot_browser.plot.to_histogram(pair, bins=100), expr, pair
-    )
+    expected = uproot_browser.plot.apply_expr(pair.to_histogram(bins=100), expr, pair)
     actual = namespace["h"]
     assert isinstance(actual, hist.Hist)
     np.testing.assert_array_equal(actual.values(flow=True), expected.values(flow=True))
@@ -905,8 +905,8 @@ def test_resolve_failed_segment() -> None:
         assert isinstance(node, FailedNode)
         assert node.bind_source() == 'item = file["T/event/missing"]'
         with pytest.raises(uproot.KeyInFileError):
-            uproot_browser.plot.to_histogram(node)
-        assert as_node(upfile["T/event/fNtrack"]).data_tree_source() == "item.tree"
+            uproot_browser.plot.plottable_node(node)
+        assert wrap(upfile["T/event/fNtrack"]).data_tree_source() == "item.tree"
         tree = root.resolve("T/event/fNtrack").data_tree()
         assert tree is not None
         assert tree.item is root.resolve("T").item
