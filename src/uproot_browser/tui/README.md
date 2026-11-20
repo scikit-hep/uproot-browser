@@ -14,18 +14,18 @@ move that many visible rows. For example, `12j` moves down twelve rows.
 Movement stops at the first or last visible row. Press `enter` to plot the
 highlighted object.
 
-The pending count appears as `Move: 12` in a separate row above the footer;
-the `Tree` tab label stays unchanged. The row disappears after a move, another
-key, or focus leaving the tree. Scrolling keeps two rows visible above and
-below the cursor when space permits.
+The pending count appears as `Move: 12` in a separate row above the footer.
+The row disappears after a move, another key, or focus leaving the tree.
+Scrolling keeps two rows visible above and below the cursor when space permits.
 
 Press `/` to open a fuzzy finder: start typing a branch or field name and the
 list narrows as you type (`fzf`-style). Use the arrow keys to pick a match and
 press `enter` to jump to it in the tree (plotting it if it's plottable), or
 `esc` to cancel.
 
-You can also open the command palette with `ctrl-p`, which gives you some
-options like changing the theme, writing out an SVG, or quitting the program.
+You can also open the command palette with `ctrl-p` or the icon at the top
+left. It has commands to show this help, change the theme, write out an SVG,
+or quit the program.
 
 ## Plotting
 

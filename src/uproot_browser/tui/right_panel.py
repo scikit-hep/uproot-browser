@@ -1,20 +1,16 @@
 from __future__ import annotations
 
-__lazy_modules__ = {"math", "textual.app", "uproot_browser.axis"}
+__lazy_modules__ = {"textual.app", "typing", "uproot_browser.axis"}
 
-import math
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import Any, ClassVar
 
 import textual.app
 import textual.binding
 import textual.containers
+import textual.message
 import textual.widgets
 
 from uproot_browser.axis import AxisLimits
-
-if TYPE_CHECKING:
-    from uproot_browser.tui.browser import Browser
-
 
 IMAGE_SCALES = [1.0, 1.25, 1.5, 2.0, 2.5, 3.0]
 LIMIT_IDS = ("x-min", "x-max", "y-min", "y-max")
@@ -28,11 +24,28 @@ class RightPanel(textual.containers.Container):
         textual.binding.Binding("escape", "focus_tree", "Back to tree", show=False),
     ]
 
+    class LimitsChanged(textual.message.Message):
+        """The user applied or reset the axis limits."""
+
+        def __init__(self, limits: AxisLimits) -> None:
+            super().__init__()
+            self.limits = limits
+
+    class ScaleChanged(textual.message.Message):
+        """The user selected an image render scale."""
+
+        def __init__(self, scale: float) -> None:
+            super().__init__()
+            self.scale = scale
+
     status = ""  # the last message shown in #axis-status
 
-    @property
-    def browser(self) -> Browser:
-        return cast("Browser", self.app)
+    def __init__(
+        self, *, image: bool = False, image_scale: float = 1.5, **kwargs: Any
+    ) -> None:
+        super().__init__(**kwargs)
+        self.image = image
+        self.image_scale = image_scale
 
     def compose(self) -> textual.app.ComposeResult:
         with textual.widgets.Collapsible(title="Axis ranges", collapsed=False):
@@ -43,8 +56,12 @@ class RightPanel(textual.containers.Container):
                 with textual.containers.Horizontal(classes="axis-row"):
                     yield textual.widgets.Label(axis, classes="axis-label")
                     for end in ("min", "max"):
+                        # The number type rejects nan and inf too
                         yield textual.widgets.Input(
-                            placeholder=end, id=f"{axis.lower()}-{end}"
+                            placeholder=end,
+                            type="number",
+                            valid_empty=True,
+                            id=f"{axis.lower()}-{end}",
                         )
             yield textual.widgets.Label("", id="axis-status")
             with textual.containers.Horizontal(id="axis-buttons"):
@@ -52,12 +69,12 @@ class RightPanel(textual.containers.Container):
                     "Apply", id="axis-apply", variant="primary"
                 )
                 yield textual.widgets.Button("Reset", id="axis-reset")
-        if self.browser.image:
+        if self.image:
             with textual.widgets.Collapsible(title="Render scale", collapsed=False):
                 yield textual.widgets.Select(
                     [(f"{scale:g}×", scale) for scale in IMAGE_SCALES],
                     allow_blank=False,
-                    value=self.browser.image_scale,
+                    value=self.image_scale,
                     id="image-scale-select",
                 )
         with textual.widgets.Collapsible(title="Theme", collapsed=False):
@@ -77,22 +94,20 @@ class RightPanel(textual.containers.Container):
     def _sync_theme(self, theme: str) -> None:
         self.query_one("#theme-select", textual.widgets.Select).value = theme
 
-    def _parse_limit(self, control_id: str) -> float | None:
-        value = self.query_one(f"#{control_id}", textual.widgets.Input).value.strip()
-        if not value:
-            return None
-        try:
-            parsed = float(value)
-        except ValueError:
-            parsed = math.nan
-        if not math.isfinite(parsed):
-            msg = f"Axis limits must be finite numbers, not {value!r}."
-            raise ValueError(msg)
-        return parsed
-
     def _parse_range(self, axis: str) -> tuple[float | None, float | None]:
-        lower = self._parse_limit(f"{axis}-min")
-        upper = self._parse_limit(f"{axis}-max")
+        limits: list[float | None] = []
+        for end in ("min", "max"):
+            field = self.query_one(f"#{axis}-{end}", textual.widgets.Input)
+            value = field.value.strip()
+            if not value:
+                limits.append(None)
+                continue
+            result = field.validate(value)
+            if result is not None and not result.is_valid:
+                msg = "Axis limits must be finite numbers."
+                raise ValueError(msg)
+            limits.append(float(value))
+        lower, upper = limits
         if lower is not None and upper is not None and lower >= upper:
             msg = "Minimum must be smaller than maximum."
             raise ValueError(msg)
@@ -104,44 +119,35 @@ class RightPanel(textual.containers.Container):
         status.update(message)
         status.set_class(error, "-error")
 
-    def _apply_ranges(self) -> None:
-        try:
-            limits = AxisLimits(x=self._parse_range("x"), y=self._parse_range("y"))
-        except ValueError as err:
-            self._set_status(str(err), error=True)
-            return
-        # pylint: disable-next=attribute-defined-outside-init
-        self.browser.axis_limits = limits
-        self._set_status("Applied.")
-
     def clear(self) -> None:
         """Blank the fields and status (the limits no longer apply)."""
         for control_id in LIMIT_IDS:
             self.query_one(f"#{control_id}", textual.widgets.Input).value = ""
         self._set_status("")
 
+    @textual.on(textual.widgets.Input.Submitted)
+    @textual.on(textual.widgets.Button.Pressed, "#axis-apply")
+    def _apply_ranges(self) -> None:
+        try:
+            limits = AxisLimits(x=self._parse_range("x"), y=self._parse_range("y"))
+        except ValueError as err:
+            self._set_status(str(err), error=True)
+            return
+        self.post_message(self.LimitsChanged(limits))
+        self._set_status("Applied.")
+
+    @textual.on(textual.widgets.Button.Pressed, "#axis-reset")
     def _reset_ranges(self) -> None:
         self.clear()
-        # pylint: disable-next=attribute-defined-outside-init
-        self.browser.axis_limits = AxisLimits()
+        self.post_message(self.LimitsChanged(AxisLimits()))
         self._set_status("Automatic ranges restored.")
 
-    def on_input_submitted(self, _event: textual.widgets.Input.Submitted) -> None:
-        self._apply_ranges()
-
-    def on_button_pressed(self, event: textual.widgets.Button.Pressed) -> None:
-        if event.button.id == "axis-apply":
-            self._apply_ranges()
-        elif event.button.id == "axis-reset":
-            self._reset_ranges()
-
     @textual.on(textual.widgets.Select.Changed, "#image-scale-select")
-    def image_scale_changed(self, event: textual.widgets.Select.Changed) -> None:
+    def _image_scale_changed(self, event: textual.widgets.Select.Changed) -> None:
         assert isinstance(event.value, float)
-        # pylint: disable-next=attribute-defined-outside-init
-        self.browser.image_scale = event.value
+        self.post_message(self.ScaleChanged(event.value))
 
     @textual.on(textual.widgets.Select.Changed, "#theme-select")
-    def theme_changed(self, event: textual.widgets.Select.Changed) -> None:
+    def _theme_changed(self, event: textual.widgets.Select.Changed) -> None:
         # pylint: disable-next=attribute-defined-outside-init
         self.app.theme = str(event.value)

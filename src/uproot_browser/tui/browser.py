@@ -11,7 +11,6 @@ __lazy_modules__ = {
     "textual.worker",
     "uproot_browser.exceptions",
     "uproot_browser.tui.error",
-    "uproot_browser.tui.header",
     "uproot_browser.tui.help",
     "uproot_browser.tui.image_plot",
     "uproot_browser.tui.jump",
@@ -45,7 +44,6 @@ from uproot_browser.axis import NO_LIMITS, AxisLimits
 from uproot_browser.exceptions import EmptyTreeError
 from uproot_browser.plotext_compat import add_theme
 from uproot_browser.tui.error import Error
-from uproot_browser.tui.header import Header
 from uproot_browser.tui.help import HelpScreen
 from uproot_browser.tui.image_plot import MPLPlot
 from uproot_browser.tui.jump import JumpScreen
@@ -69,6 +67,10 @@ add_theme(
 add_theme("uproot_dark", canvas=DARK_BACKGROUND, text=(DARK_TEXT, DARK_BACKGROUND))
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from textual.screen import Screen
+
     from uproot_browser.tui.messages import (
         EmptyMessage,
         ErrorMessage,
@@ -86,6 +88,7 @@ class Browser(textual.app.App[None]):
     """A basic implementation of the uproot-browser TUI"""
 
     CSS_PATH = "browser.css"
+    TITLE = "uproot-browser"
     BINDINGS: ClassVar[list[textual.binding.BindingType]] = [
         textual.binding.Binding("b", "toggle_files", "Navbar"),
         textual.binding.Binding("t", "toggle_right_panel", "Tools"),
@@ -114,6 +117,7 @@ class Browser(textual.app.App[None]):
         # re-rendering a failed expression would only fail again
         self._failed_item: PlotItem | None = None
         super().__init__(**kwargs)
+        self.sub_title = path
 
         self.view_widget = ViewWidget(id="plot-view", image=image)
         self.status = StatusBar(id="status")
@@ -121,7 +125,7 @@ class Browser(textual.app.App[None]):
 
     def compose(self) -> textual.app.ComposeResult:
         """Compose our UI."""
-        yield Header("uproot-browser")
+        yield textual.widgets.Header()
         with textual.containers.Horizontal():
             # left_panel
             with textual.widgets.TabbedContent(id="left-view"):
@@ -133,7 +137,9 @@ class Browser(textual.app.App[None]):
             # main_panel
             yield self.view_widget
             yield Splitter("#right-panel", grow_left=False, id="right-splitter")
-            yield RightPanel(id="right-panel")
+            yield RightPanel(
+                image=self.image, image_scale=self.image_scale, id="right-panel"
+            )
 
         yield textual.widgets.Footer()
         yield self.status
@@ -146,6 +152,14 @@ class Browser(textual.app.App[None]):
     def watch_show_tree(self, show_tree: bool) -> None:  # noqa: FBT001
         """Called when show_tree is modified."""
         self.set_class(show_tree, "-show-panel")
+
+    def get_system_commands(
+        self, screen: Screen[Any]
+    ) -> Iterator[textual.app.SystemCommand]:
+        yield textual.app.SystemCommand(
+            "Help", "Show the uproot-browser help", self.action_help
+        )
+        yield from super().get_system_commands(screen)
 
     def action_help(self) -> None:
         self.push_screen(HelpScreen())
@@ -318,6 +332,12 @@ class Browser(textual.app.App[None]):
         if key != self._plot_rendered:
             self._plot_rendered = key
             self.render_plot(item)
+
+    def on_right_panel_limits_changed(self, message: RightPanel.LimitsChanged) -> None:
+        self.axis_limits = message.limits
+
+    def on_right_panel_scale_changed(self, message: RightPanel.ScaleChanged) -> None:
+        self.image_scale = message.scale
 
     def watch_image_scale(self, scale: float) -> None:
         item = self.view_widget.item

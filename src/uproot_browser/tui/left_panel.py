@@ -71,7 +71,7 @@ def make_candidate(node: Node) -> Candidate:
 
 
 class UprootTree(textual.widgets.Tree[Node]):
-    """currently just extending DirectoryTree, showing current path"""
+    """The tree of nodes, with vim-style movement and marks for 2D plots."""
 
     BINDINGS: ClassVar[list[textual.binding.BindingType]] = [
         textual.binding.Binding("h", "cursor_out", "Cursor out", show=False),
