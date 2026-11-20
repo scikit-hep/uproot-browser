@@ -602,9 +602,14 @@ async def test_failed_node_shows_traceback(monkeypatch: pytest.MonkeyPatch) -> N
     ).run_test() as pilot:
         # The jump selects it; the render worker posts an ErrorMessage
         await jump_to(pilot, "//hstat")
+        await settle_render(pilot)
         await wait_until(pilot, lambda: isinstance(pilot.app.view_widget.item, Error))
         item = pilot.app.view_widget.item
-        assert isinstance(item, Error)
+        assert isinstance(item, Error), (
+            getattr(item, "selection", None),
+            plot_text(pilot.app),
+            [n.message for n in pilot.app._notifications],  # noqa: SLF001
+        )
         assert isinstance(item.exc, ValueError)
 
         # Dump & Quit names the key that produced the traceback
