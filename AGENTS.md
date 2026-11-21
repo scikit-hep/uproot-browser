@@ -34,7 +34,7 @@ The CLI (`src/uproot_browser/__main__.py`) is the Click entry point (`uproot-bro
 
 ### TUI (`src/uproot_browser/tui/`)
 
-Textual app, entry point `browser.py:Browser`. Layout is composed in `Browser.compose`: a tabbed left panel (Tree / Info), a main `ViewWidget`, and a `RightPanel` (`right_panel.py`) with axis ranges, image scale, and the theme selector. Styling lives in `browser.css`.
+Textual app, entry point `browser.py:Browser`. Layout is composed in `Browser.compose`: the built-in `Header` (the file path is the `sub_title`), a tabbed left panel (Tree / Info, where Info lists the installed dependencies), a main `ViewWidget`, and a `RightPanel` (`right_panel.py`) with axis ranges, image scale, and the theme selector. `RightPanel` posts `RightPanel.LimitsChanged` and `RightPanel.ScaleChanged` to the app. The command palette has a Help command (`Browser.get_system_commands`). Styling lives in `browser.css`.
 
 Communication is **message-driven** (`messages.py` defines `UprootSelected`, `EmptyMessage`, `ErrorMessage`, `RequestPlot`). Flow when a user picks a tree node:
 

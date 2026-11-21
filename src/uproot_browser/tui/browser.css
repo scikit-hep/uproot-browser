@@ -38,11 +38,6 @@ ViewWidget {
     height: 100%;
 }
 
-Label {
-  padding-top: 1;
-  padding-bottom: 1;
-}
-
 #logo {
     content-align: center middle;
     height: 100%;
@@ -103,10 +98,13 @@ Browser.-hide-right-panel #right-panel, Browser.-hide-right-panel #right-splitte
     border: solid $panel-lighten-2;
 }
 
+.axis-row Input.-invalid {
+    border: solid $error;
+}
+
 #axis-status {
     height: auto;
     width: 100%;
-    padding: 0;
     color: $success;
 }
 
@@ -211,11 +209,6 @@ Screen {
     margin-left: 2;
 }
 
-/* Not the padding of the Label rule above */
-#task-bar PercentageStatus {
-    padding: 0;
-}
-
 Footer {
     background: $secondary-lighten-2;
 }
@@ -252,40 +245,4 @@ JumpScreen {
     align: right middle;
     height: 3;
     background: $surface-lighten-1;
-}
-
-
-HeaderCloseIcon {
-    dock: left;
-    border: none;
-    min-width: 3;
-}
-
-HeaderCloseIcon:hover {
-    background: $panel-lighten-2;
-}
-
-HeaderHelpIcon {
-    dock: right;
-    padding: 0 1;
-    border: none;
-    min-width: 4;
-    content-align: right middle;
-}
-
-HeaderHelpIcon:hover {
-    background: $panel-lighten-2;
-}
-
-HeaderTitle {
-    content-align: center middle;
-    width: 100%;
-}
-
-Header {
-    dock: top;
-    width: 100%;
-    background: $foreground 5%;
-    color: $text;
-    height: 1;
 }

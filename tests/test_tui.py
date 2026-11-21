@@ -11,6 +11,7 @@ import rich.console
 import rich.style
 import rich.text
 import skhep_testdata
+import textual
 import textual.geometry
 import textual.pilot
 import textual.widgets
@@ -37,6 +38,7 @@ from uproot_browser.tui.messages import (
 )
 from uproot_browser.tui.plot import Plotext, render_canvas
 from uproot_browser.tui.right_panel import RightPanel
+from uproot_browser.tui.tools import dependencies
 
 LEAF_PATH = "//T/event/fFlag"
 # Open //T, then //T/event (26 lines deep)
@@ -243,6 +245,50 @@ async def test_entry_box_rerenders_plot() -> None:
         assert_canvas(pilot.app, item)
 
 
+async def test_header_shows_path() -> None:
+    path = skhep_testdata.data_path("uproot-Event.root")
+    async with Browser(path).run_test() as pilot:
+        assert pilot.app.title == "uproot-browser"
+        assert pilot.app.sub_title == path
+        assert pilot.app.query_one(textual.widgets.Header)
+
+
+async def test_help_command() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        help_command = next(
+            command
+            for command in pilot.app.get_system_commands(pilot.app.screen)
+            if command.title == "Help"
+        )
+        help_command.callback()
+        await pilot.pause()
+        assert isinstance(pilot.app.screen, HelpScreen)
+
+
+def test_info_dependencies() -> None:
+    deps = dependencies()
+    assert {"uproot", "awkward", "textual", "numpy"} <= deps.keys()
+    # uproot-browser has no pytest requirement, but the test environment has it
+    assert "pytest" not in deps
+    assert deps["textual"] == textual.__version__
+    # textual -> markdown-it-py[linkify] -> linkify-it-py
+    assert "linkify-it-py" in deps
+
+
+def test_info_dependencies_extras_and_markers(monkeypatch: pytest.MonkeyPatch) -> None:
+    graph = {
+        "root": ["a[x]", "b; python_version < '3'", "c; extra == 'opt'"],
+        "a": ["d; extra == 'x'", "e; extra == 'y'"],
+        "c": [],
+        "d": [],
+    }
+    monkeypatch.setattr("importlib.metadata.requires", lambda name: graph.get(name, []))
+    monkeypatch.setattr("importlib.metadata.version", lambda _name: "1.0")
+    assert sorted(dependencies("root", extras=["opt"])) == ["a", "c", "d"]
+
+
 async def test_help_screen() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
@@ -311,10 +357,20 @@ async def test_axis_ranges_are_typed_in_right_panel() -> None:
         assert pilot.app.query_one("#y-min", textual.widgets.Input).display
         assert pilot.app.query_one("#y-max", textual.widgets.Input).display
 
-        pilot.app.query_one("#x-max", textual.widgets.Input).value = "1,5"
-        pilot.app.query_one("#x-max", textual.widgets.Input).focus()
+        x_max = pilot.app.query_one("#x-max", textual.widgets.Input)
+        for value in ("1,5", "inf", "nan"):
+            x_max.value = value
+            x_max.focus()
+            await pilot.press("enter")
+            assert panel.status == "Axis limits must be finite numbers."
+            assert x_max.has_class("-invalid")
+            assert pilot.app.axis_limits == AxisLimits()
+
+        x_max.value = "0.1"
+        pilot.app.query_one("#x-min", textual.widgets.Input).value = "0.2"
         await pilot.press("enter")
-        assert panel.status == "Axis limits must be finite numbers, not '1,5'."
+        assert panel.status == "Minimum must be smaller than maximum."
+        assert not x_max.has_class("-invalid")
         assert pilot.app.axis_limits == AxisLimits()
 
         pilot.app.query_one("#x-min", textual.widgets.Input).value = "0.2"
@@ -338,6 +394,51 @@ async def test_axis_ranges_are_typed_in_right_panel() -> None:
         assert pilot.app.axis_limits == AxisLimits()
         assert pilot.app.query_one("#x-min", textual.widgets.Input).value == ""
         assert panel.status == ""
+
+
+async def test_axis_limit_typed_comma_is_rejected() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        await pilot.press("down", "down", "down", "enter")
+        panel = pilot.app.query_one(RightPanel)
+        x_max = pilot.app.query_one("#x-max", textual.widgets.Input)
+        x_max.value = "0.8"
+        x_max.focus()
+        await pilot.press("enter")
+        assert pilot.app.axis_limits.x == (None, 0.8)
+
+        x_max.value = ""
+        await pilot.press("1", "comma", "5", "enter")
+        assert x_max.value == "1,5"
+        assert x_max.has_class("-invalid")
+        assert panel.status == "Axis limits must be finite numbers."
+        assert pilot.app.axis_limits.x == (None, 0.8)
+
+
+async def test_axis_range_buttons() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        await pilot.press("down", "down", "down", "enter")
+        panel = pilot.app.query_one(RightPanel)
+        x_min = pilot.app.query_one("#x-min", textual.widgets.Input)
+        x_min.value = "0.3"
+        pilot.app.query_one("#x-max", textual.widgets.Input).value = "0.8"
+        panel.query_one("#axis-apply", textual.widgets.Button).press()
+        await pilot.pause()
+        assert pilot.app.axis_limits.x == (0.3, 0.8)
+
+        panel.query_one("#axis-reset", textual.widgets.Button).press()
+        await pilot.pause()
+        assert pilot.app.axis_limits == AxisLimits()
+        assert x_min.value == ""
+        assert panel.status == "Automatic ranges restored."
+
+        x_min.value = "0.2"
+        x_min.focus()
+        await pilot.press("enter")
+        assert pilot.app.axis_limits.x == (0.2, None)
 
 
 async def test_resize_replots_at_the_new_size() -> None:

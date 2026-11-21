@@ -5,9 +5,9 @@ __lazy_modules__ = {
     "textual.app",
     "textual.containers",
     "textual.widgets",
+    "typing",
 }
 
-import typing
 from importlib.resources import files
 from typing import ClassVar
 
@@ -17,17 +17,12 @@ import textual.containers
 import textual.screen
 import textual.widgets
 
-if typing.TYPE_CHECKING:
-    from uproot_browser.tui.browser import Browser
-
 
 class HelpScreen(textual.screen.ModalScreen[None]):
     BINDINGS: ClassVar[list[textual.binding.BindingType]] = [
         textual.binding.Binding("q", "done", "Done", show=True),
         textual.binding.Binding("escape", "done", "Done", show=True),
     ]
-
-    app: Browser
 
     def compose(self) -> textual.app.ComposeResult:
         markdown = files("uproot_browser.tui").joinpath("README.md").read_text()
