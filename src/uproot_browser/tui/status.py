@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-__lazy_modules__ = {"itertools", "textual.widgets", "uproot_browser.progress"}
+__lazy_modules__ = {
+    "itertools",
+    "textual.widgets",
+    "uproot_browser.progress",
+    "uproot_browser.tui.logo",
+}
 
 import contextlib
 import dataclasses
@@ -11,6 +16,7 @@ import textual.containers
 import textual.widgets
 
 import uproot_browser.progress
+from uproot_browser.tui.logo import LOGO_PANEL
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -30,8 +36,8 @@ class _Task:
 
 class Tasks(textual.containers.Container):
     """
-    A box with the newest running task and its progress bar. Hidden when no
-    task runs.
+    The logo, and a box with the newest running task and its progress bar.
+    Hidden when no task runs.
     """
 
     def __init__(self, **kwargs: Any) -> None:
@@ -42,7 +48,13 @@ class Tasks(textual.containers.Container):
         self._bar = textual.widgets.ProgressBar(id="task-bar", show_eta=False)
 
     def compose(self) -> ComposeResult:
-        yield textual.containers.Vertical(self._label, self._bar, id="task")
+        # The logo is at its place in the logo window, with the box below it
+        yield textual.widgets.Static(classes="task-space")
+        yield textual.widgets.Static(LOGO_PANEL, id="task-logo")
+        yield textual.containers.Container(
+            textual.containers.Vertical(self._label, self._bar, id="task"),
+            classes="task-space",
+        )
 
     @contextlib.contextmanager
     def running(self, label: str) -> Iterator[None]:
