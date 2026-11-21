@@ -28,34 +28,21 @@ class _Task:
     shown: bool = False
 
 
-class StatusBar(textual.containers.Horizontal):
+class Tasks(textual.containers.Container):
     """
-    Above the footer: the pending count of the tree, and a box with the
-    newest running task and its progress bar. Hidden when it has nothing to
-    show.
+    A box with the newest running task and its progress bar. Hidden when no
+    task runs.
     """
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._tasks: dict[int, _Task] = {}
         self._ids = itertools.count()
-        self._count = textual.widgets.Static(id="navigation-count")
-        self._count_text = ""
         self._label = textual.widgets.Static(id="task-label")
         self._bar = textual.widgets.ProgressBar(id="task-bar", show_eta=False)
-        self._box = textual.containers.Horizontal(self._label, self._bar, id="task")
 
     def compose(self) -> ComposeResult:
-        yield self._count
-        yield self._box
-
-    def on_mount(self) -> None:
-        self._update()
-
-    def show_count(self, count: str) -> None:
-        self._count_text = f"Move: {count}" if count else ""
-        self._count.update(self._count_text)
-        self._update()
+        yield textual.containers.Vertical(self._label, self._bar, id="task")
 
     @contextlib.contextmanager
     def running(self, label: str) -> Iterator[None]:
@@ -91,12 +78,7 @@ class StatusBar(textual.containers.Horizontal):
 
     def _update(self) -> None:
         shown = [t for t in self._tasks.values() if t.shown]
-        self._box.display = bool(shown)
-        self.set_class(bool(shown), "-working")
-        # With the box on screen, the count is the title of the box
-        self._box.border_title = self._count_text
-        self._count.display = bool(self._count_text) and not shown
-        self.display = bool(shown) or self._count.display
+        self.display = bool(shown)
         if shown:
             task = shown[-1]
             self._label.update(task.label)

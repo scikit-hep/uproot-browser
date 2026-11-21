@@ -38,7 +38,7 @@ notification. If you think an item should be plottable, open an issue. 2D histog
 (text mode needs plotext 6 or newer; `--image` mode always supports them).
 
 A slow operation (a remote file that opens, a directory that lists, a plot
-that reads data) shows a progress bar in a box above the footer.
+that reads data) shows a progress bar in place of the plot.
 
 To plot two numeric branches or fields against each other, press `m` on the
 first one (the x axis) to mark it, then press `m` on the second one (the y

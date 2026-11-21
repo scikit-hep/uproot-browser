@@ -1327,20 +1327,21 @@ async def test_render_errors_are_ignored_on_exit() -> None:
         assert pilot.app.view_widget.item is item
 
 
-async def test_status_bar_task(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A task shows its label, then its reported progress, then goes away."""
+async def test_tasks(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A task covers the view with its label, then its progress, then goes away."""
     monkeypatch.setattr(uproot_browser.tui.status, "DELAY", 0.001)
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
         await wait_for_tree(pilot)
-        status = pilot.app.status
-        bar = status.query_one(textual.widgets.ProgressBar)
-        assert not status.display
+        view = pilot.app.view_widget
+        tasks = view.tasks
+        bar = tasks.query_one(textual.widgets.ProgressBar)
+        assert not tasks.display
         report, done = threading.Event(), threading.Event()
 
         def work() -> None:
-            with status.running("Loading x.root"):
+            with tasks.running("Loading x.root"):
                 report.wait()
                 uproot_browser.progress.report(0.5)
                 done.wait()
@@ -1348,13 +1349,16 @@ async def test_status_bar_task(monkeypatch: pytest.MonkeyPatch) -> None:
         thread = threading.Thread(target=work)
         thread.start()
         try:
-            await wait_until(pilot, lambda: status.display, delay=0.01)
-            assert status.display
-            region = textual.geometry.Region(0, 0, *status.content_size)
-            assert (
-                "Loading x.root"
-                in status.query_one("#task-label").render_lines(region)[0].text
-            )
+            await wait_until(pilot, lambda: tasks.display, delay=0.01)
+            assert tasks.display
+            await pilot.pause()
+            assert tasks.region == view.region
+            assert view.current == "logo"
+            top, _ = pilot.app.screen.get_widget_at(*view.region.center)
+            assert tasks in top.ancestors_with_self
+            label = tasks.query_one("#task-label")
+            region = textual.geometry.Region(0, 0, *label.content_size)
+            assert "Loading x.root" in label.render_lines(region)[0].text
             assert bar.total is None
 
             report.set()
@@ -1364,8 +1368,8 @@ async def test_status_bar_task(monkeypatch: pytest.MonkeyPatch) -> None:
             report.set()
             done.set()
             thread.join()
-        await wait_until(pilot, lambda: not status.display, delay=0.01)
-        assert not status.display
+        await wait_until(pilot, lambda: not tasks.display, delay=0.01)
+        assert not tasks.display
 
 
 async def test_local_key_to_leaf_opens_in_tree() -> None:
