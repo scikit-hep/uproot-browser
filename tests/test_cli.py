@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -167,7 +168,13 @@ def test_browse_opens_file_once(monkeypatch: pytest.MonkeyPatch) -> None:
             await wait_for_workers(pilot)
 
     monkeypatch.setattr(uproot, "open", counting_open)
-    monkeypatch.setattr(Browser, "run", lambda self: asyncio.run(start(self)))
+
+    def run(app: Browser) -> None:
+        # Not on this thread, which has the event loop of pytest-asyncio
+        with concurrent.futures.ThreadPoolExecutor(1) as pool:
+            pool.submit(asyncio.run, start(app)).result()
+
+    monkeypatch.setattr(Browser, "run", run)
     result = CliRunner().invoke(main, ["browse", "--testdata", "uproot-Event.root"])
     assert result.exit_code == 0, result.output
     assert len(opened) == 1
