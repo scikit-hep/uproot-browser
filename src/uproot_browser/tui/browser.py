@@ -48,7 +48,7 @@ from uproot_browser.tui.error import Error
 from uproot_browser.tui.header import Header
 from uproot_browser.tui.help import HelpScreen
 from uproot_browser.tui.image_plot import MPLPlot
-from uproot_browser.tui.jump import JumpScreen
+from uproot_browser.tui.jump import Candidate, JumpScreen
 from uproot_browser.tui.left_panel import UprootTree
 from uproot_browser.tui.plot import Plotext, PlotItem, dump_header
 from uproot_browser.tui.right_panel import RightPanel
@@ -153,7 +153,10 @@ class Browser(textual.app.App[None]):
     def action_jump(self) -> None:
         """Open the fuzzy finder to jump to a branch/field."""
         tree = self.query_one("#tree-view", UprootTree)
-        self.push_screen(JumpScreen(tree.jump_candidates()), self._on_jumped)
+        tree.request_jump_candidates(self._show_jump)
+
+    def _show_jump(self, candidates: list[Candidate]) -> None:
+        self.push_screen(JumpScreen(candidates), self._on_jumped)
 
     def _on_jumped(self, path: str | None) -> None:
         if path is None:

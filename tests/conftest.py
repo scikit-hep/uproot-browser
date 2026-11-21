@@ -13,6 +13,7 @@ from skhep_testdata import data_path
 from textual import _wait
 
 from uproot_browser.tui.browser import Browser
+from uproot_browser.tui.left_panel import UprootTree
 
 # Textual's pilot polls for an idle process in 20 ms steps after every key
 # press and pause. A finer step makes those waits as short as the real work.
@@ -68,6 +69,13 @@ async def wait_for_workers(pilot: textual.pilot.Pilot[object]) -> None:
                 await worker.wait()
     msg = "The app kept starting workers."
     raise TimeoutError(msg)
+
+
+async def wait_for_tree(pilot: textual.pilot.Pilot[object]) -> None:
+    """Wait for the first children of the tree, which load in a worker."""
+    await wait_for_workers(pilot)
+    tree = pilot.app.query_one("#tree-view", UprootTree)
+    assert tree.root.children or not tree.root_node.is_dir, "The tree did not load"
 
 
 async def _pause(

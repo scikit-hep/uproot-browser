@@ -136,11 +136,17 @@ class LazyRoot(Root, Folder):
         self.error = None
         return opened
 
+    @property
+    def root(self) -> Root:
+        # Opened as a directory (a remote URL can be one): not in a file
+        return self._opened.root if self._opened is not None else self
+
     def keys(self) -> list[str]:
         try:
             return self._folder().keys()
-        except Exception:  # noqa: BLE001
-            # Shown as a failed entry, from the error _folder recorded
+        except Exception as err:  # noqa: BLE001
+            # Shown as a failed entry
+            self.error = err
             return []
 
     def lookup(self, key: str) -> Node:

@@ -12,7 +12,7 @@ import textual.pilot
 import textual.widgets
 import textual_image.widget
 import uproot
-from conftest import wait_for_workers
+from conftest import wait_for_tree, wait_for_workers
 
 import uproot_browser.plot
 import uproot_browser.plot_mpl
@@ -101,6 +101,7 @@ async def test_browse_image_plot(monkeypatch: pytest.MonkeyPatch) -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root"), image=True
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         assert pilot.app.query("#right-panel #image-scale-select")
         await pilot.press("down", "down", "down", "enter")
         item = pilot.app.view_widget.item
@@ -148,6 +149,7 @@ async def test_image_size_matches_visible_area() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root"), image=True
     ).run_test(size=(120, 40)) as pilot:
+        await wait_for_tree(pilot)
         await _open_settled_plot(pilot)
 
         # the entry box docks inside the image window and makes the pane shorter
@@ -169,6 +171,7 @@ async def test_browse_image_empty() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-empty.root"), image=True
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         await pilot.press("down", "space", "down", "enter")
         await _settle(pilot)
         assert pilot.app.view_widget.item is None
@@ -180,6 +183,7 @@ async def test_image_expr(monkeypatch: pytest.MonkeyPatch) -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root"), image=True
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         pilot.app.query_one("#tree-view", UprootTree).select_path("//T/event/fNtrack")
         await pilot.pause()
         await _settle(pilot)
@@ -226,6 +230,7 @@ async def test_image_expression_failure_can_be_corrected() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root"), image=True
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         pilot.app.query_one("#tree-view", UprootTree).select_path("//T/event/fNtrack")
         await pilot.pause()
         await _settle(pilot)
