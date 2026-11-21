@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 import uproot
 from click.testing import CliRunner
-from conftest import wait_for_workers
+from conftest import wait_for_tree
 from skhep_testdata import data_path
 
 from uproot_browser.__main__ import get_testdata, main
@@ -165,7 +165,7 @@ def test_browse_opens_file_once(monkeypatch: pytest.MonkeyPatch) -> None:
 
     async def start(app: Browser) -> None:
         async with app.run_test() as pilot:
-            await wait_for_workers(pilot)
+            await wait_for_tree(pilot)
 
     monkeypatch.setattr(uproot, "open", counting_open)
 
