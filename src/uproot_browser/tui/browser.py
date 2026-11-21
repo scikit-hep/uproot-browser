@@ -156,8 +156,11 @@ class Browser(textual.app.App[None]):
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:  # noqa: ARG002
         if action == "toggle_entry_box":
-            # The entry box is in the plot window, which shows only with a plot
-            return isinstance(self.view_widget.item, PlotItem) or None
+            # The entry box is in the plot window, which shows only with a plot.
+            # The footer asks before the mount, and a read of the item then
+            # runs its watcher (Textual 5.0), which needs the children.
+            view = self.view_widget
+            return (view.is_mounted and isinstance(view.item, PlotItem)) or None
         return True
 
     def watch_show_left_panel(self, show: bool) -> None:  # noqa: FBT001
