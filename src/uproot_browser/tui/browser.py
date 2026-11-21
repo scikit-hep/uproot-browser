@@ -81,7 +81,8 @@ if TYPE_CHECKING:
 
 def _plot_name(item: PlotItem) -> str:
     x, y = item.selection.strip("/"), item.y_selection.strip("/")
-    return f"{y} vs {x}" if y else x
+    # The displayed root itself (file.root:key) has an empty selection
+    return f"{y} vs {x}" if y else x or item.root.path.strip("/") or item.root.name
 
 
 def _plot_label(item: PlotItem) -> str:
@@ -155,10 +156,8 @@ class Browser(textual.app.App[None]):
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:  # noqa: ARG002
         if action == "toggle_entry_box":
-            # The entry box is in the plot window, which shows only with a plot.
-            # Textual 0.86 runs the item watcher on a read before the mount.
-            view = self.view_widget
-            return (view.is_mounted and isinstance(view.item, PlotItem)) or None
+            # The entry box is in the plot window, which shows only with a plot
+            return isinstance(self.view_widget.item, PlotItem) or None
         return True
 
     def watch_show_left_panel(self, show: bool) -> None:  # noqa: FBT001

@@ -435,14 +435,16 @@ class UprootTree(textual.widgets.Tree[Node]):
         """The path a node has with the displayed root (maybe inside a file) as the top."""
         return f"/{node.path.removeprefix(self.root_node.path)}"
 
+    def _label(self, node: Node) -> str:
+        """The path below the root, or for the root itself its path in the file."""
+        return self._below_root(node).strip("/") or node.path.strip("/") or node.name
+
     def _select(self, node: Node) -> None:
         """Plot one item, which replaces a plotted pair but keeps a lone x mark."""
         # A failed node goes on, to show its traceback
         if not isinstance(node, FailedNode) and not _plottable(node):
             self.app.notify(
-                rich.markup.escape(
-                    f"{self._below_root(node).strip('/')} is not plottable"
-                ),
+                rich.markup.escape(f"{self._label(node)} is not plottable"),
                 severity="warning",
             )
             return

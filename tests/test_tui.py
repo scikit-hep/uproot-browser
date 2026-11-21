@@ -587,6 +587,27 @@ async def test_nonplottable_grayed_and_warns(tmp_path: pathlib.Path) -> None:
         assert notifications[-1].message == "s is not plottable"
 
 
+@pytest.mark.parametrize(
+    ("key", "message"),
+    [("s", "s is not plottable"), ("t/x", "t/x has no finite values to plot")],
+)
+async def test_direct_selection_notification_names_item(
+    tmp_path: pathlib.Path, key: str, message: str
+) -> None:
+    """A selected leaf is the displayed root, so its path below the root is empty."""
+    path = tmp_path / "example.root"
+    with uproot.recreate(path) as f:
+        f["s"] = "a string"
+        f["t"] = {"x": np.full(10, np.nan)}
+    async with Browser(f"{path}:{key}").run_test() as pilot:
+        await pilot.press("enter")
+        await settle_render(pilot)
+        await wait_until(pilot, lambda: bool(pilot.app._notifications))  # noqa: SLF001
+        (notification,) = pilot.app._notifications  # noqa: SLF001
+        assert notification.severity == "warning"
+        assert notification.message == message
+
+
 async def test_failed_node_shows_traceback(monkeypatch: pytest.MonkeyPatch) -> None:
     orig = uproot.reading.ReadOnlyDirectory.__getitem__
 
@@ -605,11 +626,7 @@ async def test_failed_node_shows_traceback(monkeypatch: pytest.MonkeyPatch) -> N
         await settle_render(pilot)
         await wait_until(pilot, lambda: isinstance(pilot.app.view_widget.item, Error))
         item = pilot.app.view_widget.item
-        assert isinstance(item, Error), (
-            getattr(item, "selection", None),
-            plot_text(pilot.app),
-            [n.message for n in pilot.app._notifications],  # noqa: SLF001
-        )
+        assert isinstance(item, Error)
         assert isinstance(item.exc, ValueError)
 
         # Dump & Quit names the key that produced the traceback
