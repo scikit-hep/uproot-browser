@@ -347,6 +347,14 @@ async def test_plot_first_branch(monkeypatch: pytest.MonkeyPatch) -> None:
         assert "\nitem = file['" in msg
         assert "import plotext as plt" in msg
         assert "uproot_browser" not in msg
+        lines = msg.strip().splitlines()
+        n_imports = lines.index("")
+        assert lines[:n_imports] == [
+            "import numpy as np",
+            "import plotext as plt",
+            "import uproot",
+        ]
+        assert not any(line.startswith("import ") for line in lines[n_imports:])
 
         # Dump & Quit prints the plot
         console = rich.console.Console(
@@ -1467,3 +1475,36 @@ async def test_tree_closes_the_root_it_opened(monkeypatch: pytest.MonkeyPatch) -
             assert pilot.app.query_one("#tree-view", UprootTree).root_node is root
         assert not closed
     assert len(closed) == 1
+
+
+def test_hoist_imports() -> None:
+    """Imports move to the top, sorted and once each, stdlib first."""
+    source = """\
+import uproot
+file = uproot.open('x.root')
+
+import numpy as np
+import functools
+from hist import Hist
+h = 1
+    import inner
+import numpy as np
+
+
+x = 2"""
+    assert (
+        uproot_browser.tui.plot.hoist_imports(source)
+        == """\
+import functools
+
+import numpy as np
+import uproot
+from hist import Hist
+
+file = uproot.open('x.root')
+
+h = 1
+    import inner
+
+x = 2"""
+    )

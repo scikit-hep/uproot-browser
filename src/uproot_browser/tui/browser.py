@@ -48,7 +48,7 @@ from uproot_browser.tui.image_plot import MPLPlot
 from uproot_browser.tui.jump import Candidate, JumpScreen
 from uproot_browser.tui.left_panel import UprootTree
 from uproot_browser.tui.messages import RenderFailed
-from uproot_browser.tui.plot import Plotext, PlotItem, dump_header
+from uproot_browser.tui.plot import Plotext, PlotItem, dump_header, hoist_imports
 from uproot_browser.tui.right_panel import RightPanel
 from uproot_browser.tui.splitter import Splitter
 from uproot_browser.tui.theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND
@@ -241,12 +241,13 @@ class Browser(textual.app.App[None]):
         if isinstance(item, (Error, PlotItem)):
             selection, y_selection = item.selection, item.y_selection
         header, file_var = dump_header(root, selection, y_selection)
-        msg = f"\n{header}"
-        if isinstance(item, Error):
-            return msg, [item]
-        if not isinstance(item, PlotItem):
-            return msg, []
-        return msg + item.dump_source(file_var=file_var), list(item.dump_renderables())
+        if isinstance(item, PlotItem):
+            source = header + item.dump_source(file_var=file_var)
+            renderables = list(item.dump_renderables())
+        else:
+            source = header
+            renderables = [item] if isinstance(item, Error) else []
+        return f"\n{hoist_imports(source)}", renderables
 
     def action_quit_with_dump(self) -> None:
         """Dump the current state of the application."""
