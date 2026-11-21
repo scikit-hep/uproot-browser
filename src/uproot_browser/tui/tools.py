@@ -2,51 +2,57 @@ from __future__ import annotations
 
 __lazy_modules__ = {
     "importlib.metadata",
+    "packaging.requirements",
+    "packaging.utils",
     "textual.app",
     "textual.widgets",
     "uproot_browser",
 }
 
 import importlib.metadata
-import re
+from typing import TYPE_CHECKING
 
+import packaging.requirements
+import packaging.utils
 import textual.app
 import textual.containers
 import textual.widgets
 
 from uproot_browser import __version__
 
-_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
-def _normalize(name: str) -> str:
-    return re.sub(r"[-_.]+", "-", name).lower()
-
-
-def dependencies(name: str = "uproot-browser") -> dict[str, str]:
+def dependencies(
+    name: str = "uproot-browser", extras: Iterable[str] | None = None
+) -> dict[str, str]:
     """
-    The installed dependencies of ``name`` and their versions, by name. This
-    has the installed extras of ``name``, but not the extras of its
-    dependencies.
+    The installed dependencies of ``name`` and their versions, by name.
+    ``extras`` are the extras of ``name`` to follow, all of them by default.
+    The extras of each requirement are followed, and markers are evaluated
+    for this environment.
     """
+    if extras is None:
+        extras = importlib.metadata.metadata(name).get_all("Provides-Extra") or []
+    todo = [(name, extra) for extra in ("", *extras)]
+    seen = set(todo)
     found: dict[str, str] = {}
-    todo = [(name, True)]
     while todo:
-        current, with_extras = todo.pop()
-        for req in importlib.metadata.requires(current) or []:
-            if not with_extras and "extra" in req.partition(";")[2]:
+        current, extra = todo.pop()
+        for text in importlib.metadata.requires(current) or []:
+            req = packaging.requirements.Requirement(text)
+            if req.marker is not None and not req.marker.evaluate({"extra": extra}):
                 continue
-            match = _NAME.match(req)
-            if match is None:
-                continue
-            dep = _normalize(match.group())
-            if dep in found:
-                continue
+            dep = packaging.utils.canonicalize_name(req.name)
             try:
                 found[dep] = importlib.metadata.version(dep)
             except importlib.metadata.PackageNotFoundError:
                 continue
-            todo.append((dep, False))
+            for visit in ((dep, dep_extra) for dep_extra in ("", *req.extras)):
+                if visit not in seen:
+                    seen.add(visit)
+                    todo.append(visit)
     return found
 
 

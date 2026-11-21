@@ -273,6 +273,20 @@ def test_info_dependencies() -> None:
     # uproot-browser has no pytest requirement, but the test environment has it
     assert "pytest" not in deps
     assert deps["textual"] == textual.__version__
+    # textual -> markdown-it-py[linkify] -> linkify-it-py
+    assert "linkify-it-py" in deps
+
+
+def test_info_dependencies_extras_and_markers(monkeypatch: pytest.MonkeyPatch) -> None:
+    graph = {
+        "root": ["a[x]", "b; python_version < '3'", "c; extra == 'opt'"],
+        "a": ["d; extra == 'x'", "e; extra == 'y'"],
+        "c": [],
+        "d": [],
+    }
+    monkeypatch.setattr("importlib.metadata.requires", lambda name: graph.get(name, []))
+    monkeypatch.setattr("importlib.metadata.version", lambda _name: "1.0")
+    assert sorted(dependencies("root", extras=["opt"])) == ["a", "c", "d"]
 
 
 async def test_help_screen() -> None:
@@ -380,6 +394,26 @@ async def test_axis_ranges_are_typed_in_right_panel() -> None:
         assert pilot.app.axis_limits == AxisLimits()
         assert pilot.app.query_one("#x-min", textual.widgets.Input).value == ""
         assert panel.status == ""
+
+
+async def test_axis_limit_typed_comma_is_rejected() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        await pilot.press("down", "down", "down", "enter")
+        panel = pilot.app.query_one(RightPanel)
+        x_max = pilot.app.query_one("#x-max", textual.widgets.Input)
+        x_max.value = "0.8"
+        x_max.focus()
+        await pilot.press("enter")
+        assert pilot.app.axis_limits.x == (None, 0.8)
+
+        x_max.value = ""
+        await pilot.press("1", "comma", "5", "enter")
+        assert x_max.value == "1,5"
+        assert x_max.has_class("-invalid")
+        assert panel.status == "Axis limits must be finite numbers."
+        assert pilot.app.axis_limits.x == (None, 0.8)
 
 
 async def test_axis_range_buttons() -> None:

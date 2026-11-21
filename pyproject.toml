@@ -42,6 +42,7 @@ dependencies = [
   'fsspec >=2023.1',
   'hist >=2.6',
   'numpy >=1.18',
+  'packaging >=22',
   'plotext >=5.2.8',
   'rich >=13.3.3',
   'textual >=5',

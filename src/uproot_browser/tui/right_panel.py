@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-__lazy_modules__ = {"textual.app", "typing", "uproot_browser.axis"}
+__lazy_modules__ = {
+    "textual.app",
+    "textual.validation",
+    "typing",
+    "uproot_browser.axis",
+}
 
 from typing import Any, ClassVar
 
@@ -8,6 +13,7 @@ import textual.app
 import textual.binding
 import textual.containers
 import textual.message
+import textual.validation
 import textual.widgets
 
 from uproot_browser.axis import AxisLimits
@@ -56,10 +62,11 @@ class RightPanel(textual.containers.Container):
                 with textual.containers.Horizontal(classes="axis-row"):
                     yield textual.widgets.Label(axis, classes="axis-label")
                     for end in ("min", "max"):
-                        # The number type rejects nan and inf too
+                        # Not type="number": it drops typed characters
+                        # such as the comma in "1,5", which gives 15
                         yield textual.widgets.Input(
                             placeholder=end,
-                            type="number",
+                            validators=[textual.validation.Number()],
                             valid_empty=True,
                             id=f"{axis.lower()}-{end}",
                         )
