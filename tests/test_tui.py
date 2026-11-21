@@ -685,7 +685,7 @@ async def test_left_panel_toggle() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
-        panel = pilot.app.query_one("#left-view")
+        panel = pilot.app.query_one("#left-panel")
         assert panel.display
         await pilot.press("b")
         assert not pilot.app.show_left_panel
@@ -799,10 +799,10 @@ async def test_count_prefix_display() -> None:
     ).run_test() as pilot:
         await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
-        tabs = pilot.app.query_one("#left-view", textual.widgets.TabbedContent)
+        tabs = pilot.app.query_one("#left-panel", textual.widgets.TabbedContent)
         status = pilot.app.query_one("#navigation-count", textual.widgets.Static)
         await expand_event(pilot)
-        views = [pilot.app.query_one(f"#{name}") for name in ("left-view", "plot-view")]
+        views = [pilot.app.query_one(f"#{name}") for name in ("left-panel", "plot-view")]
         before = [view.region for view in views]
         tree_height = tree.scrollable_content_region.height
         assert not status.display
@@ -973,7 +973,7 @@ async def test_splitter_drag_resizes_panels() -> None:
     ) as pilot:
         await wait_for_tree(pilot)
         await pilot.press("f")
-        left = pilot.app.query_one("#left-view")
+        left = pilot.app.query_one("#left-panel")
         right = pilot.app.query_one("#right-panel")
         view = pilot.app.query_one("#plot-view")
         left_width = left.region.width
