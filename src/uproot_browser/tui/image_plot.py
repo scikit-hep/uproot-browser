@@ -8,24 +8,15 @@ when the [image] extra is not installed.
 
 from __future__ import annotations
 
-__lazy_modules__ = {
-    "contextlib",
-    "uproot_browser.tui.messages",
-    "uproot_browser.tui.plot",
-    "uproot_browser.tui.theme",
-    "warnings",
-}
+__lazy_modules__ = {"contextlib", "uproot_browser.tui.theme"}
 
 import contextlib
 import dataclasses
-import warnings
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from uproot_browser.axis import NO_LIMITS, AxisLimits
 from uproot_browser.nodes import FILE_VAR
-from uproot_browser.plot import ExprCache
-from uproot_browser.tui.messages import RequestImage
-from uproot_browser.tui.plot import make_dump, resolve_item, run_posting_errors
+from uproot_browser.tui.plot import PlotItem, make_dump, resolve_item
 from uproot_browser.tui.theme import (
     DARK_BACKGROUND,
     DARK_TEXT,
@@ -37,8 +28,6 @@ if TYPE_CHECKING:
     import hist
     import PIL.Image
 
-    from uproot_browser.nodes import Node
-    from uproot_browser.tui.browser import Browser
     from uproot_browser.tui.viewer import ViewWidget
 
 
@@ -98,36 +87,52 @@ class _HistCache:
     hist: hist.Hist[Any] | None = None
 
 
-@dataclasses.dataclass
-class MPLPlot:
-    root: Node
-    selection: str
-    dark: bool
-    app: Browser
-    y_selection: str = ""
-    size: tuple[int, int] | None = None
+@dataclasses.dataclass(frozen=True)
+class MPLPlot(PlotItem):
+    """An image plot drawn with matplotlib, sized in pixels."""
+
+    window: ClassVar[str] = "image-window"
+
     scale: float = 1.0
-    expr: str = ""
-    axis_limits: AxisLimits = NO_LIMITS
     # theme/scale/expr/resize re-renders only redraw instead of re-reading data
-    built: _HistCache = dataclasses.field(default_factory=_HistCache)
-    cache: ExprCache = dataclasses.field(default_factory=ExprCache)
+    built: _HistCache = dataclasses.field(default_factory=_HistCache, compare=False)
 
     def display(self, view: ViewWidget) -> None:
-        view.current = "image-window"
-        self.request_render(view)
+        view.current = self.window
+        view.request_render()
 
-    def request_render(self, view: ViewWidget) -> None:
-        view.post_message(RequestImage())
+    def with_view_size(self, view: ViewWidget) -> MPLPlot:
+        size = view.image_pixel_size()
+        return self if size is None else self.with_size(size)
 
-    def with_theme(self, *, dark: bool) -> MPLPlot:
-        return dataclasses.replace(self, dark=dark)
+    def render(self) -> PIL.Image.Image:
+        import uproot_browser.plot
 
-    def with_expr(self, expr: str) -> MPLPlot:
-        return dataclasses.replace(self, expr=expr)
+        item = self.built.item
+        if item is None:
+            item = resolve_item(self.root, self.selection, self.y_selection)
+            self.built.item = item
+        histogram = self.built.hist
+        if histogram is None:
+            histogram = uproot_browser.plot.plottable_node(item).to_histogram()
+            self.built.hist = histogram
+        if self.expr:
+            # copy so an in-place expr cannot corrupt the cache
+            histogram = uproot_browser.plot.apply_expr(
+                histogram.copy(), self.expr, item, cache=self.cache
+            )
+        return make_image(
+            histogram,
+            title=uproot_browser.plot.make_hist_title(item, histogram),
+            dark=self.dark,
+            size=self.size,
+            scale=self.scale,
+            limits=self.axis_limits,
+        )
 
-    def with_axis_limits(self, limits: AxisLimits) -> MPLPlot:
-        return dataclasses.replace(self, axis_limits=limits)
+    def show(self, view: ViewWidget, result: Any) -> None:
+        assert view.image_widget is not None
+        view.image_widget.image = result
 
     def show_expression_error(self, view: ViewWidget) -> None:
         assert view.image_widget is not None
@@ -138,40 +143,3 @@ class MPLPlot:
         with contextlib.suppress(RuntimeError):
             return f"\n{make_dump(selected, expr=self.expr, limits=self.axis_limits, image=True, file_var=file_var)}"
         return ""
-
-    def dump_renderables(self) -> tuple[Any, ...]:
-        return ()
-
-    def make_image(self) -> PIL.Image.Image | None:
-        def build() -> PIL.Image.Image:
-            import uproot_browser.plot
-            import uproot_browser.plot_mpl
-
-            item = self.built.item
-            if item is None:
-                item = resolve_item(self.root, self.selection, self.y_selection)
-                self.built.item = item
-            histogram = self.built.hist
-            if histogram is None:
-                with (
-                    uproot_browser.plot_mpl.RENDER_LOCK,
-                    warnings.catch_warnings(),
-                ):
-                    warnings.simplefilter("ignore")
-                    histogram = uproot_browser.plot.plottable_node(item).to_histogram()
-                self.built.hist = histogram
-            if self.expr:
-                # copy so an in-place expr cannot corrupt the cache
-                histogram = uproot_browser.plot.apply_expr(
-                    histogram.copy(), self.expr, item, cache=self.cache
-                )
-            return make_image(
-                histogram,
-                title=uproot_browser.plot.make_hist_title(item, histogram),
-                dark=self.dark,
-                size=self.size,
-                scale=self.scale,
-                limits=self.axis_limits,
-            )
-
-        return run_posting_errors(self, build)

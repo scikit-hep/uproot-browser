@@ -3,7 +3,10 @@ import contextlib
 import pathlib
 import shutil
 import sys
+import threading
+import time
 from collections.abc import Iterator
+from typing import Any
 
 import pytest
 import textual.message_pump
@@ -12,6 +15,8 @@ import textual.worker
 from skhep_testdata import data_path
 from textual import _wait
 
+import uproot_browser.progress
+from uproot_browser.backends.uproot import UprootBranch
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.left_panel import UprootTree
 
@@ -131,3 +136,39 @@ def root_dir(tmp_path: pathlib.Path) -> pathlib.Path:
     (tmp_path / "notes.txt").write_text("not ROOT")
     (tmp_path / ".hidden.root").write_text("")
     return tmp_path
+
+
+class SlowRead:
+    """
+    Replaces ``UprootBranch.to_histogram``. The first call reads in many
+    steps, with a progress report at each step, and records if ``lock`` is
+    held as it starts.
+    """
+
+    STEPS = 1000
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch, lock: Any) -> None:
+        self.lock = lock
+        self.locked: bool | None = None
+        self.steps = 0
+        self.started = threading.Event()
+        self.stopped = threading.Event()
+        real = UprootBranch.to_histogram
+
+        def to_histogram(node: UprootBranch, **kwargs: Any) -> Any:
+            if not self.started.is_set():
+                self._read()
+            return real(node, **kwargs)
+
+        monkeypatch.setattr(UprootBranch, "to_histogram", to_histogram)
+
+    def _read(self) -> None:
+        self.locked = self.lock.locked()
+        self.started.set()
+        try:
+            for step in range(self.STEPS):
+                self.steps += 1
+                uproot_browser.progress.report(step / self.STEPS)
+                time.sleep(0.005)
+        finally:
+            self.stopped.set()

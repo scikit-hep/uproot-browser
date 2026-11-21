@@ -3,19 +3,20 @@ from __future__ import annotations
 __lazy_modules__ = {
     "textual.app",
     "textual.containers",
-    "textual.events",
     "textual.timer",
     "uproot_browser.tui.error",
     "uproot_browser.tui.logo",
+    "uproot_browser.tui.messages",
     "uproot_browser.tui.plot",
 }
 
 from typing import TYPE_CHECKING, Any, ClassVar
 
+import textual
 import textual.app
 import textual.binding
 import textual.containers
-import textual.events
+import textual.message
 import textual.reactive
 import textual.timer
 import textual.widgets
@@ -27,12 +28,8 @@ if TYPE_CHECKING:
 
 from uproot_browser.tui.error import Error
 from uproot_browser.tui.logo import LOGO_PANEL
+from uproot_browser.tui.messages import RequestRender
 from uproot_browser.tui.plot import PlotItem
-
-
-class PlotButton(textual.widgets.Button):
-    def on_button_pressed(self) -> None:
-        self.app.query_one("#plot-input", PlotInput).apply_expression()
 
 
 class PlotInput(textual.widgets.Input):
@@ -40,20 +37,16 @@ class PlotInput(textual.widgets.Input):
         textual.binding.Binding("escape", "app.toggle_entry_box", "Close", show=False),
     ]
 
-    def watch_value(self, value: str) -> None:
-        plot = self.app.query_one("#plot-view", ViewWidget)
-        if isinstance(plot.item, PlotItem):
-            self.set_class(value not in {"", plot.item.expr}, "-needs-update")
 
-    def on_input_submitted(self) -> None:
-        self.apply_expression()
+class PlotCanvas(textual.widgets.Static):
+    """The text plot. Its size can change without a resize of the view."""
 
-    def apply_expression(self) -> None:
-        plot = self.app.query_one("#plot-view", ViewWidget)
-        if isinstance(plot.item, PlotItem):
-            # assigning item triggers watch_item, which updates the plot
-            plot.item = plot.item.with_expr(self.value)
-            self.set_class(False, "-needs-update")  # noqa: FBT003
+    class Resized(textual.message.Message):
+        pass
+
+    def on_resize(self) -> None:
+        # A Resize event does not bubble
+        self.post_message(self.Resized())
 
 
 class ViewWidget(textual.widgets.ContentSwitcher):
@@ -61,7 +54,7 @@ class ViewWidget(textual.widgets.ContentSwitcher):
 
     def __init__(self, *, image: bool = False, **kargs: Any):
         self.error_widget = textual.widgets.Static("", id="error")
-        self.plot_widget = textual.widgets.Static("", id="plot")
+        self.plot_widget = PlotCanvas("", id="plot")
         self.plot_input = PlotInput(
             id="plot-input",
             placeholder="h[:] or tree['branch'].array()",
@@ -72,7 +65,7 @@ class ViewWidget(textual.widgets.ContentSwitcher):
         )
         # The entry box goes into whichever window the active mode uses
         self.input_container = textual.containers.Container(
-            PlotButton("Plot", id="plot-button"),
+            textual.widgets.Button("Plot", id="plot-button"),
             self.plot_input,
             id="plot-input-container",
         )
@@ -106,11 +99,6 @@ class ViewWidget(textual.widgets.ContentSwitcher):
 
         super().__init__(*children, initial="logo", **kargs)
 
-    def update_image(self, image: Any) -> None:
-        assert self.image_widget is not None
-        if image is not None:
-            self.image_widget.image = image
-
     def image_pixel_size(self) -> tuple[int, int] | None:
         """Content size of the image pane in terminal pixels, if known."""
         assert self._get_cell_size is not None
@@ -132,11 +120,27 @@ class ViewWidget(textual.widgets.ContentSwitcher):
         return (width * cell.width, height * cell.height)
 
     def request_render(self) -> None:
-        """Ask the current item to render at the size the view gives it now."""
+        """Ask the app to render the current item at the size the view gives it now."""
         if isinstance(self.item, PlotItem):
-            self.item.request_render(self)
+            self.post_message(RequestRender())
 
-    def on_resize(self, _event: textual.events.Resize) -> None:
+    @textual.on(textual.widgets.Button.Pressed, "#plot-button")
+    @textual.on(textual.widgets.Input.Submitted, "#plot-input")
+    def apply_expression(self) -> None:
+        """Plot the current item with the expression in the entry box."""
+        if isinstance(self.item, PlotItem):
+            # assigning item triggers watch_item, which updates the plot
+            self.item = self.item.with_expr(self.plot_input.value)
+            self.plot_input.set_class(False, "-needs-update")  # noqa: FBT003
+
+    @textual.on(textual.widgets.Input.Changed, "#plot-input")
+    def _expression_changed(self, event: textual.widgets.Input.Changed) -> None:
+        if isinstance(self.item, PlotItem):
+            needs_update = event.value not in {"", self.item.expr}
+            self.plot_input.set_class(needs_update, "-needs-update")
+
+    @textual.on(PlotCanvas.Resized)
+    def on_resize(self) -> None:
         # Debounce so a drag-resize only renders the settled size
         if self.resize_timer is not None:
             self.resize_timer.stop()

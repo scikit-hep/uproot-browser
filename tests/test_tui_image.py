@@ -1,3 +1,4 @@
+import asyncio
 import concurrent.futures
 
 import pytest
@@ -12,7 +13,7 @@ import textual.pilot
 import textual.widgets
 import textual_image.widget
 import uproot
-from conftest import wait_for_tree, wait_for_workers
+from conftest import SlowRead, wait_for_tree, wait_for_workers
 
 import uproot_browser.plot
 import uproot_browser.plot_mpl
@@ -21,7 +22,7 @@ from uproot_browser.backends.uproot import wrap
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.image_plot import MPLPlot, make_image
 from uproot_browser.tui.left_panel import UprootTree
-from uproot_browser.tui.messages import RequestImage
+from uproot_browser.tui.messages import RequestRender
 
 
 def test_make_image_object_branch() -> None:
@@ -84,7 +85,7 @@ async def _apply_expression(pilot: textual.pilot.Pilot[object], expr: str) -> No
     view.input_container.add_class("-show-container")
     await pilot.pause()
     view.plot_input.value = expr
-    view.plot_input.apply_expression()
+    view.apply_expression()
     await _settle(pilot)
 
 
@@ -114,6 +115,8 @@ async def test_browse_image_plot(monkeypatch: pytest.MonkeyPatch) -> None:
         assert image_widget.image is not None
 
         # the figure is built at the widget's pixel size, so the aspect is right
+        item = pilot.app.view_widget.item
+        assert isinstance(item, MPLPlot)
         assert item.size is not None
         assert (image_widget.image.width, image_widget.image.height) == item.size
 
@@ -155,7 +158,7 @@ async def test_image_size_matches_visible_area() -> None:
         # the entry box docks inside the image window and makes the pane shorter
         pilot.app.show_entry_box = True
         await pilot.pause()
-        pilot.app.view_widget.post_message(RequestImage())
+        pilot.app.view_widget.post_message(RequestRender())
         await _settle(pilot)
 
         item = pilot.app.view_widget.item
@@ -194,7 +197,7 @@ async def test_image_expr(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(type(view.item.built.item), "to_histogram", _fail_build)
 
         view.plot_input.value = "h[::2j]"
-        view.plot_input.apply_expression()
+        view.apply_expression()
         await pilot.pause()
         item = view.item
         assert isinstance(item, MPLPlot)
@@ -218,7 +221,7 @@ async def test_image_expr(monkeypatch: pytest.MonkeyPatch) -> None:
 
         expr = 'tree["fTracks.fPx"].array()[tree["fTracks.fPy"].array() < 0]'
         view.plot_input.value = expr
-        view.plot_input.apply_expression()
+        view.apply_expression()
         await _settle(pilot)
         item = view.item
         assert isinstance(item, MPLPlot)
@@ -245,12 +248,32 @@ async def test_image_expression_failure_can_be_corrected() -> None:
             assert view.image_widget.image is None
 
         view.plot_input.value = 'tree["fNtrack"].array()[tree["fNtrack"].array() > 0]'
-        view.plot_input.apply_expression()
+        view.apply_expression()
         await _settle(pilot)
         assert isinstance(view.item, MPLPlot)
         assert view.item.expr == view.plot_input.value
         assert not view.plot_input.has_class("-needs-update")
         assert view.image_widget.image is not None
+
+
+async def test_superseded_image_render_stops_reading(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A new render cancels the read of the old one, which holds no lock."""
+    read = SlowRead(monkeypatch, uproot_browser.plot_mpl.RENDER_LOCK)
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root"), image=True
+    ).run_test() as pilot:
+        pilot.app.query_one("#tree-view", UprootTree).select_path("/T/event/fNtrack")
+        assert await asyncio.to_thread(read.started.wait, 5)
+        pilot.app.theme = "textual-light"
+        await _settle(pilot)
+        assert isinstance(pilot.app.view_widget.item, MPLPlot)
+        assert pilot.app.view_widget.image_widget is not None
+        assert pilot.app.view_widget.image_widget.image is not None
+        assert read.stopped.wait(5)
+    assert read.locked is False
+    assert read.steps < read.STEPS
 
 
 def test_render_image_is_thread_safe() -> None:
