@@ -24,9 +24,12 @@ from conftest import (
     wait_until,
 )
 
+import uproot_browser.backends
+import uproot_browser.backends.uproot
 import uproot_browser.plot
 import uproot_browser.plotext_compat
 import uproot_browser.progress
+import uproot_browser.tui.left_panel
 import uproot_browser.tui.plot
 import uproot_browser.tui.status
 from uproot_browser.axis import AxisLimits
@@ -618,6 +621,7 @@ async def test_direct_selection_notification_names_item(
         f["s"] = "a string"
         f["t"] = {"x": np.full(10, np.nan)}
     async with Browser(f"{path}:{key}").run_test() as pilot:
+        await wait_for_tree(pilot)
         await pilot.press("enter")
         await settle_render(pilot)
         await wait_until(pilot, lambda: bool(pilot.app._notifications))  # noqa: SLF001
@@ -1245,6 +1249,7 @@ async def test_render_error_shows_after_same_item_is_selected_again(
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
         tree.post_message(UprootSelected(tree.root_node, LEAF_PATH))
         await wait_until(pilot, started.is_set, delay=0.01)
@@ -1291,6 +1296,7 @@ async def test_cancelled_render_error_is_ignored_after_reselect(
     async with Browser(skhep_testdata.data_path("uproot-Event.root")).run_test(
         size=(160, 40)
     ) as pilot:
+        await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
         tree.post_message(UprootSelected(tree.root_node, LEAF_PATH))
         await wait_until(pilot, started.is_set, delay=0.01)
@@ -1360,3 +1366,98 @@ async def test_status_bar_task(monkeypatch: pytest.MonkeyPatch) -> None:
             thread.join()
         await wait_until(pilot, lambda: not status.display, delay=0.01)
         assert not status.display
+
+
+async def test_local_key_to_leaf_opens_in_tree() -> None:
+    path = skhep_testdata.data_path("uproot-Event.root")
+    async with Browser(f"{path}:{LEAF_PATH}").run_test() as pilot:
+        await wait_for_tree(pilot)
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        assert isinstance(tree.root_node, UprootBranch)
+        assert tree.root.data is tree.root_node
+        await pilot.press("enter")
+        await settle_render(pilot)
+        item = current_plot(pilot.app)
+        assert_canvas(pilot.app, item)
+        assert "item = file['T/event/fFlag']" in pilot.app.dump_source()[0]
+
+
+async def test_missing_local_file_shows_failed_root(tmp_path: pathlib.Path) -> None:
+    path = tmp_path / "missing.root"
+    async with Browser(str(path)).run_test() as pilot:
+        await wait_for_workers(pilot)
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        assert tree.root_node is None
+        label = label_text(tree, tree.root)
+        assert label.startswith("‼️ ")
+        assert label.endswith("missing.root (FileNotFoundError)")
+        (notification,) = pilot.app._notifications  # noqa: SLF001
+        assert notification.severity == "error"
+        await pilot.press("/", "enter", "m")
+        await wait_for_workers(pilot)
+        assert pilot.app.is_running
+        assert not isinstance(pilot.app.screen, JumpScreen)
+
+        # The next expand tries again
+        shutil.copy(skhep_testdata.data_path("uproot-Event.root"), path)
+        tree.root.collapse()
+        tree.root.expand()
+        await wait_for_tree(pilot)
+        assert tree.root_node is not None
+        assert "/T" in [c.data.path for c in tree.root.children if c.data]
+
+
+async def test_slow_open_does_not_block(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The app paints and takes keys while the file opens."""
+    release = threading.Event()
+    real = uproot_browser.tui.left_panel.open_path
+
+    def slow_open(spec: str) -> Any:
+        assert release.wait(WAIT_TIMEOUT)
+        return real(spec)
+
+    monkeypatch.setattr(uproot_browser.tui.left_panel, "open_path", slow_open)
+    path = skhep_testdata.data_path("uproot-Event.root")
+    async with Browser(path).run_test() as pilot:
+        try:
+            tree = pilot.app.query_one("#tree-view", UprootTree)
+            await wait_until(pilot, lambda: tree.region.height > 0)
+            assert tree.root_node is None
+            assert "uproot-Event.root" in label_text(tree, tree.root)
+            await pilot.press("/", "enter", "m", "space")
+            assert not isinstance(pilot.app.screen, JumpScreen)
+            assert pilot.app.view_widget.item is None
+            msg, items = pilot.app.dump_source()
+            assert not items
+            assert "uproot.open" not in msg
+        finally:
+            release.set()
+        await wait_for_tree(pilot)
+        assert tree.root_node is not None
+        assert "/T" in [c.data.path for c in tree.root.children if c.data]
+        await jump_to(pilot, LEAF_PATH)
+        await settle_render(pilot)
+        assert current_plot(pilot.app).selection == LEAF_PATH
+
+
+async def test_tree_closes_the_root_it_opened(monkeypatch: pytest.MonkeyPatch) -> None:
+    closed: list[object] = []
+    real = uproot_browser.backends.uproot.UprootFile.close
+
+    def close(self: uproot_browser.backends.uproot.UprootFile) -> None:
+        closed.append(self)
+        real(self)
+
+    monkeypatch.setattr(uproot_browser.backends.uproot.UprootFile, "close", close)
+    path = skhep_testdata.data_path("uproot-Event.root")
+    async with Browser(f"{path}:T").run_test() as pilot:
+        await wait_for_tree(pilot)
+    assert len(closed) == 1
+
+    closed.clear()
+    with uproot_browser.backends.open_path(path) as root:
+        async with Browser(path, root=root).run_test() as pilot:
+            await wait_for_tree(pilot)
+            assert pilot.app.query_one("#tree-view", UprootTree).root_node is root
+        assert not closed
+    assert len(closed) == 1

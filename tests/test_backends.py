@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 import fsspec
 import numpy as np
 import pytest
+import rich.style
 import textual.widgets.tree
 import uproot
 from click.testing import CliRunner
@@ -602,12 +603,16 @@ def test_read_limits_steps(monkeypatch: pytest.MonkeyPatch) -> None:
         assert array.tolist() == node.read().tolist()
 
 
+def root_label(tree: UprootTree) -> str:
+    style = rich.style.Style()
+    return tree.render_label(tree.root, style, style).plain
+
+
 async def test_remote_file_opens_in_worker(memory_dir: str) -> None:
     async with Browser(f"{memory_dir}/a.root").run_test() as pilot:
+        await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
-        assert isinstance(tree.root_node, LazyRoot)
-        await wait_for_workers(pilot)
-        assert tree.root_node.is_loaded
+        assert isinstance(tree.root_node, uproot_browser.backends.uproot.UprootFile)
         assert "/hpx" in [c.data.path for c in tree.root.children if c.data]
 
 
@@ -616,7 +621,7 @@ async def test_remote_directory_opens_in_worker(memory_dir: str) -> None:
     async with Browser(memory_dir).run_test() as pilot:
         await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
-        assert isinstance(tree.root_node, LazyRoot)
+        assert isinstance(tree.root_node, Directory)
         assert [c.data.path for c in tree.root.children if c.data] == [
             "/a.root",
             "/sub",
@@ -631,8 +636,39 @@ async def test_remote_open_failure_notifies() -> None:
     async with Browser("memory://ub-no-such-dir/a.root").run_test() as pilot:
         await wait_for_workers(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
-        assert tree.root_node.meta()["label_icon"] == "‼️ "
+        assert root_label(tree).startswith("‼️ ")
         assert pilot.app._notifications  # noqa: SLF001
+
+
+@pytest.fixture
+def memory_event() -> Iterator[str]:
+    fs = fsspec.filesystem("memory")
+    fs.pipe(
+        "/ub-event/a.root", pathlib.Path(data_path("uproot-Event.root")).read_bytes()
+    )
+    yield "memory://ub-event/a.root"
+    fs.rm("/ub-event", recursive=True)
+
+
+@pytest.mark.parametrize(
+    ("key", "cls"),
+    [
+        ("hstat", uproot_browser.backends.uproot.UprootHistogram),
+        ("T/event/fFlag", uproot_browser.backends.uproot.UprootBranch),
+    ],
+)
+async def test_remote_key_to_leaf(memory_event: str, key: str, cls: type) -> None:
+    """A URL with a key to a histogram or a branch shows and plots it."""
+    async with Browser(f"{memory_event}:{key}").run_test() as pilot:
+        await wait_for_tree(pilot)
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        assert isinstance(tree.root_node, cls)
+        assert tree.root.data is tree.root_node
+        assert tree.root_node.meta()["label_icon"] != "‼️ "
+        assert not pilot.app._notifications  # noqa: SLF001
+        await pilot.press("enter")
+        await wait_for_workers(pilot)
+        assert isinstance(pilot.app.view_widget.item, Plotext)
 
 
 @pytest.fixture
@@ -664,7 +700,7 @@ async def test_failed_remote_listing_retries(
         await wait_for_workers(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
         assert not tree.root.children
-        assert tree.root_node.meta()["label_icon"] == "‼️ "
+        assert root_label(tree).startswith("‼️ ")
         tree.root.collapse()
         tree.root.expand()
         await wait_for_workers(pilot)

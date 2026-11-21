@@ -232,6 +232,9 @@ class Browser(textual.app.App[None]):
 
         item = self.view_widget.item
         root = self.query_one("#tree-view", UprootTree).root_node
+        if root is None:
+            # The file is not open yet
+            return "", []
         selection, y_selection = "", ""
         if isinstance(item, (Error, PlotItem)):
             selection, y_selection = item.selection, item.y_selection

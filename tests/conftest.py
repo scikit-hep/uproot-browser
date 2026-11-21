@@ -102,9 +102,10 @@ async def wait_for_workers(pilot: textual.pilot.Pilot[object]) -> None:
 
 
 async def wait_for_tree(pilot: textual.pilot.Pilot[object]) -> None:
-    """Wait for the first children of the tree, which load in a worker."""
+    """Wait for the root open and the first children, which load in a worker."""
     await wait_for_workers(pilot)
     tree = pilot.app.query_one("#tree-view", UprootTree)
+    assert tree.root_node is not None, "The root did not open"
     assert tree.root.children or not tree.root_node.is_dir, "The tree did not load"
 
 

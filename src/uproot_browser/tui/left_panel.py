@@ -17,6 +17,7 @@ __lazy_modules__ = {
 }
 
 import contextlib
+import dataclasses
 import functools
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -33,7 +34,14 @@ from textual.reactive import var
 
 from uproot_browser.backends import open_path
 from uproot_browser.backends.directory import LazyRoot
-from uproot_browser.nodes import Column, FailedNode, Node, Plottable
+from uproot_browser.nodes import (
+    Column,
+    FailedNode,
+    MetaDict,
+    Node,
+    Plottable,
+    failed_meta,
+)
 from uproot_browser.tui.jump import Candidate
 from uproot_browser.tui.messages import UprootSelected
 from uproot_browser.tui.status import StatusBar
@@ -67,6 +75,33 @@ def _is_below(target: str, path: str) -> bool:
     return target.startswith(path if path == "/" else f"{path}/")
 
 
+def _close_tree(node: Node) -> None:
+    """Close the top of the tree of ``node``, which owns the files."""
+    while node.parent is not None:
+        node = node.parent
+    node.close()
+
+
+@dataclasses.dataclass(eq=False)
+class PendingRoot(Node):
+    """The root of the tree before its spec opens in a load worker."""
+
+    @property
+    def name(self) -> str:
+        return str(self.item)
+
+    @property
+    def is_dir(self) -> bool:
+        return True
+
+    @property
+    def is_loaded(self) -> bool:
+        return False
+
+    def meta(self) -> MetaDict:
+        return MetaDict(label_icon="⏳ ", label_text=rich.text.Text(self.name))
+
+
 def make_candidate(node: Node) -> Candidate:
     return Candidate(
         path=node.path,
@@ -92,14 +127,16 @@ class UprootTree(textual.widgets.Tree[Node]):
     """Pending vim-style count prefix."""
 
     def __init__(self, path: str, *, root: Node | None = None, **args: Any) -> None:
-        """``root`` is ``path`` opened by the caller, which then closes it."""
-        # A remote URL opens in a load worker, with the app on screen; with a
-        # "/" it is a directory, which opens without I/O
-        remote = "://" in path and not path.endswith("/")
-        if root is not None:
-            self.root_node = root
-        else:
-            self.root_node = LazyRoot(path) if remote else open_path(path)
+        """
+        ``root`` is ``path`` opened by the caller, which then closes it.
+        Without it, ``path`` opens in a load worker and the tree closes it.
+        """
+        self.root_node: Node | None = root
+        """The opened root; None until the open completes."""
+        self._owns_root = root is None
+        self._unmounted = False
+        self._errors: dict[int, Exception] = {}
+        """The failed loads, by tree node id; the next expand tries again."""
         self._candidates: dict[str, list[Candidate]] = {}
         self._loading: set[int] = set()
         """The ids of the tree nodes with a load in progress."""
@@ -108,9 +145,8 @@ class UprootTree(textual.widgets.Tree[Node]):
         self._jump_requested = False
         self._pending_jump = ""
         """The target of a jump that waits for a load on its way."""
-        super().__init__(
-            name=path, data=self.root_node, label=self.root_node.name, **args
-        )
+        data = PendingRoot(path) if root is None else root
+        super().__init__(name=path, data=data, label=data.name, **args)
         self.marks: list[textual.widgets.tree.TreeNode[Node]] = []
         """The x (and y, once plotted) branches of a 2D plot."""
 
@@ -120,13 +156,15 @@ class UprootTree(textual.widgets.Tree[Node]):
         entered after they are opened, so a jump does not open every file.
         This can read whole files: call it off the UI thread.
         """
+        if self.root_node is None:
+            return []
         return list(self._candidates_below(self.root_node))
 
     def request_jump_candidates(
         self, callback: Callable[[list[Candidate]], None]
     ) -> None:
         """Build the jump targets in a worker, then give them to ``callback``."""
-        if not self._jump_requested:
+        if self.root_node is not None and not self._jump_requested:
             self._jump_requested = True
             self._candidates_in_thread(callback)
 
@@ -286,7 +324,12 @@ class UprootTree(textual.widgets.Tree[Node]):
         style: Style,  # ,
     ) -> rich.text.Text:
         assert node.data
-        meta = node.data.meta()
+        error = self._errors.get(node.id)
+        meta = (
+            node.data.meta()
+            if error is None
+            else failed_meta(node.data.name, "", error)
+        )
         label_icon = rich.text.Text(meta["label_icon"])
         label_icon.stylize(base_style)
 
@@ -300,8 +343,24 @@ class UprootTree(textual.widgets.Tree[Node]):
         return label
 
     def on_mount(self) -> None:
-        # The expand event loads the children in a worker
+        # The expand event opens the root and loads the children in a worker
         self.root.expand()
+
+    def on_unmount(self) -> None:
+        self._unmounted = True
+        if self._owns_root and self.root_node is not None:
+            _close_tree(self.root_node)
+
+    def _set_root(self, opened: Node | None) -> None:
+        """Show the root opened by a load worker in place of the placeholder."""
+        if opened is None:
+            return
+        if self._unmounted:
+            _close_tree(opened)
+            return
+        self.root_node = opened
+        self.root.data = opened
+        self.root.set_label(opened.name)
 
     def _needs_load(self, node: textual.widgets.tree.TreeNode[Node]) -> bool:
         """Must ``node`` read its children? A failed load tries again."""
@@ -309,9 +368,14 @@ class UprootTree(textual.widgets.Tree[Node]):
         return node.data.is_dir and node.id not in self._filled
 
     def _fill_node(
-        self, node: textual.widgets.tree.TreeNode[Node], children: list[Node]
+        self,
+        node: textual.widgets.tree.TreeNode[Node],
+        children: list[Node],
+        opened: Node | None = None,
     ) -> None:
+        self._set_root(opened)
         self._loading.discard(node.id)
+        self._errors.pop(node.id, None)
         assert node.data
         # A file gives no children if its open or listing failed
         error = node.data.error if isinstance(node.data, LazyRoot) else None
@@ -345,27 +409,43 @@ class UprootTree(textual.widgets.Tree[Node]):
         return target
 
     def _load_failed(
-        self, node: textual.widgets.tree.TreeNode[Node], err: Exception
+        self,
+        node: textual.widgets.tree.TreeNode[Node],
+        err: Exception,
+        opened: Node | None = None,
     ) -> None:
+        self._set_root(opened)
         assert node.data
         self._loading.discard(node.id)
+        self._errors[node.id] = err
+        node.refresh()
         self._take_jump(node)
         self.app.notify(f"{node.data.name}: {err}", severity="error")
 
     @textual.work(thread=True, group="load")
     def _load_in_thread(self, node: textual.widgets.tree.TreeNode[Node]) -> None:
-        """Read the children (a listing, a file open, the objects) off the UI thread."""
-        assert node.data
+        """
+        Read the children (a listing, a file open, the objects) off the UI
+        thread. The placeholder root first opens its spec.
+        """
+        data = node.data
+        assert data
+        opened: Node | None = None
         try:
-            with self.app.query_one(StatusBar).running(f"Loading {node.data.name}"):
-                children = node.data.children
+            with self.app.query_one(StatusBar).running(f"Loading {data.name}"):
+                if isinstance(data, PendingRoot):
+                    opened = data = open_path(data.name)
+                children = data.children
         except Exception as err:  # noqa: BLE001
-            call: Any = functools.partial(self._load_failed, node, err)
+            call: Any = functools.partial(self._load_failed, node, err, opened)
         else:
-            call = functools.partial(self._fill_node, node, children)
-        # The app can exit while the load runs
-        with contextlib.suppress(RuntimeError):
+            call = functools.partial(self._fill_node, node, children, opened)
+        try:
             self.app.call_from_thread(call)
+        except RuntimeError:
+            # The app exited while the load ran
+            if opened is not None:
+                _close_tree(opened)
 
     def on_tree_node_selected(
         self, event: textual.widgets.Tree.NodeSelected[Node]
@@ -432,6 +512,7 @@ class UprootTree(textual.widgets.Tree[Node]):
             x_node, y_node = nodes
             assert x_node.data
             assert y_node.data
+            assert self.root_node
             self.post_message(
                 UprootSelected(
                     self.root_node,
@@ -442,6 +523,7 @@ class UprootTree(textual.widgets.Tree[Node]):
 
     def _below_root(self, node: Node) -> str:
         """The path a node has with the displayed root (maybe inside a file) as the top."""
+        assert self.root_node
         if self.root_node.parent is None:
             return node.path
         return node.path.removeprefix(self.root_node.path) or "/"
@@ -465,6 +547,7 @@ class UprootTree(textual.widgets.Tree[Node]):
             return
         if len(self.marks) == 2:
             self._set_marks()
+        assert self.root_node
         self.post_message(UprootSelected(self.root_node, self._below_root(node)))
 
     def action_cursor_in(self) -> None:
