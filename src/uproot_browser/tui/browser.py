@@ -139,12 +139,12 @@ class Browser(textual.app.App[None]):
         yield textual.widgets.Header()
         with textual.containers.Horizontal():
             # left_panel
-            with textual.widgets.TabbedContent(id="left-view"):
+            with textual.widgets.TabbedContent(id="left-panel"):
                 with textual.widgets.TabPane("Tree", id="tree-tab"):
                     yield UprootTree(self.path, root=self._root_node, id="tree-view")
                 with textual.widgets.TabPane("Info"):
                     yield textual.lazy.Lazy(Info())
-            yield Splitter("#left-view", grow_left=True, id="left-splitter")
+            yield Splitter("#left-panel", grow_left=True, id="left-splitter")
             # main_panel
             yield self.view_widget
             yield Splitter("#right-panel", grow_left=False, id="right-splitter")
@@ -196,7 +196,7 @@ class Browser(textual.app.App[None]):
     def _on_jumped(self, path: str | None) -> None:
         if path is None:
             return
-        self.query_one("#left-view", textual.widgets.TabbedContent).active = "tree-tab"
+        self.query_one("#left-panel", textual.widgets.TabbedContent).active = "tree-tab"
         self.query_one("#tree-view", UprootTree).select_path(path)
 
     def action_toggle_left_panel(self) -> None:

@@ -19,6 +19,7 @@ import textual.containers
 import textual.message
 import textual.reactive
 import textual.timer
+import textual.widget
 import textual.widgets
 
 if TYPE_CHECKING:
@@ -38,15 +39,19 @@ class PlotInput(textual.widgets.Input):
     ]
 
 
-class PlotCanvas(textual.widgets.Static):
-    """The text plot. Its size can change without a resize of the view."""
+class PlotResized(textual.message.Message):
+    """The plot pane changed size. This can occur without a resize of the view."""
 
-    class Resized(textual.message.Message):
-        pass
+
+class ResizeNotifier(textual.widget.Widget):
+    """Base for a plot widget. Posts `PlotResized`, as a Resize event does not bubble."""
 
     def on_resize(self) -> None:
-        # A Resize event does not bubble
-        self.post_message(self.Resized())
+        self.post_message(PlotResized())
+
+
+class PlotCanvas(ResizeNotifier, textual.widgets.Static):
+    """The text plot."""
 
 
 class ViewWidget(textual.widgets.ContentSwitcher):
@@ -89,8 +94,17 @@ class ViewWidget(textual.widgets.ContentSwitcher):
             # matplotlib stack is only present with the [image] extra.
             import textual_image.widget  # noqa: PLC0415
 
+            image_base = textual_image.widget.Image
+
+            class PlotImage(
+                ResizeNotifier,
+                image_base,  # type: ignore[valid-type,misc]
+                Renderable=image_base._Renderable,  # noqa: SLF001
+            ):
+                pass
+
             self._get_cell_size = textual_image.widget.get_cell_size
-            self.image_widget = textual_image.widget.Image(id="image-view")
+            self.image_widget = PlotImage(id="image-view")
             children.append(
                 textual.containers.Container(
                     self.input_container, self.image_widget, id="image-window"
@@ -139,7 +153,7 @@ class ViewWidget(textual.widgets.ContentSwitcher):
             needs_update = event.value not in {"", self.item.expr}
             self.plot_input.set_class(needs_update, "-needs-update")
 
-    @textual.on(PlotCanvas.Resized)
+    @textual.on(PlotResized)
     def on_resize(self) -> None:
         # Debounce so a drag-resize only renders the settled size
         if self.resize_timer is not None:

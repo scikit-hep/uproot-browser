@@ -5,7 +5,7 @@ import shutil
 import sys
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import Any
 
 import pytest
@@ -56,6 +56,31 @@ async def settle(pilot: textual.pilot.Pilot[object], *, hops: int = 50) -> None:
             if _drained(pilot):
                 return
         await pilot._wait_for_screen()  # noqa: SLF001
+
+
+# Generous for slow CI runners
+WAIT_TIMEOUT = 30
+
+
+async def wait_until(
+    pilot: textual.pilot.Pilot[object],
+    predicate: Callable[[], bool],
+    *,
+    delay: float | None = None,
+) -> None:
+    """Pump the event loop until predicate holds, or fail after ``WAIT_TIMEOUT`` s.
+
+    Lazy-mounted widgets can take a variable number of message cycles to settle,
+    especially on slower CI runners, so poll instead of guessing a pause count.
+    Give a `delay` to wait for something on a timer, which needs real time.
+    """
+    try:
+        async with asyncio.timeout(WAIT_TIMEOUT):
+            while not predicate():
+                await pilot.pause(delay)
+    except TimeoutError:
+        msg = f"The condition was not true after {WAIT_TIMEOUT} s"
+        raise AssertionError(msg) from None
 
 
 async def wait_for_workers(pilot: textual.pilot.Pilot[object]) -> None:
