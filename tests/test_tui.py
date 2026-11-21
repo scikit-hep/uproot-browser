@@ -379,7 +379,7 @@ async def test_axis_ranges_are_typed_in_right_panel() -> None:
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
         await wait_for_tree(pilot)
-        await pilot.press("down", "down", "down", "enter")
+        await settled_plot(pilot)
         panel = pilot.app.query_one(RightPanel)
         assert pilot.app.query_one("#y-min", textual.widgets.Input).display
         assert pilot.app.query_one("#y-max", textual.widgets.Input).display
@@ -427,7 +427,8 @@ async def test_axis_limit_typed_comma_is_rejected() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
-        await pilot.press("down", "down", "down", "enter")
+        await wait_for_tree(pilot)
+        await settled_plot(pilot)
         panel = pilot.app.query_one(RightPanel)
         x_max = pilot.app.query_one("#x-max", textual.widgets.Input)
         x_max.value = "0.8"
@@ -447,7 +448,8 @@ async def test_axis_range_buttons() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
-        await pilot.press("down", "down", "down", "enter")
+        await wait_for_tree(pilot)
+        await settled_plot(pilot)
         panel = pilot.app.query_one(RightPanel)
         x_min = pilot.app.query_one("#x-min", textual.widgets.Input)
         x_min.value = "0.3"
