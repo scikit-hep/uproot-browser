@@ -150,10 +150,12 @@ def select_key(root: Node, key: str) -> Node:
     return node
 
 
-# The part of a URL before its path: scheme, host and port, and a Windows drive
+# The part of a URL before its path: scheme, userinfo, host and port, and a
+# Windows drive
 _URL_START = re.compile(
     r"""
     .*?://                     # scheme, can follow an fsspec chain like "a::"
+    (?:[^/?@]*@)?              # userinfo, like "user:pass@"
     (?:\[[^\]]*\]|[^:/?]*)     # host, or an IPv6 address
     (?::\d+(?=[/?]|$))?        # port
     (?:/[A-Za-z]:(?=/))?       # drive, as in file:///C:/
