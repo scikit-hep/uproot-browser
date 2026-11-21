@@ -243,7 +243,7 @@ class UprootTree(textual.widgets.Tree[Node]):
         elif event.key not in COUNT_MOTIONS and not event.key.endswith(MODIFIERS):
             self.count = ""
 
-    async def _on_click(self, event: textual.events.Click) -> None:
+    async def on_click(self, event: textual.events.Click) -> None:
         """Shift+click plots the branch at the cursor (x) against the clicked one (y)."""
         meta = event.style.meta
         if not event.shift or "line" not in meta or meta.get("toggle", False):
