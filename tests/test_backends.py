@@ -149,11 +149,11 @@ def test_remote_directory(memory_dir: str) -> None:
 
         hpx = directory.resolve("sub/b.root/hpx")
         assert hpx.name == "hpx"
-        assert hpx.path == "//sub/b.root/hpx"
+        assert hpx.path == "/sub/b.root/hpx"
         assert hpx.root.open_source("f") == (
-            f'import uproot\nf = uproot.open("{memory_dir}/sub/b.root")'
+            f"import uproot\nf = uproot.open('{memory_dir}/sub/b.root')"
         )
-        assert hpx.bind_source() == f'item = {FILE_VAR}["hpx"]'
+        assert hpx.bind_source() == f"item = {FILE_VAR}['hpx']"
         assert directory.resolve("a.root").meta()["label_text"].plain == "a.root"
 
 
@@ -186,15 +186,23 @@ async def test_tree_loads_off_ui_thread(
         await wait_for_workers(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
         assert [c.data.path for c in tree.root.children if c.data] == [
-            "//a.root",
-            "//sub",
+            "/a.root",
+            "/sub",
         ]
         tree.root.children[0].expand()
         await wait_for_workers(pilot)
         paths = [c.data.path for c in tree.root.children[0].children if c.data]
-        assert "//a.root/hpx" in paths
+        assert "/a.root/hpx" in paths
         assert len(threads) >= 2
         assert threading.main_thread() not in threads
+
+
+async def test_pending_jump_below_the_top(memory_dir: str) -> None:
+    """A jump that waits for the top listing (path ``/``) continues after it."""
+    async with Browser(memory_dir).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        tree._pending_jump = "/a.root/hpx"  # noqa: SLF001
+        assert tree._take_jump(tree.root) == "/a.root/hpx"  # noqa: SLF001
 
 
 def test_key_with_colon(tmp_path: pathlib.Path) -> None:
@@ -311,14 +319,14 @@ async def test_browse_selected_subtree() -> None:
     path = data_path("uproot-Event.root")
     async with Browser(f"{path}:T").run_test() as pilot:
         tree = pilot.app.query_one("#tree-view", UprootTree)
-        tree.select_path("//T/event/fFlag")
+        tree.select_path("/T/event/fFlag")
         await wait_for_workers(pilot)
         await pilot.pause()
         item = pilot.app.view_widget.item
         assert isinstance(item, Plotext)
         msg, _ = pilot.app.dump_source()
-        assert f'uproot.open("{path}")' in msg
-        assert 'item = file["T/event/fFlag"]' in msg
+        assert f"uproot.open({str(path)!r})" in msg
+        assert "item = file['T/event/fFlag']" in msg
 
 
 async def test_jump_to_unopened_file_loads_off_ui_thread(
@@ -334,12 +342,12 @@ async def test_jump_to_unopened_file_loads_off_ui_thread(
     monkeypatch.setattr(LazyRoot, "keys", recording)
     async with Browser(str(root_dir)).run_test() as pilot:
         tree = pilot.app.query_one("#tree-view", UprootTree)
-        tree.select_path("//a.root")
+        tree.select_path("/a.root")
         await wait_for_workers(pilot)
         target = next(
             c for c in tree.root.children if c.data and c.data.key == "a.root"
         )
-        assert any(c.data and c.data.path == "//a.root/hpx" for c in target.children)
+        assert any(c.data and c.data.path == "/a.root/hpx" for c in target.children)
         assert threads
         assert threading.main_thread() not in threads
 
@@ -364,9 +372,9 @@ async def test_tree_reads_off_ui_thread(
     monkeypatch.setattr(Folder, "child", record_child)
     monkeypatch.setattr(Directory, "_listable", record_listable)
     path, target = (
-        (str(root_dir), "//sub/b.root/hpx")
+        (str(root_dir), "/sub/b.root/hpx")
         if spec == "dir"
-        else (data_path("uproot-Event.root"), "//T/event/fFlag")
+        else (data_path("uproot-Event.root"), "/T/event/fFlag")
     )
     async with Browser(path).run_test() as pilot:
         tree = pilot.app.query_one("#tree-view", UprootTree)
@@ -413,7 +421,7 @@ async def test_jump_on_failed_remote_listing() -> None:
         await wait_for_workers(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
         assert tree.jump_candidates() == []
-        tree.select_path("//a.root")
+        tree.select_path("/a.root")
         await wait_for_workers(pilot)
         await pilot.press("/")
         await wait_for_workers(pilot)
@@ -426,14 +434,38 @@ def test_key_with_slash(tmp_path: pathlib.Path) -> None:
     with uproot.recreate(path) as out:
         out.mktree("t", {"a/b": np.float64, "c": np.float64})
     with open_path(str(path)) as root:
-        node = root.resolve("//t/a/b")
+        node = root.resolve("/t/a/b")
         assert not isinstance(node, FailedNode)
         assert node.keys_below_root == ["t", "a/b"]
-        assert root.resolve("//t/c").keys_below_root == ["t", "c"]
+        assert root.resolve("/t/c").keys_below_root == ["t", "c"]
+
+
+def test_dump_source_quotes_path_and_key(tmp_path: pathlib.Path) -> None:
+    """Dump & Quit gives valid Python for a backslash or a quote in a name."""
+    # Windows does not permit a quote or a backslash in a file name
+    name = "we'ird.root" if sys.platform == "win32" else 'we\\ird"name.root'
+    path = tmp_path / name
+    with uproot.recreate(path) as out:
+        out.mktree('t"q', {"x\\n": np.float64})
+        out['t"q'].extend({"x\\n": np.array([1.0, 2.0])})
+    with open_path(str(path)) as root:
+        node = root.resolve('t"q/x\\n')
+        source = f"{root.root.open_source(FILE_VAR)}\n{node.bind_source()}"
+        namespace: dict[str, Any] = {}
+        exec(source, namespace)
+        assert namespace["item"].name == "x\\n"
+        namespace[FILE_VAR].close()
+
+
+def test_child_paths_have_one_leading_slash() -> None:
+    with open_path(data_path("uproot-Event.root")) as root:
+        assert root.path == "/"
+        assert "/T" in [child.path for child in root.children]
+        assert root.resolve("T/event").path == "/T/event"
 
 
 def test_key_with_double_colon() -> None:
-    selection = "//Beam/Beam./Beam.GMAD::BeamBase/Beam.GMAD::BeamBase.beamEnergy"
+    selection = "/Beam/Beam./Beam.GMAD::BeamBase/Beam.GMAD::BeamBase.beamEnergy"
     with open_path(data_path("uproot-issue371.root")) as root:
         node = root.resolve(selection)
         assert not isinstance(node, FailedNode)
@@ -479,7 +511,7 @@ async def test_jump_into_failed_file_stops(
     monkeypatch.setattr(LazyRoot, "open", recording)
     async with Browser(str(bad_dir)).run_test() as pilot:
         tree = pilot.app.query_one("#tree-view", UprootTree)
-        tree.select_path("//bad.root/x")
+        tree.select_path("/bad.root/x")
         await wait_for_workers(pilot)
         assert len(opens) == 1
         assert tree._pending_jump == ""  # noqa: SLF001
@@ -576,7 +608,7 @@ async def test_remote_file_opens_in_worker(memory_dir: str) -> None:
         assert isinstance(tree.root_node, LazyRoot)
         await wait_for_workers(pilot)
         assert tree.root_node.is_loaded
-        assert "//hpx" in [c.data.path for c in tree.root.children if c.data]
+        assert "/hpx" in [c.data.path for c in tree.root.children if c.data]
 
 
 async def test_remote_directory_opens_in_worker(memory_dir: str) -> None:
@@ -586,8 +618,8 @@ async def test_remote_directory_opens_in_worker(memory_dir: str) -> None:
         tree = pilot.app.query_one("#tree-view", UprootTree)
         assert isinstance(tree.root_node, LazyRoot)
         assert [c.data.path for c in tree.root.children if c.data] == [
-            "//a.root",
-            "//sub",
+            "/a.root",
+            "/sub",
         ]
         tree.request_jump_candidates(lambda _: None)
         await wait_for_workers(pilot)

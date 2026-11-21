@@ -62,6 +62,11 @@ def _plottable(node: Node) -> bool:
     return isinstance(node, Plottable) and node.plottable
 
 
+def _is_below(target: str, path: str) -> bool:
+    """Is the node at ``target`` a descendant of the node at ``path``?"""
+    return target.startswith(path if path == "/" else f"{path}/")
+
+
 def make_candidate(node: Node) -> Candidate:
     return Candidate(
         path=node.path,
@@ -86,11 +91,15 @@ class UprootTree(textual.widgets.Tree[Node]):
     count = var("")
     """Pending vim-style count prefix."""
 
-    def __init__(self, path: str, **args: Any) -> None:
+    def __init__(self, path: str, *, root: Node | None = None, **args: Any) -> None:
+        """``root`` is ``path`` opened by the caller, which then closes it."""
         # A remote URL opens in a load worker, with the app on screen; with a
         # "/" it is a directory, which opens without I/O
         remote = "://" in path and not path.endswith("/")
-        self.root_node = LazyRoot(path) if remote else open_path(path)
+        if root is not None:
+            self.root_node = root
+        else:
+            self.root_node = LazyRoot(path) if remote else open_path(path)
         self._candidates: dict[str, list[Candidate]] = {}
         self._loading: set[int] = set()
         """The ids of the tree nodes with a load in progress."""
@@ -176,7 +185,7 @@ class UprootTree(textual.widgets.Tree[Node]):
                     c
                     for c in node.children
                     if c.data
-                    and (c.data.path == target or target.startswith(c.data.path + "/"))
+                    and (c.data.path == target or _is_below(target, c.data.path))
                 ),
                 None,
             )
@@ -330,7 +339,7 @@ class UprootTree(textual.widgets.Tree[Node]):
     def _take_jump(self, node: textual.widgets.tree.TreeNode[Node]) -> str:
         """The pending jump that waits for ``node`` (then cleared), else empty."""
         assert node.data
-        if not self._pending_jump.startswith(f"{node.data.path}/"):
+        if not _is_below(self._pending_jump, node.data.path):
             return ""
         target, self._pending_jump = self._pending_jump, ""
         return target
@@ -433,11 +442,17 @@ class UprootTree(textual.widgets.Tree[Node]):
 
     def _below_root(self, node: Node) -> str:
         """The path a node has with the displayed root (maybe inside a file) as the top."""
-        return f"/{node.path.removeprefix(self.root_node.path)}"
+        if self.root_node.parent is None:
+            return node.path
+        return node.path.removeprefix(self.root_node.path) or "/"
 
     def _label(self, node: Node) -> str:
         """The path below the root, or for the root itself its path in the file."""
-        return self._below_root(node).strip("/") or node.path.strip("/") or node.name
+        return (
+            self._below_root(node).removeprefix("/")
+            or node.path.removeprefix("/")
+            or node.name
+        )
 
     def _select(self, node: Node) -> None:
         """Plot one item, which replaces a plotted pair but keeps a lone x mark."""

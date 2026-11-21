@@ -93,7 +93,10 @@ class Node(ABC):
 
     @property
     def path(self) -> str:
-        return "/" if self.parent is None else f"{self.parent.path}/{self.key}"
+        if self.parent is None:
+            return "/"
+        base = "" if self.parent.parent is None else self.parent.path
+        return f"{base}/{self.key}"
 
     @property
     def name(self) -> str:
@@ -261,7 +264,7 @@ class Root(Node):
         """Source for the object at ``keys`` below this root, bound to ``file_var``."""
         if not keys:
             return file_var
-        return f'{file_var}["{"/".join(keys)}"]'
+        return f"{file_var}[{'/'.join(keys)!r}]"
 
     @abstractmethod
     def close(self) -> None: ...

@@ -1,12 +1,17 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import asyncio
+import concurrent.futures
+from typing import TYPE_CHECKING, Any
 
 import pytest
+import uproot
 from click.testing import CliRunner
+from conftest import wait_for_tree
 from skhep_testdata import data_path
 
 from uproot_browser.__main__ import get_testdata, main
+from uproot_browser.tui.browser import Browser
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -113,3 +118,64 @@ def test_colon_in_object_name() -> None:
     """ROOT object names can hold colons; only the file path must exist."""
     spec = f"{data_path('uproot-hepdata-example.root')}:h:a"
     assert get_testdata(spec, testdata=False) == spec
+
+
+def _clean_error(result: Any) -> str:
+    """The message of a ClickException; an unexpected error fails here."""
+    assert result.exit_code == 1, result.output
+    assert isinstance(result.exception, SystemExit), result.exception
+    return str(result.output)
+
+
+def test_plot_not_plottable() -> None:
+    result = CliRunner().invoke(main, ["plot", "--testdata", "uproot-Event.root"])
+    assert "not plottable" in _clean_error(result)
+
+
+def test_plot_non_numeric_column() -> None:
+    spec = "uproot-Event.root:T/event/fTracks"
+    result = CliRunner().invoke(main, ["plot", "--testdata", spec])
+    assert "fTracks" in _clean_error(result)
+
+
+@pytest.mark.parametrize("command", ["tree", "plot", "browse"])
+def test_not_a_root_file(command: str, tmp_path: Path) -> None:
+    path = tmp_path / "notes.txt"
+    path.write_text("[build-system]\n" * 100)
+    result = CliRunner().invoke(main, [command, str(path)])
+    output = _clean_error(result)
+    assert "Cannot open" in output
+    assert "not a ROOT file" in output
+
+
+@pytest.mark.parametrize("command", ["tree", "plot", "browse"])
+def test_key_not_found(command: str) -> None:
+    spec = "uproot-Event.root:nope"
+    result = CliRunner().invoke(main, [command, "--testdata", spec])
+    assert "nope" in _clean_error(result)
+
+
+def test_browse_opens_file_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    opened: list[Any] = []
+    real_open = uproot.open
+
+    def counting_open(*args: Any, **kwargs: Any) -> Any:
+        opened.append(real_open(*args, **kwargs))
+        return opened[-1]
+
+    async def start(app: Browser) -> None:
+        async with app.run_test() as pilot:
+            await wait_for_tree(pilot)
+
+    monkeypatch.setattr(uproot, "open", counting_open)
+
+    def run(app: Browser) -> None:
+        # Not on this thread, which has the event loop of pytest-asyncio
+        with concurrent.futures.ThreadPoolExecutor(1) as pool:
+            pool.submit(asyncio.run, start(app)).result()
+
+    monkeypatch.setattr(Browser, "run", run)
+    result = CliRunner().invoke(main, ["browse", "--testdata", "uproot-Event.root"])
+    assert result.exit_code == 0, result.output
+    assert len(opened) == 1
+    assert opened[0].closed

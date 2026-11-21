@@ -146,7 +146,7 @@ def _path_header(root: Node, file_var: str, selection: str, y_selection: str) ->
     binds = [("x_item", selection), ("y_item", y_selection)] if y_selection else []
     lines = [file.open_source(file_var)]
     for var, path in binds or [("item", selection)]:
-        keys = [*base, *path.strip("/").split("/")]
+        keys = [*base, *path.removeprefix("/").split("/")]
         lines.append(f"{var} = {file.lookup_source(file_var, keys)}")
     return "\n".join(lines)
 

@@ -71,6 +71,7 @@ if TYPE_CHECKING:
 
     from textual.screen import Screen
 
+    from uproot_browser.nodes import Node
     from uproot_browser.tui.messages import (
         EmptyMessage,
         ErrorMessage,
@@ -80,9 +81,11 @@ if TYPE_CHECKING:
 
 
 def _plot_name(item: PlotItem) -> str:
-    x, y = item.selection.strip("/"), item.y_selection.strip("/")
+    x, y = item.selection.removeprefix("/"), item.y_selection.removeprefix("/")
     # The displayed root itself (file.root:key) has an empty selection
-    return f"{y} vs {x}" if y else x or item.root.path.strip("/") or item.root.name
+    return (
+        f"{y} vs {x}" if y else x or item.root.path.removeprefix("/") or item.root.name
+    )
 
 
 def _plot_label(item: PlotItem) -> str:
@@ -112,9 +115,16 @@ class Browser(textual.app.App[None]):
     axis_limits = var(NO_LIMITS)
 
     def __init__(
-        self, path: str, *, image: bool = False, image_scale: float = 1.5, **kwargs: Any
+        self,
+        path: str,
+        *,
+        root: Node | None = None,
+        image: bool = False,
+        image_scale: float = 1.5,
+        **kwargs: Any,
     ) -> None:
         self.path = path
+        self._root_node = root
         self.image = image
         self._plot_rendered: tuple[Any, ...] | None = None
         self._image_rendered: tuple[Any, ...] | None = None
@@ -134,7 +144,7 @@ class Browser(textual.app.App[None]):
             # left_panel
             with textual.widgets.TabbedContent(id="left-view"):
                 with textual.widgets.TabPane("Tree", id="tree-tab"):
-                    yield UprootTree(self.path, id="tree-view")
+                    yield UprootTree(self.path, root=self._root_node, id="tree-view")
                 with textual.widgets.TabPane("Info"):
                     yield textual.lazy.Lazy(Info())
             yield Splitter("#left-view", grow_left=True, id="left-splitter")

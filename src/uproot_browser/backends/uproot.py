@@ -173,7 +173,7 @@ class UprootFile(Root, UprootDirectory):
     """The path passed to ``uproot.open``."""
 
     def open_source(self, var: str) -> str:
-        return f'import uproot\n{var} = uproot.open("{self.spec}")'
+        return f"import uproot\n{var} = uproot.open({self.spec!r})"
 
     def close(self) -> None:
         self.item.close()
