@@ -83,7 +83,9 @@ if TYPE_CHECKING:
 def _plot_name(item: PlotItem) -> str:
     x, y = item.selection.removeprefix("/"), item.y_selection.removeprefix("/")
     # The displayed root itself (file.root:key) has an empty selection
-    return f"{y} vs {x}" if y else x or item.root.path.removeprefix("/") or item.root.name
+    return (
+        f"{y} vs {x}" if y else x or item.root.path.removeprefix("/") or item.root.name
+    )
 
 
 def _plot_label(item: PlotItem) -> str:
