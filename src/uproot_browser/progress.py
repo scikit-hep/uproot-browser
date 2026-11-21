@@ -1,7 +1,8 @@
 """
 Progress of a long operation, from the code that does the work to a listener
 (the status line of the TUI). The listener is set for a block of code in one
-thread; without one, a report does nothing.
+thread; without one, a report does nothing. A report is also the point where
+the work can be cancelled.
 """
 
 from __future__ import annotations
@@ -13,11 +14,26 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
-__all__ = ("active", "report", "reporting", "span")
+__all__ = (
+    "CancelledError",
+    "active",
+    "cancel_when",
+    "report",
+    "reporting",
+    "span",
+)
 
 
 def __dir__() -> tuple[str, ...]:
     return __all__
+
+
+class CancelledError(BaseException):
+    """A report found the work cancelled.
+
+    Like :class:`asyncio.CancelledError`, it is not an :class:`Exception`, so
+    handlers for the errors of the work let it through.
+    """
 
 
 _reporter: contextvars.ContextVar[Callable[[float], object] | None] = (
@@ -55,4 +71,19 @@ def span(start: float, stop: float) -> Iterator[None]:
         yield
         return
     with reporting(lambda fraction: outer(start + (stop - start) * fraction)):
+        yield
+
+
+@contextlib.contextmanager
+def cancel_when(cancelled: Callable[[], bool]) -> Iterator[None]:
+    """A report in the block raises :class:`CancelledError` once ``cancelled()`` is true."""
+    outer = _reporter.get()
+
+    def reporter(fraction: float) -> None:
+        if cancelled():
+            raise CancelledError
+        if outer is not None:
+            outer(fraction)
+
+    with reporting(reporter):
         yield

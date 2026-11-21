@@ -7,7 +7,6 @@ import textual.message
 
 if TYPE_CHECKING:
     from uproot_browser.nodes import Node
-    from uproot_browser.tui.error import Error
     from uproot_browser.tui.plot import PlotItem
 
 
@@ -21,38 +20,16 @@ class UprootSelected(textual.message.Message, bubble=True):
 
 
 @rich.repr.auto
-class EmptyMessage(textual.message.Message, bubble=True):
-    """The render of ``source`` found nothing to plot."""
+class RenderFailed(textual.message.Message, bubble=True):
+    """The render ``render_id`` of ``source`` raised ``error``."""
 
-    def __init__(self, source: PlotItem) -> None:
-        self.source = source
-        super().__init__()
-
-
-@rich.repr.auto
-class ErrorMessage(textual.message.Message, bubble=True):
-    """The render of ``source`` failed with a traceback to show."""
-
-    def __init__(self, err: Error, source: PlotItem) -> None:
-        self.err = err
-        self.source = source
-        super().__init__()
-
-
-class ExpressionErrorMessage(textual.message.Message, bubble=True):
-    """A failed expression whose selection and input should remain editable."""
-
-    def __init__(self, source: PlotItem, error: BaseException) -> None:
+    def __init__(self, source: PlotItem, error: Exception, render_id: int) -> None:
         self.source = source
         self.error = error
+        self.render_id = render_id
         super().__init__()
 
 
 @rich.repr.auto
-class RequestPlot(textual.message.Message, bubble=True):
-    """Ask the app to re-render the current text plot (e.g. after a resize)."""
-
-
-@rich.repr.auto
-class RequestImage(textual.message.Message, bubble=True):
-    """Ask the app to re-render the current image plot (e.g. after a resize)."""
+class RequestRender(textual.message.Message, bubble=True):
+    """Ask the app to render the current plot item (e.g. after a resize)."""

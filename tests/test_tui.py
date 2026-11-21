@@ -5,6 +5,7 @@ import pathlib
 import shutil
 import threading
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import pytest
@@ -17,26 +18,22 @@ import textual.geometry
 import textual.pilot
 import textual.widgets
 import uproot
-from conftest import wait_for_tree, wait_for_workers
+from conftest import SlowRead, wait_for_tree, wait_for_workers
 
 import uproot_browser.plot
 import uproot_browser.plotext_compat
 import uproot_browser.progress
+import uproot_browser.tui.plot
 import uproot_browser.tui.status
 from uproot_browser.axis import AxisLimits
-from uproot_browser.backends.uproot import wrap
-from uproot_browser.exceptions import EmptyTreeError
+from uproot_browser.backends.uproot import UprootBranch, wrap
+from uproot_browser.exceptions import EmptyTreeError, ExpressionError
 from uproot_browser.tui.browser import Browser
 from uproot_browser.tui.error import Error
 from uproot_browser.tui.help import HelpScreen
 from uproot_browser.tui.jump import JumpScreen
 from uproot_browser.tui.left_panel import SCROLLOFF, UprootTree
-from uproot_browser.tui.messages import (
-    EmptyMessage,
-    ErrorMessage,
-    ExpressionErrorMessage,
-    UprootSelected,
-)
+from uproot_browser.tui.messages import RenderFailed, UprootSelected
 from uproot_browser.tui.plot import Plotext, render_canvas
 from uproot_browser.tui.right_panel import RightPanel
 from uproot_browser.tui.tools import dependencies
@@ -156,6 +153,13 @@ async def settled_plot(pilot: textual.pilot.Pilot[None]) -> Plotext:
     return item
 
 
+def current_plot(app: Browser) -> Plotext:
+    """The item of the view, which the render replaces to give it a size."""
+    item = app.view_widget.item
+    assert isinstance(item, Plotext)
+    return item
+
+
 def assert_canvas(app: Browser, item: Plotext) -> str:
     """The plot widget shows a canvas built for its own size."""
     content = app.view_widget.plot_widget.content_size
@@ -246,8 +250,39 @@ async def test_entry_box_rerenders_plot() -> None:
         _, height = item.size
         await pilot.press("e")
         await wait_for_workers(pilot)
-        await wait_until(pilot, lambda: item.size is not None and item.size[1] < height)
-        assert_canvas(pilot.app, item)
+        await wait_until(
+            pilot,
+            lambda: (
+                (size := current_plot(pilot.app).size) is not None and size[1] < height
+            ),
+        )
+        assert_canvas(pilot.app, current_plot(pilot.app))
+
+
+async def test_plot_pane_resize_rerenders_plot() -> None:
+    """The plot renders again when only the plot pane changes size."""
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        await wait_for_tree(pilot)
+        item = await settled_plot(pilot)
+        assert item.size is not None
+        _, height = item.size
+        view = pilot.app.view_widget
+        # No pending render from the first resize of the view
+        if view.resize_timer is not None:
+            view.resize_timer.stop()
+        # Without the show_entry_box watcher, which asks for a render itself
+        view.input_container.add_class("-show-container")
+        await wait_until(
+            pilot,
+            lambda: (
+                (size := current_plot(pilot.app).size) is not None and size[1] < height
+            ),
+            delay=0.05,
+        )
+        await settle_render(pilot)
+        assert_canvas(pilot.app, current_plot(pilot.app))
 
 
 async def test_header_shows_path() -> None:
@@ -460,10 +495,12 @@ async def test_resize_replots_at_the_new_size() -> None:
 
         await pilot.resize_terminal(100, 40)
         # the resize render is debounced, so it needs some real time
-        await wait_until(pilot, lambda: item.size != before_size, delay=0.05)
+        await wait_until(
+            pilot, lambda: current_plot(pilot.app).size != before_size, delay=0.05
+        )
         await settle_render(pilot)
 
-        assert assert_canvas(pilot.app, item) != before_text
+        assert assert_canvas(pilot.app, current_plot(pilot.app)) != before_text
 
 
 async def test_plot_renders_after_late_layout() -> None:
@@ -481,7 +518,7 @@ async def test_plot_renders_after_late_layout() -> None:
 
         plot_widget.display = True
         await settle_render(pilot)
-        assert_canvas(pilot.app, item)
+        assert_canvas(pilot.app, current_plot(pilot.app))
 
 
 async def test_expr_replots_and_clears_flag(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -500,7 +537,7 @@ async def test_expr_replots_and_clears_flag(monkeypatch: pytest.MonkeyPatch) -> 
             await pilot.pause()
             assert view.plot_input.has_class("-needs-update")
 
-            view.plot_input.apply_expression()
+            view.apply_expression()
             await settle_render(pilot)
             item = view.item
             assert isinstance(item, Plotext)
@@ -538,7 +575,7 @@ async def test_browse_empty(keys: tuple[str, ...]) -> None:
     ).run_test() as pilot:
         await wait_for_tree(pilot)
         await pilot.press(*keys)
-        await settle_render(pilot)  # the worker posts an EmptyMessage
+        await settle_render(pilot)  # the worker posts a RenderFailed
         assert pilot.app.view_widget.item is None
         (notification,) = pilot.app._notifications  # noqa: SLF001
         assert notification.severity == "warning"
@@ -621,7 +658,7 @@ async def test_failed_node_shows_traceback(monkeypatch: pytest.MonkeyPatch) -> N
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
-        # The jump selects it; the render worker posts an ErrorMessage
+        # The jump selects it; the render worker posts a RenderFailed
         await jump_to(pilot, "/hstat")
         await settle_render(pilot)
         await wait_until(pilot, lambda: isinstance(pilot.app.view_widget.item, Error))
@@ -836,7 +873,7 @@ async def apply_failing_expression(pilot: textual.pilot.Pilot[None], expr: str) 
     view.input_container.add_class("-show-container")
     await settle_render(pilot)
     view.plot_input.value = expr
-    view.plot_input.apply_expression()
+    view.apply_expression()
     await settle_render(pilot)
 
 
@@ -858,7 +895,7 @@ async def test_expression_failure_can_be_corrected() -> None:
 
             # Clearing the input restores the original plot without reselecting it.
             view.plot_input.value = ""
-            view.plot_input.apply_expression()
+            view.apply_expression()
             await settle_render(pilot)
             assert isinstance(view.item, Plotext)
             assert view.item.expr == ""
@@ -877,7 +914,11 @@ async def test_superseded_expression_error_is_ignored() -> None:
         await settle_render(pilot)
         before = plot_text(pilot.app)
 
-        pilot.app.post_message(ExpressionErrorMessage(original, EmptyTreeError("old")))
+        # the current render ID, so only the item can drop the report
+        render_id = pilot.app._render_id  # noqa: SLF001
+        pilot.app.post_message(
+            RenderFailed(original, ExpressionError("old"), render_id)
+        )
         await pilot.pause()
         assert plot_text(pilot.app) == before
         assert not view.plot_input.has_class("-needs-update")
@@ -1070,6 +1111,26 @@ def test_render_canvas_is_thread_safe() -> None:
     assert results == [expected] * 200
 
 
+async def test_superseded_render_stops_reading(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A new render cancels the read of the old one, which holds no lock."""
+    lock = uproot_browser.tui.plot._PLOTEXT_LOCK  # noqa: SLF001
+    read = SlowRead(monkeypatch, lock)
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        # Not jump_to, which waits for the render worker
+        pilot.app.query_one("#tree-view", UprootTree).select_path(LEAF_PATH)
+        await wait_until(pilot, read.started.is_set, delay=0.01)
+        pilot.app.theme = "textual-light"
+        await settle_render(pilot)
+        assert_canvas(pilot.app, current_plot(pilot.app))
+        assert read.stopped.wait(5)
+    assert read.locked is False
+    assert read.steps < read.STEPS
+
+
 async def test_browse_directory(tmp_path: pathlib.Path) -> None:
     """A directory lists its ROOT files; the dump opens the selected file."""
     shutil.copy(skhep_testdata.data_path("uproot-Event.root"), tmp_path / "a.root")
@@ -1172,16 +1233,95 @@ async def test_superseded_render_errors_are_ignored() -> None:
         await settle_render(pilot)
         before = plot_text(pilot.app)
 
-        stale = Error(RuntimeError("old"), original.selection)
-        pilot.app.post_message(ErrorMessage(stale, original))
+        # the current render ID, so only the item can drop the report
+        render_id = pilot.app._render_id  # noqa: SLF001
+        pilot.app.post_message(RenderFailed(original, RuntimeError("old"), render_id))
         await pilot.pause()
-        assert view.item is not stale
+        assert not isinstance(view.item, Error)
         assert plot_text(pilot.app) == before
 
-        pilot.app.post_message(EmptyMessage(original))
+        pilot.app.post_message(RenderFailed(original, EmptyTreeError(), render_id))
         await pilot.pause()
         assert view.item is not None
         assert plot_text(pilot.app) == before
+
+
+async def test_render_error_shows_after_same_item_is_selected_again(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The second selection gives an equal item, so the first report is for it."""
+    started, release = threading.Event(), threading.Event()
+
+    def fail_later(*_args: object, **_kwargs: object) -> None:
+        started.set()
+        release.wait(5)
+        msg = "render failed"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(UprootBranch, "to_histogram", fail_later)
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        tree.post_message(UprootSelected(tree.root_node, LEAF_PATH))
+        await wait_until(pilot, started.is_set, delay=0.01)
+        first = current_plot(pilot.app)
+        tree.post_message(UprootSelected(tree.root_node, LEAF_PATH))
+        # the request of the second item gives it a size, and skips the render
+        await wait_until(
+            pilot,
+            lambda: (
+                (item := current_plot(pilot.app)) is not first and item.size is not None
+            ),
+        )
+        assert current_plot(pilot.app) == first
+        release.set()
+        await settle_render(pilot)
+        assert isinstance(pilot.app.view_widget.item, Error)
+
+
+async def test_cancelled_render_error_is_ignored_after_reselect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A -> B -> A: the error of the first A render must not replace the plot."""
+    started, release = threading.Event(), threading.Event()
+    real = UprootBranch.to_histogram
+
+    def fail_first(node: UprootBranch, **kwargs: Any) -> Any:
+        if started.is_set():
+            return real(node, **kwargs)
+        started.set()
+        release.wait(WAIT_TIMEOUT)
+        msg = "render failed"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(UprootBranch, "to_histogram", fail_first)
+    reports: list[RenderFailed] = []
+    handle = Browser.on_render_failed
+
+    def on_render_failed(self: Browser, message: RenderFailed) -> None:
+        reports.append(message)
+        handle(self, message)
+
+    monkeypatch.setattr(Browser, "on_render_failed", on_render_failed)
+    # wide enough for the plot title
+    async with Browser(skhep_testdata.data_path("uproot-Event.root")).run_test(
+        size=(160, 40)
+    ) as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        tree.post_message(UprootSelected(tree.root_node, LEAF_PATH))
+        await wait_until(pilot, started.is_set, delay=0.01)
+        for path, name in (("/T/event/fNtrack", "fNtrack"), (LEAF_PATH, "fFlag")):
+            tree.post_message(UprootSelected(tree.root_node, path))
+            await wait_until(
+                pilot,
+                lambda name=name: name in plot_text(pilot.app),
+                delay=0.01,
+            )
+        release.set()
+        await wait_until(pilot, lambda: bool(reports))
+        await settle_render(pilot)
+        assert_canvas(pilot.app, current_plot(pilot.app))
 
 
 async def test_render_errors_are_ignored_on_exit() -> None:
@@ -1192,9 +1332,9 @@ async def test_render_errors_are_ignored_on_exit() -> None:
         await wait_for_tree(pilot)
         item = await settled_plot(pilot)
         pilot.app.exit()
-        error = Error(RuntimeError("late"), item.selection)
-        pilot.app.on_error_message(ErrorMessage(error, item))
-        pilot.app.on_empty_message(EmptyMessage(item))
+        render_id = pilot.app._render_id  # noqa: SLF001
+        pilot.app.on_render_failed(RenderFailed(item, RuntimeError("late"), render_id))
+        pilot.app.on_render_failed(RenderFailed(item, EmptyTreeError(), render_id))
         assert pilot.app.view_widget.item is item
 
 

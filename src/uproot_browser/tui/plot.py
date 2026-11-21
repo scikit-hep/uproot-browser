@@ -1,102 +1,91 @@
 from __future__ import annotations
 
-__lazy_modules__ = {
-    "contextlib",
-    "rich.text",
-    "uproot_browser.exceptions",
-    "uproot_browser.plotext_compat",
-    "uproot_browser.tui.error",
-    "uproot_browser.tui.messages",
-}
+__lazy_modules__ = {"contextlib", "rich.text", "uproot_browser.plotext_compat"}
 
+import abc
 import contextlib
 import dataclasses
 import threading
-from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 import rich.text
 
 import uproot_browser.plot
 import uproot_browser.plotext_compat
 from uproot_browser.axis import NO_LIMITS, AxisLimits
-from uproot_browser.exceptions import EmptyTreeError, ExpressionError
 from uproot_browser.nodes import FILE_VAR, Pair
-from uproot_browser.tui.error import Error
-from uproot_browser.tui.messages import (
-    EmptyMessage,
-    ErrorMessage,
-    ExpressionErrorMessage,
-    RequestPlot,
-)
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from uproot_browser.nodes import Node
-    from uproot_browser.tui.browser import Browser
     from uproot_browser.tui.viewer import ViewWidget
 
-T = TypeVar("T")
 
+@dataclasses.dataclass(frozen=True)
+class PlotItem(abc.ABC):
+    """What a ViewWidget plots, in one rendering mode.
 
-@runtime_checkable
-class PlotItem(Protocol):
-    """The interface a ViewWidget rendering mode implements.
-
-    Both `Plotext` (text plots) and `MPLPlot` (image plots) satisfy this;
-    a new rendering mode only needs to provide these members plus a
-    factory in `Browser` and a window in `ViewWidget`.
+    An item compares by value, so an item equal to the last rendered one does
+    not render again. The caches do not compare, and copies share them.
+    A new rendering mode subclasses this, and adds a factory in ``Browser``
+    and a window in ``ViewWidget``.
     """
 
-    app: Browser
     root: Node
     selection: str
-    y_selection: str
-    expr: str
+    dark: bool
+    y_selection: str = ""
+    expr: str = ""
+    size: tuple[int, int] | None = None
+    axis_limits: AxisLimits = NO_LIMITS
+    # a redraw reuses the expression result
+    cache: uproot_browser.plot.ExprCache = dataclasses.field(
+        default_factory=uproot_browser.plot.ExprCache, compare=False
+    )
+
+    window: ClassVar[str]
+    """The id of the ViewWidget window that shows this item."""
 
     def display(self, view: ViewWidget) -> None:
-        """Show this item in the view and trigger its (threaded) render."""
+        """Show the window of this item and ask for a render."""
+        view.current = self.window
+        # After the refresh, so the request measures the widget that is laid out
+        view.call_after_refresh(view.request_render)
 
-    def request_render(self, view: ViewWidget) -> None:
-        """Ask the app to render this item at the current size of the view."""
+    def with_theme(self, *, dark: bool) -> Self:
+        return dataclasses.replace(self, dark=dark)
 
-    def with_theme(self, *, dark: bool) -> PlotItem:
-        """A copy of this item re-themed for a dark/light terminal."""
+    def with_expr(self, expr: str) -> Self:
+        return dataclasses.replace(self, expr=expr)
 
-    def with_expr(self, expr: str) -> PlotItem:
-        """A copy of this item with a new slicing expression."""
+    def with_axis_limits(self, limits: AxisLimits) -> Self:
+        return dataclasses.replace(self, axis_limits=limits)
 
-    def with_axis_limits(self, limits: AxisLimits) -> PlotItem:
-        """A copy of this item with typed display limits."""
+    def with_size(self, size: tuple[int, int]) -> Self:
+        return self if size == self.size else dataclasses.replace(self, size=size)
 
+    @abc.abstractmethod
+    def with_view_size(self, view: ViewWidget) -> Self | None:
+        """This item at the size the view gives it, or None to ask again later."""
+
+    @abc.abstractmethod
+    def render(self) -> Any:
+        """Build the plot. This runs in a worker thread, and can raise."""
+
+    @abc.abstractmethod
+    def show(self, view: ViewWidget, result: Any) -> None:
+        """Show the result of :meth:`render` in the view."""
+
+    @abc.abstractmethod
     def show_expression_error(self, view: ViewWidget) -> None:
-        """Show in the view that this item's expression failed."""
+        """Show in the view that the expression of this item failed."""
 
+    @abc.abstractmethod
     def dump_source(self, *, file_var: str = FILE_VAR) -> str:
         """Python source for Dump & Quit (appended after the ``item = ...`` lines)."""
 
     def dump_renderables(self) -> tuple[Any, ...]:
         """Renderables to print above the source on Dump & Quit."""
-
-
-def run_posting_errors(source: PlotItem, fn: Callable[[], T]) -> T | None:
-    """Run ``fn``, posting a message to the app of ``source`` on failure.
-
-    The selection travels with the error so Dump & Quit can show the branch.
-    A failed expression keeps ``source`` editable instead of replacing it.
-    The app drops messages from a render that another item has superseded.
-    """
-    try:
-        return fn()
-    except ExpressionError as err:
-        source.app.post_message(ExpressionErrorMessage(source, err.__cause__ or err))
-    except EmptyTreeError:
-        source.app.post_message(EmptyMessage(source))
-    except Exception as err:  # noqa: BLE001
-        source.app.post_message(
-            ErrorMessage(Error(err, source.selection, source.y_selection), source)
-        )
-    return None
+        return ()
 
 
 def dump_header(root: Node, selection: str, y_selection: str = "") -> tuple[str, str]:
@@ -160,7 +149,7 @@ def resolve_item(root: Node, selection: str, y_selection: str = "") -> Node:
 
 
 # plotext draws on one global figure, and a cancelled thread worker keeps
-# running, so renders must not overlap.
+# running, so draws must not overlap.
 _PLOTEXT_LOCK = threading.Lock()
 
 
@@ -173,14 +162,16 @@ def render_canvas(
     cache: uproot_browser.plot.ExprCache | None = None,
 ) -> str:
     """Build the plotext canvas string for an item."""
+    # Read the data before the lock, so a superseded render does not block
+    node = uproot_browser.plot.plottable_node(item)
+    histogram = node.to_histogram(bins=size[0] - 5)
+    histogram = uproot_browser.plot.apply_expr(histogram, expr, item, cache=cache)
     with _PLOTEXT_LOCK:
         fig = uproot_browser.plotext_compat.make_figure()
         fig.clear()
         fig.theme(theme)
         fig.plot_size(*size)
-        uproot_browser.plot.plot(
-            item, fig=fig, width=size[0] - 5, expr=expr, limits=limits, cache=cache
-        )
+        uproot_browser.plot.draw_hist(fig, item, histogram, limits=limits)
         return str(fig.build())
 
 
@@ -205,42 +196,41 @@ def make_dump(
     return f"{code}\n\n{draw(node, limits=limits)}"
 
 
-# What to plot with plotext, and the size the view gives it
-@dataclasses.dataclass
-class Plotext:
-    root: Node
-    selection: str
-    dark: bool
-    app: Browser
-    y_selection: str = ""
-    expr: str = ""
-    size: tuple[int, int] | None = None
-    axis_limits: AxisLimits = NO_LIMITS
-    # shared by reference across copies, so a redraw reuses the expression result
-    cache: uproot_browser.plot.ExprCache = dataclasses.field(
-        default_factory=uproot_browser.plot.ExprCache
-    )
+@dataclasses.dataclass(frozen=True)
+class Plotext(PlotItem):
+    """A text plot drawn with plotext, sized in cells."""
+
+    window: ClassVar[str] = "plot-window"
 
     @property
     def theme(self) -> str:
         return "uproot_dark" if self.dark else "uproot_light"
 
-    def display(self, view: ViewWidget) -> None:
-        view.current = "plot-window"
-        # After the refresh, so the request measures the widget that is laid out
-        view.call_after_refresh(self.request_render, view)
+    def with_view_size(self, view: ViewWidget) -> Plotext | None:
+        # The Static has a 1 cell padding, which content_size takes off already
+        size = view.plot_widget.content_size
+        if not size.width or not size.height:
+            return None
+        return self.with_size((size.width, size.height))
 
-    def request_render(self, view: ViewWidget) -> None:
-        view.post_message(RequestPlot())
+    def render(self) -> rich.text.Text:
+        assert self.size
+        return self._render(*self.size)
 
-    def with_theme(self, *, dark: bool) -> Plotext:
-        return dataclasses.replace(self, dark=dark)
+    def _render(self, *size: int) -> rich.text.Text:
+        item = resolve_item(self.root, self.selection, self.y_selection)
+        canvas = render_canvas(
+            item,
+            self.theme,
+            *size,
+            expr=self.expr,
+            limits=self.axis_limits,
+            cache=self.cache,
+        )
+        return rich.text.Text.from_ansi(canvas)
 
-    def with_expr(self, expr: str) -> Plotext:
-        return dataclasses.replace(self, expr=expr)
-
-    def with_axis_limits(self, limits: AxisLimits) -> Plotext:
-        return dataclasses.replace(self, axis_limits=limits)
+    def show(self, view: ViewWidget, result: Any) -> None:
+        view.plot_widget.update(result)
 
     def show_expression_error(self, view: ViewWidget) -> None:
         view.plot_widget.update(
@@ -257,37 +247,9 @@ class Plotext:
     def dump_renderables(self) -> tuple[Any, ...]:
         # Render synchronously: the worker hands the finished canvas to the
         # widget, and the exit console has a different size than the widget.
-        size = self.size or (100, 30)
         try:
-            selected = resolve_item(self.root, self.selection, self.y_selection)
-            canvas = render_canvas(
-                selected,
-                self.theme,
-                *size,
-                expr=self.expr,
-                limits=self.axis_limits,
-                cache=self.cache,
-            )
+            return (self._render(*(self.size or (100, 30))),)
         except Exception:  # noqa: BLE001
             # The render worker can still be in flight, so this item can be one
             # that fails. Quit with the source only instead of crashing.
             return ()
-        return (rich.text.Text.from_ansi(canvas),)
-
-    def make_plot(self) -> rich.text.Text | None:
-        size = self.size
-        assert size
-
-        def build() -> rich.text.Text:
-            item = resolve_item(self.root, self.selection, self.y_selection)
-            canvas = render_canvas(
-                item,
-                self.theme,
-                *size,
-                expr=self.expr,
-                limits=self.axis_limits,
-                cache=self.cache,
-            )
-            return rich.text.Text.from_ansi(canvas)
-
-        return run_posting_errors(self, build)
