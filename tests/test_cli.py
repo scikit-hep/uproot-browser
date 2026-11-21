@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING, Any
 
 import pytest
+import uproot
 from click.testing import CliRunner
+from conftest import wait_for_workers
 from skhep_testdata import data_path
 
 from uproot_browser.__main__ import get_testdata, main
+from uproot_browser.tui.browser import Browser
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -148,3 +152,23 @@ def test_key_not_found(command: str) -> None:
     spec = "uproot-Event.root:nope"
     result = CliRunner().invoke(main, [command, "--testdata", spec])
     assert "nope" in _clean_error(result)
+
+
+def test_browse_opens_file_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    opened: list[Any] = []
+    real_open = uproot.open
+
+    def counting_open(*args: Any, **kwargs: Any) -> Any:
+        opened.append(real_open(*args, **kwargs))
+        return opened[-1]
+
+    async def start(app: Browser) -> None:
+        async with app.run_test() as pilot:
+            await wait_for_workers(pilot)
+
+    monkeypatch.setattr(uproot, "open", counting_open)
+    monkeypatch.setattr(Browser, "run", lambda self: asyncio.run(start(self)))
+    result = CliRunner().invoke(main, ["browse", "--testdata", "uproot-Event.root"])
+    assert result.exit_code == 0, result.output
+    assert len(opened) == 1
+    assert opened[0].closed

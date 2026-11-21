@@ -91,11 +91,15 @@ class UprootTree(textual.widgets.Tree[Node]):
     count = var("")
     """Pending vim-style count prefix."""
 
-    def __init__(self, path: str, **args: Any) -> None:
+    def __init__(self, path: str, *, root: Node | None = None, **args: Any) -> None:
+        """``root`` is ``path`` opened by the caller, which then closes it."""
         # A remote URL opens in a load worker, with the app on screen; with a
         # "/" it is a directory, which opens without I/O
         remote = "://" in path and not path.endswith("/")
-        self.root_node = LazyRoot(path) if remote else open_path(path)
+        if root is not None:
+            self.root_node = root
+        else:
+            self.root_node = LazyRoot(path) if remote else open_path(path)
         self._candidates: dict[str, list[Candidate]] = {}
         self._loading: set[int] = set()
         """The ids of the tree nodes with a load in progress."""

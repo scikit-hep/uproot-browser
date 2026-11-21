@@ -212,17 +212,17 @@ def browse(filename: str | None, *, image: bool, testdata: bool) -> None:
         except ModuleNotFoundError:
             image_extra_required("--image")
 
-    spec = get_testdata(filename, testdata=testdata)
-    if "://" not in spec:
-        # Fail before the TUI starts; a remote open is too slow to do twice
-        with open_node(spec):
-            pass
-
     import uproot_browser.tui.browser
 
-    app = uproot_browser.tui.browser.Browser(path=spec, image=image)
+    spec = get_testdata(filename, testdata=testdata)
+    if "://" in spec:
+        # A remote spec opens in the TUI, with the app on screen
+        uproot_browser.tui.browser.Browser(path=spec, image=image).run()
+        return
 
-    app.run()
+    # A local spec opens before the TUI starts, so an error stops it here
+    with open_node(spec) as root:
+        uproot_browser.tui.browser.Browser(path=spec, root=root, image=image).run()
 
 
 if __name__ == "__main__":
