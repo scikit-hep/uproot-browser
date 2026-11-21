@@ -15,7 +15,8 @@ import pytest
 import textual.widgets.tree
 import uproot
 from click.testing import CliRunner
-from conftest import wait_for_workers
+from conftest import wait_for_tree, wait_for_workers
+from fsspec.implementations.memory import MemoryFileSystem
 from skhep_testdata import data_path
 
 import uproot_browser.backends
@@ -26,8 +27,9 @@ import uproot_browser.progress
 from uproot_browser.__main__ import main
 from uproot_browser.backends import Backend, open_path
 from uproot_browser.backends.directory import Directory, LazyRoot
-from uproot_browser.nodes import FILE_VAR, FailedNode, Node, Pair, Plottable
+from uproot_browser.nodes import FILE_VAR, FailedNode, Folder, Node, Pair, Plottable
 from uproot_browser.tui.browser import Browser
+from uproot_browser.tui.jump import JumpScreen
 from uproot_browser.tui.left_panel import UprootTree
 from uproot_browser.tui.plot import Plotext
 
@@ -342,6 +344,44 @@ async def test_jump_to_unopened_file_loads_off_ui_thread(
         assert threading.main_thread() not in threads
 
 
+@pytest.mark.parametrize("spec", ["dir", "file"])
+async def test_tree_reads_off_ui_thread(
+    root_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch, spec: str
+) -> None:
+    """Listings, expands and the jump list read the backend in workers only."""
+    threads: list[int] = []
+    child = Folder.child
+    listable = Directory._listable  # noqa: SLF001
+
+    def record_child(self: Folder, key: str) -> Node:
+        threads.append(threading.get_ident())
+        return child(self, key)
+
+    def record_listable(self: Directory, key: str, *, is_dir: bool) -> bool:
+        threads.append(threading.get_ident())
+        return listable(self, key, is_dir=is_dir)
+
+    monkeypatch.setattr(Folder, "child", record_child)
+    monkeypatch.setattr(Directory, "_listable", record_listable)
+    path, target = (
+        (str(root_dir), "//sub/b.root/hpx")
+        if spec == "dir"
+        else (data_path("uproot-Event.root"), "//T/event/fFlag")
+    )
+    async with Browser(path).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        tree.select_path(target)
+        await wait_for_workers(pilot)
+        assert tree.cursor_node is not None
+        assert tree.cursor_node.data is not None
+        assert tree.cursor_node.data.path == target
+        await pilot.press("/")
+        await wait_for_workers(pilot)
+        assert isinstance(pilot.app.screen, JumpScreen)
+    assert threads
+    assert threading.get_ident() not in threads
+
+
 def test_directory_named_like_a_file(tmp_path: pathlib.Path) -> None:
     """A directory with a format suffix (a rucio dataset) is still a directory."""
     dataset = tmp_path / "user.out.root"
@@ -376,6 +416,7 @@ async def test_jump_on_failed_remote_listing() -> None:
         tree.select_path("//a.root")
         await wait_for_workers(pilot)
         await pilot.press("/")
+        await wait_for_workers(pilot)
         assert pilot.app.is_running
 
 
@@ -416,6 +457,7 @@ async def test_failed_open_updates_label(
         refresh(self)
 
     async with Browser(str(bad_dir)).run_test() as pilot:
+        await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
         monkeypatch.setattr(textual.widgets.tree.TreeNode, "refresh", recording)
         tree.root.children[0].expand()
@@ -535,3 +577,64 @@ async def test_remote_file_opens_in_worker(memory_dir: str) -> None:
         await wait_for_workers(pilot)
         assert tree.root_node.is_loaded
         assert "//hpx" in [c.data.path for c in tree.root.children if c.data]
+
+
+async def test_remote_directory_opens_in_worker(memory_dir: str) -> None:
+    """Without a "/", only the filesystem knows a URL is a directory."""
+    async with Browser(memory_dir).run_test() as pilot:
+        await wait_for_tree(pilot)
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        assert isinstance(tree.root_node, LazyRoot)
+        assert [c.data.path for c in tree.root.children if c.data] == [
+            "//a.root",
+            "//sub",
+        ]
+        tree.request_jump_candidates(lambda _: None)
+        await wait_for_workers(pilot)
+        # The jump list does not open the files of the directory
+        assert not tree.root_node.resolve("a.root").is_loaded
+
+
+async def test_remote_open_failure_notifies() -> None:
+    async with Browser("memory://ub-no-such-dir/a.root").run_test() as pilot:
+        await wait_for_workers(pilot)
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        assert tree.root_node.meta()["label_icon"] == "‼️ "
+        assert pilot.app._notifications  # noqa: SLF001
+
+
+@pytest.fixture
+def review_dir() -> Iterator[str]:
+    """A directory URL without a "/", with one ROOT file."""
+    fs = fsspec.filesystem("memory")
+    fs.pipe("/review/a.root", pathlib.Path(data_path("uproot-Event.root")).read_bytes())
+    yield "memory://review"
+    fs.rm("/review", recursive=True)
+
+
+async def test_failed_remote_listing_retries(
+    review_dir: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A directory URL without a "/" lists again after a failed listing."""
+    listings: list[str] = []
+    ls = MemoryFileSystem.ls
+
+    def flaky(self: MemoryFileSystem, path: str, **kwargs: Any) -> Any:
+        if kwargs.get("detail"):
+            listings.append(path)
+            if len(listings) == 1:
+                msg = "listing failed"
+                raise OSError(msg)
+        return ls(self, path, **kwargs)
+
+    monkeypatch.setattr(MemoryFileSystem, "ls", flaky)
+    async with Browser(review_dir).run_test() as pilot:
+        await wait_for_workers(pilot)
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        assert not tree.root.children
+        assert tree.root_node.meta()["label_icon"] == "‼️ "
+        tree.root.collapse()
+        tree.root.expand()
+        await wait_for_workers(pilot)
+        assert [c.data.key for c in tree.root.children if c.data] == ["a.root"]
+        assert len(listings) == 2

@@ -29,7 +29,7 @@ import textual.widgets
 import textual.widgets.tree
 from textual.reactive import var
 
-from uproot_browser.backends import claims, open_path
+from uproot_browser.backends import open_path
 from uproot_browser.backends.directory import LazyRoot
 from uproot_browser.nodes import Column, Node, Plottable
 from uproot_browser.tui.jump import Candidate
@@ -37,7 +37,7 @@ from uproot_browser.tui.messages import UprootSelected
 from uproot_browser.tui.status import StatusBar
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
     from rich.style import Style
 
@@ -85,12 +85,16 @@ class UprootTree(textual.widgets.Tree[Node]):
     """Pending vim-style count prefix."""
 
     def __init__(self, path: str, **args: Any) -> None:
-        # A remote file opens in a load worker, with the app on screen
-        remote = "://" in path and claims(path)
+        # A remote URL opens in a load worker, with the app on screen; with a
+        # "/" it is a directory, which opens without I/O
+        remote = "://" in path and not path.endswith("/")
         self.root_node = LazyRoot(path) if remote else open_path(path)
         self._candidates: dict[str, list[Candidate]] = {}
         self._loading: set[int] = set()
         """The ids of the tree nodes with a load in progress."""
+        self._filled: set[int] = set()
+        """The ids of the tree nodes that have their children."""
+        self._jump_requested = False
         self._pending_jump = ""
         """The target of a jump that waits for a load on its way."""
         super().__init__(
@@ -103,8 +107,41 @@ class UprootTree(textual.widgets.Tree[Node]):
         """
         All jump targets. The files of a directory are listed, but only
         entered after they are opened, so a jump does not open every file.
+        This can read whole files: call it off the UI thread.
         """
         return list(self._candidates_below(self.root_node))
+
+    def request_jump_candidates(
+        self, callback: Callable[[list[Candidate]], None]
+    ) -> None:
+        """Build the jump targets in a worker, then give them to ``callback``."""
+        if not self._jump_requested:
+            self._jump_requested = True
+            self._candidates_in_thread(callback)
+
+    @textual.work(thread=True, group="jump")
+    def _candidates_in_thread(
+        self, callback: Callable[[list[Candidate]], None]
+    ) -> None:
+        try:
+            with self.app.query_one(StatusBar).running("Listing jump targets"):
+                candidates = self.jump_candidates()
+        except Exception as err:  # noqa: BLE001
+            call: Any = functools.partial(self._jump_failed, err)
+        else:
+            call = functools.partial(self._jump_ready, callback, candidates)
+        with contextlib.suppress(RuntimeError):
+            self.app.call_from_thread(call)
+
+    def _jump_ready(
+        self, callback: Callable[[list[Candidate]], None], candidates: list[Candidate]
+    ) -> None:
+        self._jump_requested = False
+        callback(candidates)
+
+    def _jump_failed(self, err: Exception) -> None:
+        self._jump_requested = False
+        self.app.notify(f"Cannot list the jump targets: {err}", severity="error")
 
     def _candidates_below(self, node: Node) -> Iterator[Candidate]:
         # Not loaded: the children need I/O, which a load worker does
@@ -128,10 +165,9 @@ class UprootTree(textual.widgets.Tree[Node]):
         self._pending_jump = ""
         node = self.root
         assert node.data
-        if not node.data.is_loaded:
+        if self._needs_load(node):
             self._wait_for_load(node, target)
             return
-        self.load_directory(node)
         while node.data.path != target:
             child = next(
                 (
@@ -146,12 +182,9 @@ class UprootTree(textual.widgets.Tree[Node]):
                 return
             node = child
             assert node.data
-            # An unopened file or listing loads in a worker, not here
-            if node.data.is_loaded:
-                self.load_directory(node)
             if node.data.path != target:
                 node.expand()
-                if not node.data.is_loaded:
+                if self._needs_load(node):
                     self._wait_for_load(node, target)
                     return
 
@@ -239,30 +272,33 @@ class UprootTree(textual.widgets.Tree[Node]):
         return label
 
     def on_mount(self) -> None:
-        assert self.root.data
-        if self.root.data.is_loaded:
-            self.load_directory(self.root)
+        # The expand event loads the children in a worker
         self.root.expand()
 
-    def load_directory(self, node: textual.widgets.tree.TreeNode[Node]) -> None:
-        """Add the children of a node now, on this thread."""
+    def _needs_load(self, node: textual.widgets.tree.TreeNode[Node]) -> bool:
+        """Must ``node`` read its children? A failed load tries again."""
         assert node.data
-        if not node.children:
-            self._fill_node(node, node.data.children)
+        return node.data.is_dir and node.id not in self._filled
 
     def _fill_node(
         self, node: textual.widgets.tree.TreeNode[Node], children: list[Node]
     ) -> None:
         self._loading.discard(node.id)
+        assert node.data
+        # A file gives no children if its open or listing failed
+        error = node.data.error if isinstance(node.data, LazyRoot) else None
+        if error is not None:
+            self.app.notify(f"{node.data.name}: {error}", severity="error")
+        else:
+            self._filled.add(node.id)
         if not node.children:
             for child in children:
                 node.add(child.path, child)
         # A file that failed to open has a new label
         node.refresh()
-        assert node.data
         target = self._take_jump(node)
-        # Still not loaded: the open failed, and a jump would open it again
-        if target and node.data.is_loaded:
+        # A jump does not try a failed load again
+        if target and error is None:
             self.select_path(target)
 
     def _wait_for_load(
@@ -290,7 +326,7 @@ class UprootTree(textual.widgets.Tree[Node]):
 
     @textual.work(thread=True, group="load")
     def _load_in_thread(self, node: textual.widgets.tree.TreeNode[Node]) -> None:
-        """Do the I/O of a listing or a file open off the UI thread."""
+        """Read the children (a listing, a file open, the objects) off the UI thread."""
         assert node.data
         try:
             with self.app.query_one(StatusBar).running(f"Loading {node.data.name}"):
@@ -316,13 +352,7 @@ class UprootTree(textual.widgets.Tree[Node]):
         self, event: textual.widgets.Tree.NodeExpanded[Node]
     ) -> None:
         event.stop()
-        item = event.node.data
-        assert item
-        if not item.is_dir or event.node.children:
-            return
-        if item.is_loaded:
-            self.load_directory(event.node)
-        else:
+        if self._needs_load(event.node):
             self._request_load(event.node)
 
     def _request_load(self, node: textual.widgets.tree.TreeNode[Node]) -> None:

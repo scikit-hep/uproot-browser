@@ -16,7 +16,7 @@ import textual.geometry
 import textual.pilot
 import textual.widgets
 import uproot
-from conftest import wait_for_workers
+from conftest import wait_for_tree, wait_for_workers
 
 import uproot_browser.plot
 import uproot_browser.plotext_compat
@@ -110,6 +110,7 @@ async def expand_event(pilot: textual.pilot.Pilot[None]) -> None:
     # Each expansion must load before the cursor moves into it
     for keys in EXPAND_EVENT:
         await pilot.press(*keys)
+        await wait_for_workers(pilot)
         await wait_until(
             pilot,
             lambda: tree.cursor_node is not None and bool(tree.cursor_node.children),
@@ -176,6 +177,7 @@ async def test_right_panel_toggle() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         assert pilot.app.view_widget.item is None
         panel = pilot.app.query_one("#right-panel")
         assert panel.display
@@ -195,6 +197,7 @@ async def test_entry_box_toggle() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         entry_box = pilot.app.query_one("#plot-input-container")
         plot_input = pilot.app.view_widget.plot_input
         tree = pilot.app.query_one("#tree-view")
@@ -236,6 +239,7 @@ async def test_entry_box_rerenders_plot() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         item = await settled_plot(pilot)
         assert item.size is not None
         _, height = item.size
@@ -293,6 +297,7 @@ async def test_help_screen() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         await pilot.press("f1", "e", "t", "b", "d")
         assert isinstance(pilot.app.screen, HelpScreen)
         assert not pilot.app.show_entry_box
@@ -313,6 +318,7 @@ async def test_plot_first_branch(monkeypatch: pytest.MonkeyPatch) -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         item = await settled_plot(pilot)
         assert item.theme == "uproot_dark"
         assert_canvas(pilot.app, item)
@@ -352,6 +358,7 @@ async def test_axis_ranges_are_typed_in_right_panel() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         await pilot.press("down", "down", "down", "enter")
         panel = pilot.app.query_one(RightPanel)
         assert pilot.app.query_one("#y-min", textual.widgets.Input).display
@@ -445,6 +452,7 @@ async def test_resize_replots_at_the_new_size() -> None:
     async with Browser(skhep_testdata.data_path("uproot-Event.root")).run_test(
         size=(80, 24)
     ) as pilot:
+        await wait_for_tree(pilot)
         item = await settled_plot(pilot)
         before_size = item.size
         before_text = assert_canvas(pilot.app, item)
@@ -462,6 +470,7 @@ async def test_plot_renders_after_late_layout() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         plot_widget = pilot.app.view_widget.plot_widget
         plot_widget.display = False
         await jump_to(pilot, LEAF_PATH)
@@ -478,6 +487,7 @@ async def test_expr_replots_and_clears_flag(monkeypatch: pytest.MonkeyPatch) -> 
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         await jump_to(pilot, "//T/event/fNtrack")
         await settle_render(pilot)
         view = pilot.app.view_widget
@@ -525,6 +535,7 @@ async def test_browse_empty(keys: tuple[str, ...]) -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-empty.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         await pilot.press(*keys)
         await settle_render(pilot)  # the worker posts an EmptyMessage
         assert pilot.app.view_widget.item is None
@@ -534,6 +545,7 @@ async def test_nonplottable_grayed_but_errors() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
         await pilot.press("down")  # ProcessID0: a TProcessID, not plottable
         node = tree.cursor_node
@@ -560,6 +572,7 @@ async def test_theme_select_tracks_theme() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         select = pilot.app.query_one("#theme-select", textual.widgets.Select)
         await wait_until(pilot, lambda: select.value != textual.widgets.Select.BLANK)
         assert select.value == pilot.app.theme
@@ -577,8 +590,10 @@ async def test_jump_screen() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         expected = len(pilot.app.query_one("#tree-view", UprootTree).jump_candidates())
         await pilot.press("/")
+        await wait_for_workers(pilot)
         assert isinstance(pilot.app.screen, JumpScreen)
         results = pilot.app.screen.query_one(
             "#jump-results", textual.widgets.OptionList
@@ -592,6 +607,7 @@ async def test_jump_screen() -> None:
         assert pilot.app.view_widget.item is None
 
         await pilot.press("/")
+        await wait_for_workers(pilot)
         await pilot.press(*"fflag")  # fuzzy-matches only fFlag
         results = pilot.app.screen.query_one(
             "#jump-results", textual.widgets.OptionList
@@ -600,6 +616,8 @@ async def test_jump_screen() -> None:
 
         await pilot.press("enter")
         assert not isinstance(pilot.app.screen, JumpScreen)
+        # The jump loads the nodes on the way in a worker
+        await wait_for_workers(pilot)
         item = pilot.app.view_widget.item
         assert isinstance(item, Plotext)
         assert item.selection == LEAF_PATH
@@ -609,6 +627,7 @@ async def test_count_prefix_motion() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
         await expand_event(pilot)
         assert tree.cursor_line == 3
@@ -630,6 +649,7 @@ async def test_count_prefix_after_click() -> None:
     async with Browser(skhep_testdata.data_path("uproot-Event.root")).run_test(
         size=(160, 50)
     ) as pilot:
+        await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
         await expand_event(pilot)
         assert tree.cursor_node is not None
@@ -649,6 +669,7 @@ async def test_count_prefix_display() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
         tabs = pilot.app.query_one("#left-view", textual.widgets.TabbedContent)
         status = pilot.app.query_one("#navigation-count", textual.widgets.Static)
@@ -701,6 +722,7 @@ async def test_scrolloff_keeps_context_visible() -> None:
     async with Browser(skhep_testdata.data_path("uproot-Event.root")).run_test(
         size=(80, 24)
     ) as pilot:
+        await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
         await expand_event(pilot)
         height = tree.scrollable_content_region.height
@@ -731,6 +753,7 @@ async def test_expression_failure_can_be_corrected() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         original = await settled_plot(pilot)
         view = pilot.app.view_widget
 
@@ -756,6 +779,7 @@ async def test_superseded_expression_error_is_ignored() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         original = await settled_plot(pilot)
         view = pilot.app.view_widget
         view.item = original.with_expr("h[::2j]")
@@ -779,6 +803,7 @@ async def test_expression_error_notification_text() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         await settled_plot(pilot)
         for count, (expr, message) in enumerate(cases, 1):
             await apply_failing_expression(pilot, expr)
@@ -802,6 +827,7 @@ async def test_draw_error_with_expression_shows_traceback(
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         await settled_plot(pilot)
         monkeypatch.setattr(uproot_browser.plot, "draw_hist", raise_error)
         await apply_failing_expression(pilot, "h[::2j]")
@@ -813,6 +839,7 @@ async def test_splitter_drag_resizes_panels() -> None:
     async with Browser(skhep_testdata.data_path("uproot-Event.root")).run_test(
         size=(120, 30)
     ) as pilot:
+        await wait_for_tree(pilot)
         await pilot.press("f")
         left = pilot.app.query_one("#left-view")
         right = pilot.app.query_one("#right-panel")
@@ -844,6 +871,7 @@ async def test_click_toggles_directory() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
         node = node_at(tree.root, "//T")
         assert not node.is_expanded
@@ -858,6 +886,7 @@ async def test_mark_two_branches_plots_2d() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
         await jump_to(pilot, "//T/event/fEventName")
         await pilot.press("m")  # not numeric: refused with a notification
@@ -913,6 +942,7 @@ async def test_shift_click_pairs_with_cursor() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
         await expand_event(pilot)  # the cursor stays on //T/event
         flag = node_at(tree.cursor_node, LEAF_PATH)
@@ -955,6 +985,7 @@ async def test_browse_directory(tmp_path: pathlib.Path) -> None:
     shutil.copy(skhep_testdata.data_path("uproot-hepdata-example.root"), nested)
 
     async with Browser(str(tmp_path)).run_test() as pilot:
+        await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
         assert [c.data.path for c in tree.root.children if c.data] == [
             "//a.root",
@@ -974,6 +1005,7 @@ async def test_browse_directory(tmp_path: pathlib.Path) -> None:
 async def test_jump_directory_is_lazy(root_dir: pathlib.Path) -> None:
     """Jump lists the files of a directory, and enters only the opened ones."""
     async with Browser(str(root_dir)).run_test() as pilot:
+        await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
         assert [c.path for c in tree.jump_candidates()] == [
             "//a.root",
@@ -1000,6 +1032,7 @@ async def test_dump_directory_pair(
         shutil.copy(skhep_testdata.data_path("uproot-Event.root"), tmp_path / name)
 
     async with Browser(str(tmp_path)).run_test() as pilot:
+        await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
         x_path = "//a.root/T/event/fNtrack"
         y_path = f"//{y_file}{LEAF_PATH[1:]}"
@@ -1023,6 +1056,7 @@ async def test_escape_in_right_panel_returns_to_tree() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         pilot.app.query_one("#x-min", textual.widgets.Input).focus()
         await pilot.press("1", "escape")
         assert pilot.app.is_running
@@ -1038,6 +1072,7 @@ async def test_superseded_render_errors_are_ignored() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         original = await settled_plot(pilot)
         view = pilot.app.view_widget
         view.item = original.with_expr("h[::2j]")
@@ -1061,6 +1096,7 @@ async def test_render_errors_are_ignored_on_exit() -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         item = await settled_plot(pilot)
         pilot.app.exit()
         error = Error(RuntimeError("late"), item.selection)
@@ -1075,6 +1111,7 @@ async def test_status_bar_task(monkeypatch: pytest.MonkeyPatch) -> None:
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
+        await wait_for_tree(pilot)
         status = pilot.app.status
         bar = status.query_one(textual.widgets.ProgressBar)
         assert not status.display
