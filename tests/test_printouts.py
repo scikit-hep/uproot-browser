@@ -953,6 +953,12 @@ _URL_SPECS = [
         True,
     ),
     ("osdf:///ospool/dir/", ("osdf:///ospool/dir/", ""), True),
+    ("root://u:p@host/f.root", ("root://u:p@host/f.root", ""), True),
+    ("root://u:p@host/f.root:T/b", ("root://u:p@host/f.root", "T/b"), True),
+    ("root://u:p@host:1094/f.root", ("root://u:p@host:1094/f.root", ""), True),
+    ("root://u:p@host:1094/f.root:T", ("root://u:p@host:1094/f.root", "T"), True),
+    ("root://u@host/f.root:T", ("root://u@host/f.root", "T"), True),
+    ("https://u@host:8080/f.root:T", ("https://u@host:8080/f.root", "T"), True),
     # Differs from uproot on purpose: no ".root" suffix is needed
     ("osdf:///ospool/dir/:sub/f.root", ("osdf:///ospool/dir/", "sub/f.root"), False),
     ("https://host/data:T", ("https://host/data", "T"), False),
@@ -961,6 +967,8 @@ _URL_SPECS = [
     # Differs from uproot on purpose: the first colon, not the last ".root:"
     ("https://host/f.root:d/x.root:T", ("https://host/f.root", "d/x.root:T"), False),
     ("https://host/a:b.root:T", ("https://host/a", "b.root:T"), False),
+    # Differs from uproot on purpose: an "@" before the first "/" ends a userinfo
+    ("memory://f.root:a@b", ("memory://f.root:a@b", ""), False),
 ]
 
 
