@@ -6,6 +6,7 @@ import shutil
 import threading
 from collections.abc import Callable
 
+import numpy as np
 import pytest
 import rich.console
 import rich.style
@@ -205,14 +206,14 @@ async def test_entry_box_toggle() -> None:
         assert tree.has_focus
 
         # The entry box is part of the plot window, which is not shown yet,
-        # so the tree keeps the focus
-        await pilot.press("e")
-        assert pilot.app.show_entry_box
-        assert tree.has_focus
+        # so the key is disabled
+        assert pilot.app.check_action("toggle_entry_box", ()) is None
         await pilot.press("e")
         assert not pilot.app.show_entry_box
+        assert tree.has_focus
 
         await settled_plot(pilot)
+        assert pilot.app.check_action("toggle_entry_box", ())
         await pilot.press("e")
         assert pilot.app.show_entry_box
         assert entry_box.display
@@ -302,7 +303,7 @@ async def test_help_screen() -> None:
         assert isinstance(pilot.app.screen, HelpScreen)
         assert not pilot.app.show_entry_box
         assert pilot.app.show_right_panel
-        assert pilot.app.show_tree
+        assert pilot.app.show_left_panel
         focus_chain = [widget.id for widget in pilot.app.screen.focus_chain]
         assert len(focus_chain) == 3
         assert focus_chain[-1] == "help-done"
@@ -539,33 +540,123 @@ async def test_browse_empty(keys: tuple[str, ...]) -> None:
         await pilot.press(*keys)
         await settle_render(pilot)  # the worker posts an EmptyMessage
         assert pilot.app.view_widget.item is None
+        (notification,) = pilot.app._notifications  # noqa: SLF001
+        assert notification.severity == "warning"
+        assert "has no finite values to plot" in notification.message
 
 
-async def test_nonplottable_grayed_but_errors() -> None:
+async def test_empty_plot_notification_names_item(tmp_path: pathlib.Path) -> None:
+    path = tmp_path / "nan.root"
+    with uproot.recreate(path) as f:
+        f["t"] = {"x": np.full(10, np.nan)}
+    async with Browser(str(path)).run_test() as pilot:
+        await jump_to(pilot, "//t/x")
+        await settle_render(pilot)
+        await pilot.pause()
+        assert pilot.app.view_widget.item is None
+        (notification,) = pilot.app._notifications  # noqa: SLF001
+        assert notification.severity == "warning"
+        assert notification.message == "t/x has no finite values to plot"
+
+
+async def test_nonplottable_grayed_and_warns(tmp_path: pathlib.Path) -> None:
+    path = tmp_path / "str.root"
+    with uproot.recreate(path) as f:
+        f["s"] = "a string"
+        f["t"] = {"x": np.arange(10.0)}
+    async with Browser(str(path)).run_test() as pilot:
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        await jump_to(pilot, "//t/x")
+        await settle_render(pilot)
+        plotted = pilot.app.view_widget.item
+        assert isinstance(plotted, Plotext)
+
+        # A jump selects it too; selecting it warns and keeps the current plot
+        await jump_to(pilot, "//s")  # a TObjString, not plottable
+        node = tree.cursor_node
+        assert node is not None
+        label = tree.render_label(node, rich.style.Style(), rich.style.Style())
+        assert any(span.style == "dim" for span in label.spans)
+        await pilot.press("enter")
+        await settle_render(pilot)
+        await pilot.pause()
+        assert pilot.app.view_widget.item is plotted
+        notifications = list(pilot.app._notifications)  # noqa: SLF001
+        assert len(notifications) == 2
+        assert all(n.severity == "warning" for n in notifications)
+        assert notifications[-1].message == "s is not plottable"
+
+
+@pytest.mark.parametrize(
+    ("key", "message"),
+    [("s", "s is not plottable"), ("t/x", "t/x has no finite values to plot")],
+)
+async def test_direct_selection_notification_names_item(
+    tmp_path: pathlib.Path, key: str, message: str
+) -> None:
+    """A selected leaf is the displayed root, so its path below the root is empty."""
+    path = tmp_path / "example.root"
+    with uproot.recreate(path) as f:
+        f["s"] = "a string"
+        f["t"] = {"x": np.full(10, np.nan)}
+    async with Browser(f"{path}:{key}").run_test() as pilot:
+        await pilot.press("enter")
+        await settle_render(pilot)
+        await wait_until(pilot, lambda: bool(pilot.app._notifications))  # noqa: SLF001
+        (notification,) = pilot.app._notifications  # noqa: SLF001
+        assert notification.severity == "warning"
+        assert notification.message == message
+
+
+async def test_failed_node_shows_traceback(monkeypatch: pytest.MonkeyPatch) -> None:
+    orig = uproot.reading.ReadOnlyDirectory.__getitem__
+
+    def bad_getitem(self: uproot.reading.ReadOnlyDirectory, key: str) -> object:
+        if key.split(";", maxsplit=1)[0] == "hstat":
+            msg = "simulated deserialization failure"
+            raise ValueError(msg)
+        return orig(self, key)
+
+    monkeypatch.setattr(uproot.reading.ReadOnlyDirectory, "__getitem__", bad_getitem)
     async with Browser(
         skhep_testdata.data_path("uproot-Event.root")
     ).run_test() as pilot:
-        await wait_for_tree(pilot)
-        tree = pilot.app.query_one("#tree-view", UprootTree)
-        await pilot.press("down")  # ProcessID0: a TProcessID, not plottable
-        node = tree.cursor_node
-        assert node is not None
-        assert node.data is not None
-        assert node.data.path == "//ProcessID0"
-
-        label = tree.render_label(node, rich.style.Style(), rich.style.Style())
-        assert any(span.style == "dim" for span in label.spans)
-
-        # selecting still tries to plot, showing the error in the plot window
-        await pilot.press("enter")
-        await settle_render(pilot)  # the worker posts an ErrorMessage
+        # The jump selects it; the render worker posts an ErrorMessage
+        await jump_to(pilot, "//hstat")
+        await settle_render(pilot)
+        await wait_until(pilot, lambda: isinstance(pilot.app.view_widget.item, Error))
         item = pilot.app.view_widget.item
         assert isinstance(item, Error)
+        assert isinstance(item.exc, ValueError)
 
-        # Dump & Quit names the branch that produced the traceback
+        # Dump & Quit names the key that produced the traceback
         msg, items = pilot.app.dump_source()
         assert items == [item]
-        assert 'item = file["ProcessID0"]' in msg
+        assert 'item = file["hstat"]' in msg
+
+
+async def test_escape_does_not_quit() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        await pilot.press("escape")
+        await pilot.pause()
+        assert pilot.app.is_running
+
+
+async def test_left_panel_toggle() -> None:
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root")
+    ).run_test() as pilot:
+        panel = pilot.app.query_one("#left-view")
+        assert panel.display
+        await pilot.press("b")
+        assert not pilot.app.show_left_panel
+        assert pilot.app.has_class("-hide-left-panel")
+        assert not panel.display
+        await pilot.press("b")
+        assert pilot.app.show_left_panel
+        assert panel.display
 
 
 async def test_theme_select_tracks_theme() -> None:
@@ -888,12 +979,14 @@ async def test_mark_two_branches_plots_2d() -> None:
     ).run_test() as pilot:
         await wait_for_tree(pilot)
         tree = pilot.app.query_one("#tree-view", UprootTree)
+        assert tree.check_action("mark", ()) is None  # the root folder
         await jump_to(pilot, "//T/event/fEventName")
-        await pilot.press("m")  # not numeric: refused with a notification
+        assert tree.check_action("mark", ()) is None  # not numeric
+        await pilot.press("m")
         assert tree.marks == []
-        assert pilot.app._notifications  # noqa: SLF001
 
         await jump_to(pilot, "//T/event/fNtrack")
+        assert tree.check_action("mark", ())
         await pilot.press("m")
         x_node = tree.cursor_node
         assert tree.marks == [x_node]

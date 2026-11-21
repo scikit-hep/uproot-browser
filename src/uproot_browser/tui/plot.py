@@ -49,6 +49,7 @@ class PlotItem(Protocol):
     """
 
     app: Browser
+    root: Node
     selection: str
     y_selection: str
     expr: str

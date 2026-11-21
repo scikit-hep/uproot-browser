@@ -3,6 +3,7 @@ from __future__ import annotations
 __lazy_modules__ = {
     "contextlib",
     "functools",
+    "rich.markup",
     "rich.panel",
     "rich.text",
     "textual.events",
@@ -19,6 +20,7 @@ import contextlib
 import functools
 from typing import TYPE_CHECKING, Any, ClassVar
 
+import rich.markup
 import rich.panel
 import rich.text
 import textual
@@ -31,7 +33,7 @@ from textual.reactive import var
 
 from uproot_browser.backends import open_path
 from uproot_browser.backends.directory import LazyRoot
-from uproot_browser.nodes import Column, Node, Plottable
+from uproot_browser.nodes import Column, FailedNode, Node, Plottable
 from uproot_browser.tui.jump import Candidate
 from uproot_browser.tui.messages import UprootSelected
 from uproot_browser.tui.status import StatusBar
@@ -247,6 +249,23 @@ class UprootTree(textual.widgets.Tree[Node]):
             self.cursor_line = meta["line"]
             self._set_marks(x_node, y_node)
 
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:  # noqa: ARG002
+        if action == "mark":
+            node = self.cursor_node
+            if node is None or node.data is None:
+                return None
+            return (
+                node in self.marks
+                or (isinstance(node.data, Column) and node.data.numeric)
+                or None
+            )
+        return True
+
+    def on_tree_node_highlighted(
+        self, _event: textual.widgets.Tree.NodeHighlighted[Node]
+    ) -> None:
+        self.refresh_bindings()
+
     def on_blur(self) -> None:
         """Discard pending navigation when focus leaves the tree."""
         self.count = ""
@@ -416,8 +435,19 @@ class UprootTree(textual.widgets.Tree[Node]):
         """The path a node has with the displayed root (maybe inside a file) as the top."""
         return f"/{node.path.removeprefix(self.root_node.path)}"
 
+    def _label(self, node: Node) -> str:
+        """The path below the root, or for the root itself its path in the file."""
+        return self._below_root(node).strip("/") or node.path.strip("/") or node.name
+
     def _select(self, node: Node) -> None:
         """Plot one item, which replaces a plotted pair but keeps a lone x mark."""
+        # A failed node goes on, to show its traceback
+        if not isinstance(node, FailedNode) and not _plottable(node):
+            self.app.notify(
+                rich.markup.escape(f"{self._label(node)} is not plottable"),
+                severity="warning",
+            )
+            return
         if len(self.marks) == 2:
             self._set_marks()
         self.post_message(UprootSelected(self.root_node, self._below_root(node)))
