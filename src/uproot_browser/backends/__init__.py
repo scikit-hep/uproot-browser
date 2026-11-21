@@ -30,6 +30,7 @@ import dataclasses
 import functools
 import importlib
 import importlib.metadata
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
@@ -149,12 +150,34 @@ def select_key(root: Node, key: str) -> Node:
     return node
 
 
+# The part of a URL before its path: scheme, host and port, and a Windows drive
+_URL_START = re.compile(
+    r"""
+    .*?://                     # scheme, can follow an fsspec chain like "a::"
+    (?:\[[^\]]*\]|[^:/?]*)     # host, or an IPv6 address
+    (?::\d+(?=[/?]|$))?        # port
+    (?:/[A-Za-z]:(?=/))?       # drive, as in file:///C:/
+    """,
+    re.VERBOSE,
+)
+
+
 def split_spec(spec: str) -> tuple[str, str]:
     """
-    Split ``path:key`` at the first colon that ends an existing local path,
-    since keys can contain colons. Returns ``(spec, "")`` if there is none.
+    Split ``path:key`` at the first colon of the key, since keys can contain
+    colons. In a URL, this is the first colon after the host and port and
+    before a query; in a local path, the first colon that ends an existing
+    path. Returns ``(spec, "")`` if there is none.
     """
-    if ":" not in spec or "://" in spec or Path(spec).exists():
+    if "://" in spec:
+        match = _URL_START.match(spec)
+        start = match.end() if match else len(spec)
+        url_path = spec[start:].partition("?")[0]
+        if ":" not in url_path:
+            return spec, ""
+        i = start + url_path.index(":")
+        return spec[:i], spec[i + 1 :]
+    if ":" not in spec or Path(spec).exists():
         return spec, ""
     for i, char in enumerate(spec):
         if char != ":":
