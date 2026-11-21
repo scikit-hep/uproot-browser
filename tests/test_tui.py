@@ -1,10 +1,8 @@
-import asyncio
 import concurrent.futures
 import io
 import pathlib
 import shutil
 import threading
-from collections.abc import Callable
 from typing import Any
 
 import numpy as np
@@ -18,7 +16,13 @@ import textual.geometry
 import textual.pilot
 import textual.widgets
 import uproot
-from conftest import SlowRead, wait_for_tree, wait_for_workers
+from conftest import (
+    WAIT_TIMEOUT,
+    SlowRead,
+    wait_for_tree,
+    wait_for_workers,
+    wait_until,
+)
 
 import uproot_browser.plot
 import uproot_browser.plotext_compat
@@ -41,29 +45,6 @@ from uproot_browser.tui.tools import dependencies
 LEAF_PATH = "/T/event/fFlag"
 # Open /T, then /T/event (26 lines deep)
 EXPAND_EVENT = (("down", "down", "l"), ("j", "l"))
-# Generous for slow CI runners
-WAIT_TIMEOUT = 30
-
-
-async def wait_until(
-    pilot: textual.pilot.Pilot[None],
-    predicate: Callable[[], bool],
-    *,
-    delay: float | None = None,
-) -> None:
-    """Pump the event loop until predicate holds, or fail after ``WAIT_TIMEOUT`` s.
-
-    Lazy-mounted widgets can take a variable number of message cycles to settle,
-    especially on slower CI runners, so poll instead of guessing a pause count.
-    Give a `delay` to wait for something on a timer, which needs real time.
-    """
-    try:
-        async with asyncio.timeout(WAIT_TIMEOUT):
-            while not predicate():
-                await pilot.pause(delay)
-    except TimeoutError:
-        msg = f"The condition was not true after {WAIT_TIMEOUT} s"
-        raise AssertionError(msg) from None
 
 
 def plot_text(app: Browser) -> str:
@@ -802,7 +783,9 @@ async def test_count_prefix_display() -> None:
         tabs = pilot.app.query_one("#left-panel", textual.widgets.TabbedContent)
         status = pilot.app.query_one("#navigation-count", textual.widgets.Static)
         await expand_event(pilot)
-        views = [pilot.app.query_one(f"#{name}") for name in ("left-panel", "plot-view")]
+        views = [
+            pilot.app.query_one(f"#{name}") for name in ("left-panel", "plot-view")
+        ]
         before = [view.region for view in views]
         tree_height = tree.scrollable_content_region.height
         assert not status.display

@@ -13,7 +13,7 @@ import textual.pilot
 import textual.widgets
 import textual_image.widget
 import uproot
-from conftest import SlowRead, wait_for_tree, wait_for_workers
+from conftest import SlowRead, wait_for_tree, wait_for_workers, wait_until
 
 import uproot_browser.plot
 import uproot_browser.plot_mpl
@@ -168,6 +168,41 @@ async def test_image_size_matches_visible_area() -> None:
         cell = textual_image.widget.get_cell_size()
         content = image_widget.content_size
         assert item.size == (content.width * cell.width, content.height * cell.height)
+
+
+async def test_image_pane_resize_rerenders_image() -> None:
+    """The image renders again when only the image pane changes size."""
+    async with Browser(
+        skhep_testdata.data_path("uproot-Event.root"), image=True
+    ).run_test() as pilot:
+        await wait_for_tree(pilot)
+        item = await _open_settled_plot(pilot)
+        assert item.size is not None
+        _, height = item.size
+        view = pilot.app.view_widget
+        # No pending render from the first resize of the view
+        if view.resize_timer is not None:
+            view.resize_timer.stop()
+        # Without the show_entry_box watcher, which asks for a render itself
+        view.input_container.add_class("-show-container")
+
+        def current() -> MPLPlot:
+            item = view.item
+            assert isinstance(item, MPLPlot)
+            return item
+
+        await wait_until(
+            pilot,
+            lambda: (size := current().size) is not None and size[1] < height,
+            delay=0.05,
+        )
+        await _settle(pilot)
+        assert view.image_widget is not None
+        assert view.image_widget.image is not None
+        assert (
+            view.image_widget.image.width,
+            view.image_widget.image.height,
+        ) == current().size
 
 
 async def test_browse_image_empty() -> None:
