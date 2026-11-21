@@ -14,7 +14,6 @@ __lazy_modules__ = {
     "rich.style",
     "rich.text",
     "textwrap",
-    "uproot._util",
     "uproot.behaviors.TBranch",
     "uproot.interpretation.jagged",
     "uproot.interpretation.numerical",
@@ -35,7 +34,6 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import awkward as ak
 import numpy as np
 import uproot
-import uproot._util
 import uproot.behaviors.RNTuple
 import uproot.behaviors.TBranch
 import uproot.behaviors.TH1
@@ -92,18 +90,16 @@ MAX_STEPS = 20
 def matches(spec: str) -> bool:
     """A ``.root`` name, unless it is a directory (a local one, or a URL that ends with ``/``)."""
     name, _ = split_spec(spec)
-    if "://" in name:
-        name, _ = uproot._util.file_object_path_split(name)  # noqa: SLF001  # pylint: disable=protected-access
-        return not name.endswith("/") and Path(name).suffix.lower() == ".root"
-    return Path(name).suffix.lower() == ".root" and not Path(name).is_dir()
+    return (
+        Path(name).suffix.lower() == ".root"
+        and not name.endswith("/")
+        and not Path(name).is_dir()
+    )
 
 
 def open_spec(spec: str, *, parent: Folder | None = None, key: str = "") -> Node:
     """Open a file; a ``path:key`` spec gives the node at ``key`` inside it."""
     name, obj_path = split_spec(spec)
-    if not obj_path and "://" in spec:
-        name, remote_path = uproot._util.file_object_path_split(spec)  # noqa: SLF001  # pylint: disable=protected-access
-        obj_path = remote_path or ""
     root = UprootFile(uproot.open(name), parent, key, spec=name)
     return select_key(root, obj_path)
 

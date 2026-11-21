@@ -929,3 +929,56 @@ def test_split_spec(
     assert uproot_browser.backends.split_spec(spec.format(**fmt)) == tuple(
         e.format(**fmt) for e in expected
     )
+
+
+# (spec, expected, same split as uproot; None if uproot versions differ)
+_URL_SPECS = [
+    ("root://host/dir/f.root", ("root://host/dir/f.root", ""), True),
+    ("root://host/dir/f.root:T", ("root://host/dir/f.root", "T"), True),
+    ("root://host:1094/f.root", ("root://host:1094/f.root", ""), True),
+    ("root://host:1094//dir/f.root:T/b", ("root://host:1094//dir/f.root", "T/b"), True),
+    ("root://host:1094/f.root:h:a", ("root://host:1094/f.root", "h:a"), True),
+    ("https://host:8080/f.root:T", ("https://host:8080/f.root", "T"), True),
+    ("https://[::1]:8080/f.root:T", ("https://[::1]:8080/f.root", "T"), True),
+    ("https://host/f.root?a=b:c", ("https://host/f.root?a=b:c", ""), True),
+    ("https://host/f.root:T?a", ("https://host/f.root", "T?a"), True),
+    ("osdf:///ospool/f.root:T/b", ("osdf:///ospool/f.root", "T/b"), True),
+    ("s3://bucket/f.root:T", ("s3://bucket/f.root", "T"), True),
+    ("memory://f.root:T", ("memory://f.root", "T"), True),
+    ("memory://dir/f.root", ("memory://dir/f.root", ""), True),
+    ("file:///C:/dir/f.root:T", ("file:///C:/dir/f.root", "T"), True),
+    (
+        "simplecache::root://host/f.root:T",
+        ("simplecache::root://host/f.root", "T"),
+        True,
+    ),
+    ("osdf:///ospool/dir/", ("osdf:///ospool/dir/", ""), True),
+    # Differs from uproot on purpose: no ".root" suffix is needed
+    ("osdf:///ospool/dir/:sub/f.root", ("osdf:///ospool/dir/", "sub/f.root"), False),
+    ("https://host/data:T", ("https://host/data", "T"), False),
+    ("https://host/f.ROOT:T", ("https://host/f.ROOT", "T"), None),
+    ("https://host/f.root.1:T", ("https://host/f.root.1", "T"), None),
+    # Differs from uproot on purpose: the first colon, not the last ".root:"
+    ("https://host/f.root:d/x.root:T", ("https://host/f.root", "d/x.root:T"), False),
+    ("https://host/a:b.root:T", ("https://host/a", "b.root:T"), False),
+]
+
+
+@pytest.mark.parametrize(
+    ("spec", "expected", "same"), _URL_SPECS, ids=[s for s, _, _ in _URL_SPECS]
+)
+def test_split_spec_url(
+    spec: str,
+    expected: tuple[str, str],
+    same: bool | None,  # noqa: FBT001
+) -> None:
+    assert uproot_browser.backends.split_spec(spec) == expected
+    if same is None:
+        return
+
+    # Cross-check with a private uproot function; skip if it is gone
+    split = getattr(getattr(uproot, "_util", None), "file_object_path_split", None)
+    if split is None:
+        pytest.skip("uproot._util.file_object_path_split is not available")
+    name, obj = split(spec)
+    assert ((name, obj or "") == expected) is same
