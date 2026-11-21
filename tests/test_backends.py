@@ -16,6 +16,7 @@ import textual.widgets.tree
 import uproot
 from click.testing import CliRunner
 from conftest import wait_for_tree, wait_for_workers
+from fsspec.implementations.memory import MemoryFileSystem
 from skhep_testdata import data_path
 
 import uproot_browser.backends
@@ -600,3 +601,40 @@ async def test_remote_open_failure_notifies() -> None:
         tree = pilot.app.query_one("#tree-view", UprootTree)
         assert tree.root_node.meta()["label_icon"] == "‼️ "
         assert pilot.app._notifications  # noqa: SLF001
+
+
+@pytest.fixture
+def review_dir() -> Iterator[str]:
+    """A directory URL without a "/", with one ROOT file."""
+    fs = fsspec.filesystem("memory")
+    fs.pipe("/review/a.root", pathlib.Path(data_path("uproot-Event.root")).read_bytes())
+    yield "memory://review"
+    fs.rm("/review", recursive=True)
+
+
+async def test_failed_remote_listing_retries(
+    review_dir: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A directory URL without a "/" lists again after a failed listing."""
+    listings: list[str] = []
+    ls = MemoryFileSystem.ls
+
+    def flaky(self: MemoryFileSystem, path: str, **kwargs: Any) -> Any:
+        if kwargs.get("detail"):
+            listings.append(path)
+            if len(listings) == 1:
+                msg = "listing failed"
+                raise OSError(msg)
+        return ls(self, path, **kwargs)
+
+    monkeypatch.setattr(MemoryFileSystem, "ls", flaky)
+    async with Browser(review_dir).run_test() as pilot:
+        await wait_for_workers(pilot)
+        tree = pilot.app.query_one("#tree-view", UprootTree)
+        assert not tree.root.children
+        assert tree.root_node.meta()["label_icon"] == "‼️ "
+        tree.root.collapse()
+        tree.root.expand()
+        await wait_for_workers(pilot)
+        assert [c.data.key for c in tree.root.children if c.data] == ["a.root"]
+        assert len(listings) == 2

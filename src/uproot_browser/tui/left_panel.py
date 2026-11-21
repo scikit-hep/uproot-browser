@@ -276,28 +276,29 @@ class UprootTree(textual.widgets.Tree[Node]):
         self.root.expand()
 
     def _needs_load(self, node: textual.widgets.tree.TreeNode[Node]) -> bool:
-        """Must ``node`` read its children? A file that failed to open tries again."""
+        """Must ``node`` read its children? A failed load tries again."""
         assert node.data
-        return node.data.is_dir and (
-            node.id not in self._filled or not node.data.is_loaded
-        )
+        return node.data.is_dir and node.id not in self._filled
 
     def _fill_node(
         self, node: textual.widgets.tree.TreeNode[Node], children: list[Node]
     ) -> None:
         self._loading.discard(node.id)
-        self._filled.add(node.id)
+        assert node.data
+        # A file gives no children if its open or listing failed
+        error = node.data.error if isinstance(node.data, LazyRoot) else None
+        if error is not None:
+            self.app.notify(f"{node.data.name}: {error}", severity="error")
+        else:
+            self._filled.add(node.id)
         if not node.children:
             for child in children:
                 node.add(child.path, child)
         # A file that failed to open has a new label
         node.refresh()
-        assert node.data
-        if isinstance(node.data, LazyRoot) and node.data.error is not None:
-            self.app.notify(f"{node.data.name}: {node.data.error}", severity="error")
         target = self._take_jump(node)
-        # Still not loaded: the open failed, and a jump would open it again
-        if target and node.data.is_loaded:
+        # A jump does not try a failed load again
+        if target and error is None:
             self.select_path(target)
 
     def _wait_for_load(
