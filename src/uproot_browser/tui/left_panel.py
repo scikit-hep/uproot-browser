@@ -44,7 +44,7 @@ from uproot_browser.nodes import (
 )
 from uproot_browser.tui.jump import Candidate
 from uproot_browser.tui.messages import UprootSelected
-from uproot_browser.tui.status import StatusBar
+from uproot_browser.tui.status import Tasks
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -173,7 +173,7 @@ class UprootTree(textual.widgets.Tree[Node]):
         self, callback: Callable[[list[Candidate]], None]
     ) -> None:
         try:
-            with self.app.query_one(StatusBar).running("Listing jump targets"):
+            with self.app.query_one(Tasks).running("Listing jump targets"):
                 candidates = self.jump_candidates()
         except Exception as err:  # noqa: BLE001
             call: Any = functools.partial(self._jump_failed, err)
@@ -432,7 +432,7 @@ class UprootTree(textual.widgets.Tree[Node]):
         assert data
         opened: Node | None = None
         try:
-            with self.app.query_one(StatusBar).running(f"Loading {data.name}"):
+            with self.app.query_one(Tasks).running(f"Loading {data.name}"):
                 if isinstance(data, PendingRoot):
                     opened = data = open_path(data.name)
                 children = data.children

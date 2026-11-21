@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-__lazy_modules__ = {"itertools", "textual.widgets", "uproot_browser.progress"}
+__lazy_modules__ = {
+    "itertools",
+    "textual.widgets",
+    "uproot_browser.progress",
+    "uproot_browser.tui.logo",
+}
 
 import contextlib
 import dataclasses
@@ -11,6 +16,7 @@ import textual.containers
 import textual.widgets
 
 import uproot_browser.progress
+from uproot_browser.tui.logo import LOGO_PANEL
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -28,34 +34,27 @@ class _Task:
     shown: bool = False
 
 
-class StatusBar(textual.containers.Horizontal):
+class Tasks(textual.containers.Container):
     """
-    Above the footer: the pending count of the tree, and a box with the
-    newest running task and its progress bar. Hidden when it has nothing to
-    show.
+    The logo, and a box with the newest running task and its progress bar.
+    Hidden when no task runs.
     """
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._tasks: dict[int, _Task] = {}
         self._ids = itertools.count()
-        self._count = textual.widgets.Static(id="navigation-count")
-        self._count_text = ""
         self._label = textual.widgets.Static(id="task-label")
         self._bar = textual.widgets.ProgressBar(id="task-bar", show_eta=False)
-        self._box = textual.containers.Horizontal(self._label, self._bar, id="task")
 
     def compose(self) -> ComposeResult:
-        yield self._count
-        yield self._box
-
-    def on_mount(self) -> None:
-        self._update()
-
-    def show_count(self, count: str) -> None:
-        self._count_text = f"Move: {count}" if count else ""
-        self._count.update(self._count_text)
-        self._update()
+        # The logo is at its place in the logo window, with the box below it
+        yield textual.widgets.Static(classes="task-space")
+        yield textual.widgets.Static(LOGO_PANEL, id="task-logo")
+        yield textual.containers.Container(
+            textual.containers.Vertical(self._label, self._bar, id="task"),
+            classes="task-space",
+        )
 
     @contextlib.contextmanager
     def running(self, label: str) -> Iterator[None]:
@@ -91,12 +90,7 @@ class StatusBar(textual.containers.Horizontal):
 
     def _update(self) -> None:
         shown = [t for t in self._tasks.values() if t.shown]
-        self._box.display = bool(shown)
-        self.set_class(bool(shown), "-working")
-        # With the box on screen, the count is the title of the box
-        self._box.border_title = self._count_text
-        self._count.display = bool(self._count_text) and not shown
-        self.display = bool(shown) or self._count.display
+        self.display = bool(shown)
         if shown:
             task = shown[-1]
             self._label.update(task.label)

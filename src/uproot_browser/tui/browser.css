@@ -162,31 +162,39 @@ Screen {
     layers: default overlay;
 }
 
-#status {
+#navigation-count {
     display: none;
     /* Own layer, so showing it does not resize the panels. */
     layer: overlay;
     dock: bottom;
     /* Docked above the footer row, not over it. */
-    margin-bottom: 1;
-    height: 1;
-}
-
-#status.-working {
-    height: 3;
-}
-
-#navigation-count {
+    margin: 0 0 1 1;
     width: auto;
     height: 1;
-    margin-left: 1;
     background: $surface;
+}
+
+/* Over the current window of the view, which keeps its layout. */
+Tasks {
+    /* The layer names of the screen apply to all widgets. */
+    layer: overlay;
+    width: 100%;
+    height: 100%;
+    background: $background;
+}
+
+.task-space {
+    height: 1fr;
+}
+
+#task-logo {
+    content-align: center middle;
 }
 
 #task {
     width: 100%;
-    align-horizontal: center;
-    height: 3;
+    height: auto;
+    margin: 1 1 0 1;
     padding: 0 1;
     border: round $accent;
     background: $surface;
@@ -198,7 +206,11 @@ Screen {
 }
 
 #task-bar {
-    margin-left: 2;
+    width: 100%;
+}
+
+#task-bar Bar {
+    width: 1fr;
 }
 
 Footer {

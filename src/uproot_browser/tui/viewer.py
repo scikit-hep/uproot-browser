@@ -8,6 +8,7 @@ __lazy_modules__ = {
     "uproot_browser.tui.logo",
     "uproot_browser.tui.messages",
     "uproot_browser.tui.plot",
+    "uproot_browser.tui.status",
 }
 
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -31,6 +32,7 @@ from uproot_browser.tui.error import Error
 from uproot_browser.tui.logo import LOGO_PANEL
 from uproot_browser.tui.messages import RequestRender
 from uproot_browser.tui.plot import PlotItem
+from uproot_browser.tui.status import Tasks
 
 
 class PlotInput(textual.widgets.Input):
@@ -80,7 +82,10 @@ class ViewWidget(textual.widgets.ContentSwitcher):
             id="plot-window",
         )
 
+        # Not a window of the switcher: it shows itself, over the current one
+        self.tasks = Tasks()
         children = [
+            self.tasks,
             textual.widgets.Static(LOGO_PANEL, id="logo"),
             textual.containers.VerticalScroll(self.error_widget, id="error-scroll"),
             self.plot_window,

@@ -20,7 +20,6 @@ __lazy_modules__ = {
     "uproot_browser.tui.plot",
     "uproot_browser.tui.right_panel",
     "uproot_browser.tui.splitter",
-    "uproot_browser.tui.status",
     "uproot_browser.tui.tools",
     "uproot_browser.tui.viewer",
 }
@@ -52,7 +51,6 @@ from uproot_browser.tui.messages import RenderFailed
 from uproot_browser.tui.plot import Plotext, PlotItem, dump_header
 from uproot_browser.tui.right_panel import RightPanel
 from uproot_browser.tui.splitter import Splitter
-from uproot_browser.tui.status import StatusBar
 from uproot_browser.tui.theme import DARK_BACKGROUND, DARK_TEXT, LIGHT_BACKGROUND
 from uproot_browser.tui.tools import Info
 from uproot_browser.tui.viewer import ViewWidget
@@ -131,7 +129,7 @@ class Browser(textual.app.App[None]):
         self.sub_title = path
 
         self.view_widget = ViewWidget(id="plot-view", image=image)
-        self.status = StatusBar(id="status")
+        self.count = textual.widgets.Static(id="navigation-count")
         self.set_reactive(Browser.image_scale, image_scale)
 
     def compose(self) -> textual.app.ComposeResult:
@@ -153,13 +151,17 @@ class Browser(textual.app.App[None]):
             )
 
         yield textual.widgets.Footer()
-        yield self.status
+        yield self.count
 
     def on_mount(self, _event: textual.events.Mount) -> None:
         tree = self.query_one("#tree-view", UprootTree)
         tree.focus()
-        self.watch(tree, "count", self.status.show_count)
+        self.watch(tree, "count", self._show_count)
         self.watch(self.view_widget, "item", self.refresh_bindings, init=False)
+
+    def _show_count(self, count: str) -> None:
+        self.count.update(f"Move: {count}")
+        self.count.display = bool(count)
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:  # noqa: ARG002
         if action == "toggle_entry_box":
@@ -386,7 +388,7 @@ class Browser(textual.app.App[None]):
         worker = textual.worker.get_current_worker()
         try:
             with (
-                self.status.running(_plot_label(item)),
+                self.view_widget.tasks.running(_plot_label(item)),
                 uproot_browser.progress.cancel_when(lambda: worker.is_cancelled),
             ):
                 result = item.render()
