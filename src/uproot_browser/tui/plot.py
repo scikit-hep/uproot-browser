@@ -5,6 +5,7 @@ __lazy_modules__ = {"contextlib", "rich.text", "uproot_browser.plotext_compat"}
 import abc
 import contextlib
 import dataclasses
+import sys
 import threading
 from typing import TYPE_CHECKING, Any, ClassVar, Self
 
@@ -113,18 +114,45 @@ def dump_header(root: Node, selection: str, y_selection: str = "") -> tuple[str,
         # Not opened from a file, or a path through a leaf (which produced the
         # traceback): name the selection from the paths alone
         return _path_header(root, file_var, selection, y_selection), file_var
-    # Two files: open both, but write the shared import lines once
-    x_open = x.root.open_source("x_file").splitlines()
-    y_open = [
-        line for line in y.root.open_source("y_file").splitlines() if line not in x_open
-    ]
+    # Two files: open both (hoist_imports removes the repeated imports)
     lines = [
-        *x_open,
-        *y_open,
+        x.root.open_source("x_file"),
+        y.root.open_source("y_file"),
         x.bind_source("x_item", "x_file"),
         y.bind_source("y_item", "y_file"),
     ]
     return "\n".join(lines), "x_file"
+
+
+def hoist_imports(source: str) -> str:
+    """
+    Move the top-level imports of ``source`` to the top, without duplicates,
+    sorted like isort: standard library first, ``import`` before ``from``.
+    """
+    imports: set[str] = set()
+    body: list[str] = []
+    for line in source.splitlines():
+        if line.startswith(("import ", "from ")):
+            imports.add(line)
+        elif line or (body and body[-1]):
+            body.append(line)
+
+    def key(line: str) -> tuple[bool, str]:
+        return line.startswith("from "), line.split()[1].lower()
+
+    sections = [
+        sorted(
+            (
+                i
+                for i in imports
+                if (i.split()[1].split(".")[0] in sys.stdlib_module_names) is std
+            ),
+            key=key,
+        )
+        for std in (True, False)
+    ]
+    blocks = ["\n".join(s) for s in sections if s]
+    return "\n\n".join([*blocks, "\n".join(body).strip("\n")])
 
 
 def _path_header(root: Node, file_var: str, selection: str, y_selection: str) -> str:
