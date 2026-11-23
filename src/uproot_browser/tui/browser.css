@@ -221,8 +221,31 @@ HelpScreen {
     align: center middle;
 }
 
-JumpScreen {
+JumpScreen, AuthScreen {
     align: center middle;
+}
+
+#auth-dialog {
+    width: 70%;
+    height: auto;
+    max-height: 80%;
+    padding: 0 1;
+    border: thick $background 80%;
+    background: $surface;
+}
+
+#auth-log {
+    height: auto;
+    max-height: 100%;
+}
+
+#auth-buttons {
+    align: right middle;
+    height: 3;
+}
+
+#auth-buttons Button {
+    margin-left: 1;
 }
 
 #jump-dialog {
