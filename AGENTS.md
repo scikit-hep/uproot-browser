@@ -46,6 +46,8 @@ Communication is **message-driven** (`messages.py` defines `UprootSelected`, `Re
 
 Plotext theme dictionaries are registered through `add_theme` (`plotext_compat.py`), called at import time in `browser.py`, to match light/dark terminal backgrounds. `d` ("Dump & Quit") exits printing equivalent Python code to reproduce the current plot: `tui/plot.py:dump_header` opens the file(s) through the selected node's `Root` and binds `item` (or `x_item`/`y_item`), then the plot item appends the node's `dump_hist`, the expression, and the drawing code. Press `/` to open a fuzzy finder over tree nodes (`tui/jump.py`); `UprootTree.request_jump_candidates` builds the list in a worker and caches it for each file.
 
+`tui/auth.py` shows the pelicanfs login (OIDC device flow) in a modal: for an `osdf://` or `pelican://` spec, the load worker sets an `AuthHandler` through `pelicanfs.set_auth_handler` (if pelicanfs has it) before it opens the root. pelicanfs calls the handler from the fsspec I/O thread, polls `cancelled()` while pelican runs, and calls `finish()` at the end, which closes the `AuthScreen`.
+
 Tests use Textual's `run_test()` pilot harness (`pytest-asyncio` in auto mode). Note the double `await pilot.pause()` after actions that trigger the threaded plot worker — the second wait lets a posted `RenderFailed` settle. The render replaces `view_widget.item` to give it a size, so read the item again after a render.
 
 ## Conventions

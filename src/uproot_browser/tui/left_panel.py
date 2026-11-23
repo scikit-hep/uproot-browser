@@ -11,6 +11,7 @@ __lazy_modules__ = {
     "textual.widgets.tree",
     "uproot_browser.backends",
     "uproot_browser.backends.directory",
+    "uproot_browser.tui",
     "uproot_browser.tui.jump",
     "uproot_browser.tui.messages",
     "uproot_browser.tui.status",
@@ -42,6 +43,7 @@ from uproot_browser.nodes import (
     Plottable,
     failed_meta,
 )
+from uproot_browser.tui import auth
 from uproot_browser.tui.jump import Candidate
 from uproot_browser.tui.messages import UprootSelected
 from uproot_browser.tui.status import Tasks
@@ -135,6 +137,7 @@ class UprootTree(textual.widgets.Tree[Node]):
         """The opened root; None until the open completes."""
         self._owns_root = root is None
         self._unmounted = False
+        self._remove_auth: Callable[[], None] | None = None
         self._errors: dict[int, Exception] = {}
         """The failed loads, by tree node id; the next expand tries again."""
         self._candidates: dict[str, list[Candidate]] = {}
@@ -348,6 +351,8 @@ class UprootTree(textual.widgets.Tree[Node]):
 
     def on_unmount(self) -> None:
         self._unmounted = True
+        if self._remove_auth is not None:
+            self._remove_auth()
         if self._owns_root and self.root_node is not None:
             _close_tree(self.root_node)
 
@@ -434,6 +439,7 @@ class UprootTree(textual.widgets.Tree[Node]):
         try:
             with self.app.query_one(Tasks).running(f"Loading {data.name}"):
                 if isinstance(data, PendingRoot):
+                    self._set_auth(data.name)
                     opened = data = open_path(data.name)
                 children = data.children
         except Exception as err:  # noqa: BLE001
@@ -446,6 +452,20 @@ class UprootTree(textual.widgets.Tree[Node]):
             # The app exited while the load ran
             if opened is not None:
                 _close_tree(opened)
+
+    def _set_auth(self, spec: str) -> None:
+        """Show a pelicanfs login in the app (load worker thread)."""
+        # Here and not at startup: the import of pelicanfs is slow, and the
+        # open that follows imports it in any case.
+        if not auth.needs_auth(spec):
+            return
+        remove = auth.install(self.app)
+        if remove is None:
+            return
+        if self._unmounted:
+            remove()
+        else:
+            self._remove_auth = remove
 
     def on_tree_node_selected(
         self, event: textual.widgets.Tree.NodeSelected[Node]
